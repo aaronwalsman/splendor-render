@@ -14,8 +14,8 @@ import scipy.misc
 import numpy
 
 # local
-import renderpy
-import example_scenes
+import renderpy.core as core
+import renderpy.example_scenes as example_scenes
 
 class GlutWindow:
     def __init__(self, width, height, timer_freq = 0):
@@ -36,26 +36,33 @@ class GlutWindow:
         
         #glutHideWindow()
         
-        self.renderpy = None
-    
-    def add_renderpy(self, renderpy):
-        self.renderpy = renderpy
+        self.renderer = core.Renderpy(width, height)
     
     def get_color(self):
-        self.renderpy.color_render()
-        test = glReadPixels(
+        self.renderer.color_render()
+        pixels = glReadPixels(
                 0, 0, self.width, self.height, GL_RGB, GL_UNSIGNED_BYTE)
-        img = numpy.frombuffer(test, dtype=numpy.uint8).reshape(width,height,3)
-        return img
+        image = numpy.frombuffer(pixels, dtype=numpy.uint8).reshape(
+                self.width, self.height, 3)
+        return image
+    
+    def get_mask(self):
+        self.renderer.mask_render()
+        pixels = glReadPixels(
+                0, 0, self.width, self.height, GL_RGB, GL_UNSIGNED_BYTE)
+        image = numpy.frombuffer(pixels, dtype=numpy.uint8).reshape(
+                self.width, self.height, 3)
+        return image
 
 if __name__ == '__main__':
     width = 256
     height = 256
     g = GlutWindow(width, height, timer_freq = 100)
     #r = example_scenes.first_test(width, height)
-    r = renderpy.Renderpy()
-    r.load_scene(example_scenes.second_test())
-    g.add_renderpy(r)
+    #r = renderer.Renderpy()
+    #r.load_scene(example_scenes.second_test())
+    #g.add_renderer(r)
+    g.renderer.load_scene(example_scenes.second_test())
     
     theta = [0.0]
     translate = numpy.array([[1,0,0,0],[0,1,0,0],[0,0,1,6],[0,0,0,1]])
@@ -76,8 +83,9 @@ if __name__ == '__main__':
                 [math.sin(theta[0]), 0, math.cos(theta[0]), 0],
                 [0, 0, 0, 1]])
     
-        c = numpy.linalg.inv(numpy.dot(rotate, numpy.dot(elevate, translate)))
-        r.move_camera(c)
+        c = numpy.linalg.inv(
+                numpy.dot(rotate, numpy.dot(elevate, translate)))
+        g.renderer.move_camera(c)
     
         theta[0] += 0.0001
         

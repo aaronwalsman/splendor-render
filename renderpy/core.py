@@ -24,8 +24,8 @@ import numpy
 import scipy.misc
 
 # local
-import renderpy_shaders
-import obj_mesh
+import renderpy.shader_definitions as shader_definitions
+import renderpy.obj_mesh as obj_mesh
 
 max_num_lights = 8
 
@@ -80,10 +80,8 @@ class Renderpy:
         self.opengl_init()
         self.compile_shaders()
     
-    
     def get_json_description(self, **kwargs):
         return json.dumps(self.scene_description, cls=NumpyEncoder, **kwargs)
-    
     
     def opengl_init(self):
         
@@ -100,7 +98,6 @@ class Renderpy:
 
         glClearColor(0.,0.,0.,0.)
     
-    
     def compile_shaders(self):
         
         # book keeping
@@ -109,13 +106,13 @@ class Renderpy:
         
         # compile the shaders
         color_shader_data['vertex_shader'] = shaders.compileShader(
-                renderpy_shaders.color_vertex_shader, GL_VERTEX_SHADER)
+                shader_definitions.color_vertex_shader, GL_VERTEX_SHADER)
         color_shader_data['fragment_shader'] = shaders.compileShader(
-                renderpy_shaders.color_fragment_shader, GL_FRAGMENT_SHADER)
+                shader_definitions.color_fragment_shader, GL_FRAGMENT_SHADER)
         mask_shader_data['vertex_shader'] = shaders.compileShader(
-                renderpy_shaders.mask_vertex_shader, GL_VERTEX_SHADER)
+                shader_definitions.mask_vertex_shader, GL_VERTEX_SHADER)
         mask_shader_data['fragment_shader'] = shaders.compileShader(
-                renderpy_shaders.mask_fragment_shader, GL_FRAGMENT_SHADER)
+                shader_definitions.mask_fragment_shader, GL_FRAGMENT_SHADER)
         
         # compile the programs
         color_program = shaders.compileProgram(
@@ -173,7 +170,6 @@ class Renderpy:
         
         self.gl_data['color_shader'] = color_shader_data
         self.gl_data['mask_shader'] = mask_shader_data
-        
     
     def load_scene(self, scene, clear_existing=False):
     
@@ -208,7 +204,6 @@ class Renderpy:
             if 'projection' in scene['camera']:
                 self.set_projection(scene['camera']['projection'])
     
-    
     def clear_scene(self):
         self.clear_meshes()
         self.clear_materials()
@@ -217,7 +212,6 @@ class Renderpy:
         self.clear_point_lights()
         self.clear_direction_lights()
         self.reset_camera()
-    
     
     def reset_camera(self):
         self.scene_description['camera'] = {
@@ -232,21 +226,13 @@ class Renderpy:
                     [0,0,1,0],
                     [0,0,0,1]])}
     
-    
     def load_mesh(self,
             name,
-            mesh_path):#,
-            #texture=None,
-            #ka=1.0,
-            #kd=1.0,
-            #ks=0.5,
-            #shine=4.0):
+            mesh_path):
         
         mesh = obj_mesh.load_mesh(mesh_path)
         self.scene_description['meshes'][name] = {'mesh_path':mesh_path}
         
-        #self.scene_description['materials'][name] = numpy.array([
-        #        ka, kd, ks, shine])
         mesh_buffers = {}
         
         vertex_floats = numpy.array(mesh['vertices'], dtype=numpy.float32)
@@ -261,28 +247,8 @@ class Renderpy:
                 face_ints,
                 target = GL_ELEMENT_ARRAY_BUFFER)
         
-        '''
-        if texture is not None:
-            image = scipy.misc.imread(texture)[:,:,:3]
-            
-            mesh_buffers['texture'] = {}
-            mesh_buffers['texture']['id'] = glGenTextures(1)
-            glBindTexture(GL_TEXTURE_2D, mesh_buffers['texture']['id'])
-            glTexImage2D(
-                    GL_TEXTURE_2D, 0, GL_RGB,
-                    image.shape[0], image.shape[1], 0,
-                    GL_RGB, GL_UNSIGNED_BYTE, image)
-            # GL_NEAREST?
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                    GL_LINEAR_MIPMAP_LINEAR)
-            glGenerateMipmap(GL_TEXTURE_2D)
-            
-            self.loaded_data['textures'][name] = image
-        '''
         self.loaded_data['meshes'][name] = mesh
         self.gl_data['mesh_buffers'][name] = mesh_buffers
-    
     
     def remove_mesh(self, name):
         del(self.scene_description['mesh_paths'][name])
@@ -291,11 +257,9 @@ class Renderpy:
         del(self.gl_data['mesh_buffers'][name])
         del(self.loaded_data['meshes'][name])
     
-    
     def clear_meshes(self):
         for name in self.scene_description['meshes']:
             self.remove_mesh(name)
-    
     
     def load_material(self,
             name,
@@ -303,7 +267,8 @@ class Renderpy:
             ka = 1.0,
             kd = 1.0,
             ks = 0.5,
-            shine = 4.0):
+            shine = 4.0,
+            crop = None):
         
         self.scene_description['materials'][name] = {
                 'texture' : texture,
@@ -313,31 +278,34 @@ class Renderpy:
                 'shine' : shine}
         
         image = scipy.misc.imread(texture)[:,:,:3]
+        if crop is not None:
+            image = image[crop[0]:crop[2], crop[1]:crop[3]]
         self.loaded_data['textures'][name] = image
         
         material_buffers = {}
         material_buffers['texture'] = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
-        glTexImage2D(
-                GL_TEXTURE_2D, 0, GL_RGB,
-                image.shape[0], image.shape[1], 0,
-                GL_RGB, GL_UNSIGNED_BYTE, image)
-        
-        # GL_NEAREST?
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                GL_LINEAR_MIPMAP_LINEAR)
-        glGenerateMipmap(GL_TEXTURE_2D)
+        try:
+            glTexImage2D(
+                    GL_TEXTURE_2D, 0, GL_RGB,
+                    image.shape[0], image.shape[1], 0,
+                    GL_RGB, GL_UNSIGNED_BYTE, image)
+            
+            # GL_NEAREST?
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                    GL_LINEAR_MIPMAP_LINEAR)
+            glGenerateMipmap(GL_TEXTURE_2D)
+        finally:
+            glBindTexture(GL_TEXTURE_2D, 0)
         
         self.gl_data['material_buffers'][name] = material_buffers
-    
     
     def remove_material(self, name):
         glDeleteTextures(1, self.gl_data['material_buffers'][name]['texture'])
         del(self.loaded_data['textures'][name])
         del(self.gl_data['material_buffers'][name])
         del(self.scene_description['materials'][name])
-    
     
     def clear_materials(self):
         for name in self.scene_description['materials']:
@@ -387,6 +355,9 @@ class Renderpy:
     
     def set_ambient_color(self, color):
         self.scene_description['ambient_color'] = numpy.array(color)
+    
+    def set_background_color(self, color):
+        glClearColor(*color)
     
     def set_projection(self, projection_matrix):
         self.scene_description['camera']['projection'] = numpy.array(
@@ -500,7 +471,6 @@ class Renderpy:
         glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
         
         try:
-            
             glEnableVertexAttribArray(location_data['vertex_position'])
             glEnableVertexAttribArray(location_data['vertex_normal'])
             glEnableVertexAttribArray(location_data['vertex_uv'])
@@ -528,7 +498,7 @@ class Renderpy:
         finally:
             mesh_buffers['face_buffer'].unbind()
             mesh_buffers['vertex_buffer'].unbind()
-    
+            glBindTexture(GL_TEXTURE_2D, 0)
     
     def mask_render(self):
         
@@ -565,7 +535,6 @@ class Renderpy:
         
         glFinish()
     
-    
     def mask_render_instance(self, instance_name):
         instance_data = self.scene_description['instances'][instance_name]
         instance_mesh = instance_data['mesh_name']
@@ -588,7 +557,6 @@ class Renderpy:
         mesh_buffers['vertex_buffer'].bind()
         
         try:
-            
             glEnableVertexAttribArray(location_data['vertex_position'])
             
             stride = (3+3+2) * 4
