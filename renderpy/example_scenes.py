@@ -5,11 +5,11 @@ import math
 import numpy
 
 # local
-import renderpy
-import camera
+import renderpy.core as core
+import renderpy.camera as camera
 
 def first_test(width, height):
-    r = renderpy.Renderpy()
+    r = core.Renderpy()
     
     proj = camera.projection_matrix(math.radians(90), width/height)
     r.set_projection(proj)
