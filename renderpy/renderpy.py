@@ -64,7 +64,8 @@ class Renderpy:
         
         self.gl_data = {
                 'mesh_buffers':{},
-                'shader_locations':{}
+                'color_shader':{},
+                'mask_shader':{}
         }
         
         self.width = width
@@ -318,6 +319,8 @@ class Renderpy:
         
         finally:
             glUseProgram(0)
+        
+        glFinish()
     
     def color_render_instance(self, instance_name):
         instance_data = self.scene_description['instances'][instance_name]
@@ -407,6 +410,8 @@ class Renderpy:
         
         finally:
             glUseProgram(0)
+        
+        glFinish()
     
     
     def mask_render_instance(self, instance_name):
@@ -449,84 +454,3 @@ class Renderpy:
         finally:
             mesh_buffers['face_buffer'].unbind()
             mesh_buffers['vertex_buffer'].unbind()
-'''
-if __name__ == '__main__':
-    
-    glut_window.init(256,256)
-    
-    r = Renderpy()
-    r.load_mesh(
-            'test_cube',
-            './example_meshes/cube.obj',
-            './example_meshes/spinner_tex.png')
-    
-    r.load_mesh(
-            'test_sphere',
-            './example_meshes/sphere.obj',
-            './example_meshes/spinner_tex.png')
-    
-    pr = 0.1
-    pt = 0.1
-    pn = 0.1
-    pf = 100
-    proj = numpy.array([
-            [pn/pr, 0, 0, 0],
-            [0, pn/pt, 0, 0],
-            [0, 0, -(pf+pn)/(pf-pn), -2*pf*pn/(pf-pn)],
-            [0, 0, -1, 0]])
-    r.set_projection(proj)
-    
-    r.add_instance('cube1', 'test_cube', numpy.array(
-            [[0.707,0,-0.707,0],[0,1,0,0],[0.707,0,0.707,0],[0,0,0,1]]))
-    r.add_instance('sphere1', 'test_sphere', numpy.array(
-            [[0.707,0,-0.707,2],[0,1,0,0],[-0.707,0,-0.707,-4],[0,0,0,1]]))
-    
-    #r.add_point_light(
-    #        name = 'light1',
-    #        position = numpy.array([0,-1,-1]),
-    #        color = numpy.array([1,1,1]))
-    
-    r.add_direction_light(
-            name = 'light2',
-            direction = numpy.array([0.707,0,-0.707]),
-            color = numpy.array([1,1,1]))
-    
-    r.set_ambient_color(numpy.array([0.2, 0.2, 0.2]))
-    
-    theta = [0.0]
-    import time
-    t = [0, time.time(), time.time()]
-    def spin():
-        import math
-        #r.scene_description['direction_lights']['light2']['direction'] = (
-        #        numpy.array([math.sin(theta[0]), 0, math.cos(theta[0])]))
-        
-        translate = numpy.array([[1,0,0,0],[0,1,0,0],[0,0,1,6],[0,0,0,1]])
-        e = math.radians(-20)
-        elevate = numpy.array([
-                [1, 0, 0, 0],
-                [0, math.cos(e), -math.sin(e), 0],
-                [0, math.sin(e), math.cos(e), 0],
-                [0,0,0,1]])
-        rotate = numpy.array([
-                [math.cos(theta[0]), 0, -math.sin(theta[0]), 0],
-                [0, 1, 0, 0],
-                [math.sin(theta[0]), 0, math.cos(theta[0]), 0],
-                [0, 0, 0, 1]])
-        
-        c = numpy.linalg.inv(numpy.dot(rotate, numpy.dot(elevate, translate)))
-        r.move_camera(c)
-        
-        theta[0] += 0.0001
-        r.render()
-        t[0] += 1
-        t[2] = time.time()
-        print(t[0] / (t[2] - t[1]))
-        
-    
-    glut_window.setup_callbacks(
-            display_func = r.render,
-            idle_func = spin)
-    glut_window.run()
-
-'''

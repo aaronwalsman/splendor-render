@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 # system
-import time
 import math
 
 # opengl
@@ -29,58 +28,51 @@ class GlutWindow:
         glutInitWindowSize(width, height)
         glutCreateWindow('RENDERPY')
         
-        glutDisplayFunc(self.display)
-        glutIdleFunc(self.idle)
-        glutReshapeFunc(self.reshape)
+        #glutDisplayFunc(self.display)
+        #glutIdleFunc(self.idle)
+        #glutReshapeFunc(self.reshape)
+        
+        # I think this is only necessary if I'm using the main loop, but I'm not
+        #glutSetOption(
+        #        GLUT_ACTION_ON_WINDOW_CLOSE,
+        #        GLUT_ACTION_CONTINUE_EXECUTION)
         
         self.renderpy = None
-        self.rendered_frames = 0
-        
-        self.timer_freq = timer_freq
-        if self.timer_freq:
-            self.start_time = time.time()
     
     def add_renderpy(self, renderpy):
         self.renderpy = renderpy
     
-    def set_prerender(self, prerender):
-        self.prerender = prerender
-    
-    def display(self):
-        self.prerender()
+    '''
+    def color_render(self):
         self.renderpy.color_render()
-        #glutSwapBuffers()
-        glFinish()
+        
         self.rendered_frames += 1
         if self.timer_freq:
             if self.rendered_frames % self.timer_freq == 0:
                 print('hz: %.04f'%(
                         self.rendered_frames/(time.time() - self.start_time)))
+    '''
     
-    def idle(self):
-        self.display()
-
-    def reshape(self, width, height):
-        glViewport(0,0,width,height)
+    #def reshape(self, width, height):
+    #    glViewport(0,0,width,height)
     
-    def getImage(self):
-        self.display()
+    def get_color(self):
+        self.renderpy.color_render()
         test = glReadPixels(
                 0, 0, self.width, self.height, GL_RGB, GL_UNSIGNED_BYTE)
         img = numpy.frombuffer(test, dtype=numpy.uint8).reshape(width,height,3)
         return img
     
+    '''
     def run(self):
-        glutSetOption(
-                GLUT_ACTION_ON_WINDOW_CLOSE,
-                GLUT_ACTION_CONTINUE_EXECUTION)
         
         #glutMainLoop()
         while True:
             # no glut main loop, just display
             #glutMainLoopEvent()
             self.getImage()
-        
+    '''
+
 if __name__ == '__main__':
     width = 256
     height = 256
@@ -95,20 +87,31 @@ if __name__ == '__main__':
             [1, 0, 0, 0],
             [0, math.cos(e), -math.sin(e), 0],
             [0, math.sin(e), math.cos(e), 0],
-            [0,0,0,1]])
+            [0, 0, 0, 1]])
     
-    def spin():
+    import time
+    t0 = time.time()
+    rendered_frames = 0
+    while True:
         rotate = numpy.array([
                 [math.cos(theta[0]), 0, -math.sin(theta[0]), 0],
                 [0, 1, 0, 0],
                 [math.sin(theta[0]), 0, math.cos(theta[0]), 0],
                 [0, 0, 0, 1]])
-
+    
         c = numpy.linalg.inv(numpy.dot(rotate, numpy.dot(elevate, translate)))
         r.move_camera(c)
-
+    
         theta[0] += 0.0001
+        
+        img = g.get_color()
+        
+        rendered_frames +=1
+        if rendered_frames % 100 == 0:
+            print('hz: %.04f'%(rendered_frames / (time.time() - t0)))
     
-    g.set_prerender(spin)
+    #g.set_prerender(spin)
     
-    g.run()
+    #g.run()
+    
+    
