@@ -10,6 +10,7 @@
 
 # system
 from ctypes import sizeof, c_float, c_uint
+import json
 
 # opengl
 from OpenGL.GL import *
@@ -23,11 +24,16 @@ import numpy
 import scipy.misc
 
 # local
-#import glut_window
 import renderpy_shaders
 import obj_mesh
 
 max_num_lights = 8
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, numpy.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self.obj)
 
 class Renderpy:
     
@@ -37,8 +43,7 @@ class Renderpy:
         
         # scene data
         self.scene_description = {
-                'mesh_paths':{},
-                'texture_paths':{},
+                'meshes':{},
                 'materials':{},
                 'instances':{},
                 'ambient_color':numpy.array([0,0,0]),
@@ -64,6 +69,7 @@ class Renderpy:
         
         self.gl_data = {
                 'mesh_buffers':{},
+                'material_buffers':{},
                 'color_shader':{},
                 'mask_shader':{}
         }
@@ -73,6 +79,10 @@ class Renderpy:
         
         self.opengl_init()
         self.compile_shaders()
+    
+    
+    def get_json_description(self, **kwargs):
+        return json.dumps(self.scene_description, cls=NumpyEncoder, **kwargs)
     
     
     def opengl_init(self):
@@ -87,8 +97,6 @@ class Renderpy:
         glDepthFunc(GL_LESS)
         glDepthRange(0.0, 1.0)
         glEnable(GL_NORMALIZE)
-
-        #glutHideWindow()
 
         glClearColor(0.,0.,0.,0.)
     
@@ -167,20 +175,78 @@ class Renderpy:
         self.gl_data['mask_shader'] = mask_shader_data
         
     
+    def load_scene(self, scene, clear_existing=False):
+    
+        if clear_existing:
+            self.clear_scene()
+        
+        for mesh in scene['meshes']:
+            self.load_mesh(mesh, **scene['meshes'][mesh])
+        
+        for material in scene['materials']:
+            self.load_material(material, **scene['materials'][material])
+        
+        for instance in scene['instances']:
+            self.add_instance(instance, **scene['instances'][instance])
+        
+        if 'ambient_color' in scene:
+            self.set_ambient_color(scene['ambient_color'])
+        
+        for point_light in scene['point_lights']:
+            self.add_point_light(
+                    point_light,
+                    **scene['point_lights'][point_light])
+        
+        for direction_light in scene['direction_lights']:
+            self.add_direction_light(
+                    direction_light,
+                    **scene['direction_lights'][direction_light])
+        
+        if 'camera' in scene:
+            if 'pose' in scene['camera']:
+                self.move_camera(scene['camera']['pose'])
+            if 'projection' in scene['camera']:
+                self.set_projection(scene['camera']['projection'])
+    
+    
+    def clear_scene(self):
+        self.clear_meshes()
+        self.clear_materials()
+        self.clear_instances()
+        self.set_ambient_color([0,0,0])
+        self.clear_point_lights()
+        self.clear_direction_lights()
+        self.reset_camera()
+    
+    
+    def reset_camera(self):
+        self.scene_description['camera'] = {
+                'pose':numpy.array([
+                    [1,0,0,0],
+                    [0,1,0,0],
+                    [0,0,1,0],
+                    [0,0,0,1]]),
+                'projection':numpy.array([
+                    [1,0,0,0],
+                    [0,1,0,0],
+                    [0,0,1,0],
+                    [0,0,0,1]])}
+    
+    
     def load_mesh(self,
-                mesh_name,
-                mesh_path,
-                texture=None,
-                ka=1.0,
-                kd=1.0,
-                ks=0.5,
-                shine=4.0):
+            name,
+            mesh_path):#,
+            #texture=None,
+            #ka=1.0,
+            #kd=1.0,
+            #ks=0.5,
+            #shine=4.0):
         
         mesh = obj_mesh.load_mesh(mesh_path)
-        self.scene_description['mesh_paths'][mesh_name] = mesh_path
+        self.scene_description['meshes'][name] = {'mesh_path':mesh_path}
         
-        self.scene_description['materials'][mesh_name] = numpy.array([
-                ka, kd, ks, shine])
+        #self.scene_description['materials'][name] = numpy.array([
+        #        ka, kd, ks, shine])
         mesh_buffers = {}
         
         vertex_floats = numpy.array(mesh['vertices'], dtype=numpy.float32)
@@ -195,6 +261,7 @@ class Renderpy:
                 face_ints,
                 target = GL_ELEMENT_ARRAY_BUFFER)
         
+        '''
         if texture is not None:
             image = scipy.misc.imread(texture)[:,:,:3]
             
@@ -211,49 +278,130 @@ class Renderpy:
                     GL_LINEAR_MIPMAP_LINEAR)
             glGenerateMipmap(GL_TEXTURE_2D)
             
-            self.loaded_data['textures'][mesh_name] = image
-        
-        self.loaded_data['meshes'][mesh_name] = mesh
-        self.gl_data['mesh_buffers'][mesh_name] = mesh_buffers
+            self.loaded_data['textures'][name] = image
+        '''
+        self.loaded_data['meshes'][name] = mesh
+        self.gl_data['mesh_buffers'][name] = mesh_buffers
     
+    
+    def remove_mesh(self, name):
+        del(self.scene_description['mesh_paths'][name])
+        self.gl_data['mesh_buffers'][name]['vertex_buffer'].delete()
+        self.gl_data['mesh_buffers'][name]['face_buffer'].delete()
+        del(self.gl_data['mesh_buffers'][name])
+        del(self.loaded_data['meshes'][name])
+    
+    
+    def clear_meshes(self):
+        for name in self.scene_description['meshes']:
+            self.remove_mesh(name)
+    
+    
+    def load_material(self,
+            name,
+            texture,
+            ka = 1.0,
+            kd = 1.0,
+            ks = 0.5,
+            shine = 4.0):
+        
+        self.scene_description['materials'][name] = {
+                'texture' : texture,
+                'ka' : ka,
+                'kd' : kd,
+                'ks' : ks,
+                'shine' : shine}
+        
+        image = scipy.misc.imread(texture)[:,:,:3]
+        self.loaded_data['textures'][name] = image
+        
+        material_buffers = {}
+        material_buffers['texture'] = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
+        glTexImage2D(
+                GL_TEXTURE_2D, 0, GL_RGB,
+                image.shape[0], image.shape[1], 0,
+                GL_RGB, GL_UNSIGNED_BYTE, image)
+        
+        # GL_NEAREST?
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                GL_LINEAR_MIPMAP_LINEAR)
+        glGenerateMipmap(GL_TEXTURE_2D)
+        
+        self.gl_data['material_buffers'][name] = material_buffers
+    
+    
+    def remove_material(self, name):
+        glDeleteTextures(1, self.gl_data['material_buffers'][name]['texture'])
+        del(self.loaded_data['textures'][name])
+        del(self.gl_data['material_buffers'][name])
+        del(self.scene_description['materials'][name])
+    
+    
+    def clear_materials(self):
+        for name in self.scene_description['materials']:
+            self.remove_material(name)
     
     def add_instance(self,
             instance_name,
             mesh_name,
+            material_name,
             transform,
             mask_color = numpy.array([0,0,0])):
         
         instance_data = {}
         instance_data['mesh_name'] = mesh_name
-        instance_data['transform'] = transform
-        instance_data['mask_color'] = mask_color
+        instance_data['material_name'] = material_name
+        instance_data['transform'] = numpy.array(transform)
+        instance_data['mask_color'] = numpy.array(mask_color)
         self.scene_description['instances'][instance_name] = instance_data
+    
+    def remove_instance(self, instance_name):
+        del(self.scene_description['instances'][instance_name])
+    
+    def clear_instances(self):
+        self.scene_description['instances'] = {}
     
     def add_point_light(self, name, position, color):
         self.scene_description['point_lights'][name] = {
-                'position' : position,
-                'color' : color}
+                'position' : numpy.array(position),
+                'color' : numpy.array(color)}
+    
+    def remove_point_light(self, name):
+        del(self.scene_description['point_lights'][name])
+    
+    def clear_point_lights(self):
+        self.scene_description['point_lights'] = {}
     
     def add_direction_light(self, name, direction, color):
         self.scene_description['direction_lights'][name] = {
-                'direction' : direction,
-                'color' : color}
+                'direction' : numpy.array(direction),
+                'color' : numpy.array(color)}
+    
+    def remove_direction_light(self, name):
+        del(self.scene_description['direction_lights'][name])
+    
+    def clear_direction_lights(self):
+        self.scene_description['direction_lights'] = {}
     
     def set_ambient_color(self, color):
-        self.scene_description['ambient_color'] = color
+        self.scene_description['ambient_color'] = numpy.array(color)
     
     def set_projection(self, projection_matrix):
-        self.scene_description['camera']['projection'] = projection_matrix
+        self.scene_description['camera']['projection'] = numpy.array(
+                projection_matrix)
     
     def move_camera(self, camera_pose):
-        self.scene_description['camera']['pose'] = camera_pose
+        self.scene_description['camera']['pose'] = numpy.array(
+                camera_pose)
     
     def color_render(self):
         
         # clear
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         
-        # tun on the shader
+        # turn on the color shader
         glUseProgram(self.gl_data['color_shader']['program'])
         
         try:
@@ -315,8 +463,6 @@ class Renderpy:
             for instance_name in self.scene_description['instances']:
                 self.color_render_instance(instance_name)
             
-            #glutSwapBuffers()
-        
         finally:
             glUseProgram(0)
         
@@ -325,9 +471,17 @@ class Renderpy:
     def color_render_instance(self, instance_name):
         instance_data = self.scene_description['instances'][instance_name]
         instance_mesh = instance_data['mesh_name']
-        material_properties = self.scene_description['materials'][instance_mesh]
+        instance_material = instance_data['material_name']
+        material_data = (
+                self.scene_description['materials'][instance_material])
+        material_properties = numpy.array([
+                material_data['ka'],
+                material_data['kd'],
+                material_data['ks'],
+                material_data['shine']])
         mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
-        mesh = self.loaded_data['meshes'][instance_mesh]
+        material_buffers = self.gl_data['material_buffers'][instance_material]
+        num_triangles = len(self.loaded_data['meshes'][instance_mesh]['faces'])
         
         location_data = self.gl_data['color_shader']['locations']
         
@@ -343,7 +497,7 @@ class Renderpy:
         mesh_buffers['face_buffer'].bind()
         mesh_buffers['vertex_buffer'].bind()
         
-        glBindTexture(GL_TEXTURE_2D, mesh_buffers['texture']['id'])
+        glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
         
         try:
             
@@ -367,7 +521,7 @@ class Renderpy:
             
             glDrawElements(
                     GL_TRIANGLES,
-                    len(mesh['faces'])*3,
+                    num_triangles*3,
                     GL_UNSIGNED_INT,
                     None)
         
@@ -406,8 +560,6 @@ class Renderpy:
             for instance_name in self.scene_description['instances']:
                 self.mask_render_instance(instance_name)
             
-            #glutSwapBuffers()
-        
         finally:
             glUseProgram(0)
         

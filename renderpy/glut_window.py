@@ -14,6 +14,7 @@ import scipy.misc
 import numpy
 
 # local
+import renderpy
 import example_scenes
 
 class GlutWindow:
@@ -28,33 +29,17 @@ class GlutWindow:
         glutInitWindowSize(width, height)
         glutCreateWindow('RENDERPY')
         
-        #glutDisplayFunc(self.display)
-        #glutIdleFunc(self.idle)
-        #glutReshapeFunc(self.reshape)
-        
         # I think this is only necessary if I'm using the main loop, but I'm not
         #glutSetOption(
         #        GLUT_ACTION_ON_WINDOW_CLOSE,
         #        GLUT_ACTION_CONTINUE_EXECUTION)
         
+        #glutHideWindow()
+        
         self.renderpy = None
     
     def add_renderpy(self, renderpy):
         self.renderpy = renderpy
-    
-    '''
-    def color_render(self):
-        self.renderpy.color_render()
-        
-        self.rendered_frames += 1
-        if self.timer_freq:
-            if self.rendered_frames % self.timer_freq == 0:
-                print('hz: %.04f'%(
-                        self.rendered_frames/(time.time() - self.start_time)))
-    '''
-    
-    #def reshape(self, width, height):
-    #    glViewport(0,0,width,height)
     
     def get_color(self):
         self.renderpy.color_render()
@@ -62,22 +47,14 @@ class GlutWindow:
                 0, 0, self.width, self.height, GL_RGB, GL_UNSIGNED_BYTE)
         img = numpy.frombuffer(test, dtype=numpy.uint8).reshape(width,height,3)
         return img
-    
-    '''
-    def run(self):
-        
-        #glutMainLoop()
-        while True:
-            # no glut main loop, just display
-            #glutMainLoopEvent()
-            self.getImage()
-    '''
 
 if __name__ == '__main__':
     width = 256
     height = 256
     g = GlutWindow(width, height, timer_freq = 100)
-    r = example_scenes.first_test(width, height)
+    #r = example_scenes.first_test(width, height)
+    r = renderpy.Renderpy()
+    r.load_scene(example_scenes.second_test())
     g.add_renderpy(r)
     
     theta = [0.0]
@@ -109,9 +86,3 @@ if __name__ == '__main__':
         rendered_frames +=1
         if rendered_frames % 100 == 0:
             print('hz: %.04f'%(rendered_frames / (time.time() - t0)))
-    
-    #g.set_prerender(spin)
-    
-    #g.run()
-    
-    
