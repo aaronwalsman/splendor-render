@@ -18,7 +18,7 @@ import renderpy.core as core
 import renderpy.example_scenes as example_scenes
 
 class GlutWindow:
-    def __init__(self, width, height, timer_freq = 0):
+    def __init__(self, width, height):
         self.width = width
         self.height = height
         
@@ -57,7 +57,7 @@ class GlutWindow:
 if __name__ == '__main__':
     width = 256
     height = 256
-    g = GlutWindow(width, height, timer_freq = 100)
+    g = GlutWindow(width, height)
     #r = example_scenes.first_test(width, height)
     #r = renderer.Renderpy()
     #r.load_scene(example_scenes.second_test())

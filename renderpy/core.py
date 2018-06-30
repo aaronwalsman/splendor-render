@@ -271,19 +271,27 @@ class Renderpy:
             crop = None):
         
         self.scene_description['materials'][name] = {
-                'texture' : texture,
                 'ka' : ka,
                 'kd' : kd,
                 'ks' : ks,
                 'shine' : shine}
+        '''
+        if isinstance(texture, str):
+            self.scene_description['materials'][name]['texture'] = texture
+            image = scipy.misc.imread(texture)[:,:,:3]
+        else:
+            self.scene_description['materials'][name]['texture'] = -1
+            image = texture
         
-        image = scipy.misc.imread(texture)[:,:,:3]
         if crop is not None:
             image = image[crop[0]:crop[2], crop[1]:crop[3]]
         self.loaded_data['textures'][name] = image
+        '''
         
         material_buffers = {}
         material_buffers['texture'] = glGenTextures(1)
+        
+        '''
         glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
         try:
             glTexImage2D(
@@ -298,8 +306,43 @@ class Renderpy:
             glGenerateMipmap(GL_TEXTURE_2D)
         finally:
             glBindTexture(GL_TEXTURE_2D, 0)
+        '''
         
         self.gl_data['material_buffers'][name] = material_buffers
+        
+        self.replace_texture(name, texture, crop)
+    
+    def replace_texture(self,
+            name,
+            texture,
+            crop = None):
+        
+        if isinstance(texture, str):
+            self.scene_description['materials'][name]['texture'] = texture
+            image = scipy.misc.imread(texture)[:,:,:3]
+        else:
+            self.scene_description['materials'][name]['texture'] = -1
+            image = texture
+        
+        if crop is not None:
+            image = image[crop[0]:crop[2], crop[1]:crop[3]]
+        self.loaded_data['textures'][name] = image
+        
+        material_buffers = self.gl_data['material_buffers'][name]
+        glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
+        try:
+            glTexImage2D(
+                    GL_TEXTURE_2D, 0, GL_RGB,
+                    image.shape[0], image.shape[1], 0,
+                    GL_RGB, GL_UNSIGNED_BYTE, image)
+            
+            # GL_NEAREST?
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                    GL_LINEAR_MIPMAP_LINEAR)
+            glGenerateMipmap(GL_TEXTURE_2D)
+        finally:
+            glBindTexture(GL_TEXTURE_2D, 0)
     
     def remove_material(self, name):
         glDeleteTextures(1, self.gl_data['material_buffers'][name]['texture'])
