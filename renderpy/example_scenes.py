@@ -62,22 +62,22 @@ def second_test():
     return {
   "meshes": {
     "test_cube": {
-      "mesh_path": "./example_meshes/cube.obj"
+      "primitive": "cube"
     },
     "test_sphere": {
-      "mesh_path": "./example_meshes/sphere.obj"
+      "primitive": "sphere"
     }
   },
   "materials": {
     "spinner": {
-      "texture": "./example_meshes/spinner_tex.png",
+      "texture": "./example_textures/spinner_tex.png",
       "ka": 1.0,
       "kd": 1.0,
       "ks": 0.5,
       "shine": 4.0
     },
     "candy_color": {
-      "texture": "./example_meshes/candy_color2.png",
+      "texture": "./example_textures/candy_color2.png",
       "ka": 1.0,
       "kd": 1.0,
       "ks": 0.5,

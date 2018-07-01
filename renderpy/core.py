@@ -26,6 +26,7 @@ import scipy.misc
 # local
 import renderpy.shader_definitions as shader_definitions
 import renderpy.obj_mesh as obj_mesh
+import renderpy.primitives as primitives
 
 max_num_lights = 8
 
@@ -228,10 +229,23 @@ class Renderpy:
     
     def load_mesh(self,
             name,
-            mesh_path):
+            mesh_path = None,
+            primitive = None):
         
-        mesh = obj_mesh.load_mesh(mesh_path)
-        self.scene_description['meshes'][name] = {'mesh_path':mesh_path}
+        # if a mesh path was provided, load that
+        if mesh_path is not None:
+            mesh = obj_mesh.load_mesh(mesh_path)
+            self.scene_description['meshes'][name] = {'mesh_path':mesh_path}
+        
+        # if a primitive was specified, load that
+        elif primitive is not None:
+            mesh_path = primitives.primitive_paths[primitive]
+            mesh = obj_mesh.load_mesh(mesh_path)
+            self.scene_description['meshes'][name] = {'primitive':primitive}
+        
+        else:
+            raise Exception('Must specify either a mesh_path or primitive '
+                    'when loading a mesh')
         
         mesh_buffers = {}
         
@@ -275,39 +289,9 @@ class Renderpy:
                 'kd' : kd,
                 'ks' : ks,
                 'shine' : shine}
-        '''
-        if isinstance(texture, str):
-            self.scene_description['materials'][name]['texture'] = texture
-            image = scipy.misc.imread(texture)[:,:,:3]
-        else:
-            self.scene_description['materials'][name]['texture'] = -1
-            image = texture
-        
-        if crop is not None:
-            image = image[crop[0]:crop[2], crop[1]:crop[3]]
-        self.loaded_data['textures'][name] = image
-        '''
         
         material_buffers = {}
         material_buffers['texture'] = glGenTextures(1)
-        
-        '''
-        glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
-        try:
-            glTexImage2D(
-                    GL_TEXTURE_2D, 0, GL_RGB,
-                    image.shape[0], image.shape[1], 0,
-                    GL_RGB, GL_UNSIGNED_BYTE, image)
-            
-            # GL_NEAREST?
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                    GL_LINEAR_MIPMAP_LINEAR)
-            glGenerateMipmap(GL_TEXTURE_2D)
-        finally:
-            glBindTexture(GL_TEXTURE_2D, 0)
-        '''
-        
         self.gl_data['material_buffers'][name] = material_buffers
         
         self.replace_texture(name, texture, crop)

@@ -22,6 +22,9 @@ class GlutWindow:
         self.width = width
         self.height = height
         
+        import sys
+        print(sys.prefix)
+        
         glutInit([])
         # GLUT_DOUBLE maxes out at 60fps
         #glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
@@ -58,10 +61,6 @@ if __name__ == '__main__':
     width = 256
     height = 256
     g = GlutWindow(width, height)
-    #r = example_scenes.first_test(width, height)
-    #r = renderer.Renderpy()
-    #r.load_scene(example_scenes.second_test())
-    #g.add_renderer(r)
     g.renderer.load_scene(example_scenes.second_test())
     
     theta = [0.0]
