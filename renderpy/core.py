@@ -310,6 +310,14 @@ class Renderpy:
         
         if crop is not None:
             image = image[crop[0]:crop[2], crop[1]:crop[3]]
+        
+        if image.shape[0] != image.shape[1]:
+            raise Exception('Only square textures are supported '
+                    '(got %i X %i)'%(image.shape[0], image.shape[1]))
+        if image.shape[0] not in [1,2,4,8,16,32,64,128,256,512,1024,2048,4096]:
+            raise Exception('Image height/width must be a power of 2 '
+                    'less than or equal to 4096 (Got %i)'%(image.shape[0]))
+        
         self.loaded_data['textures'][name] = image
         
         material_buffers = self.gl_data['material_buffers'][name]
@@ -342,7 +350,7 @@ class Renderpy:
             instance_name,
             mesh_name,
             material_name,
-            transform,
+            transform = numpy.eye(4),
             mask_color = numpy.array([0,0,0])):
         
         instance_data = {}
