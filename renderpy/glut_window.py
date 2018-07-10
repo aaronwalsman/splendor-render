@@ -18,19 +18,16 @@ import renderpy.core as core
 import renderpy.example_scenes as example_scenes
 
 class GlutWindow:
-    def __init__(self, width, height):
+    def __init__(self, width, height, renderer=None, window_name = 'RENDERPY'):
         self.width = width
         self.height = height
-        
-        import sys
-        print(sys.prefix)
         
         glutInit([])
         # GLUT_DOUBLE maxes out at 60fps
         #glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
         glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH)
         glutInitWindowSize(width, height)
-        glutCreateWindow('RENDERPY')
+        self.window_id = glutCreateWindow(window_name)
         
         # I think this is only necessary if I'm using the main loop, but I'm not
         #glutSetOption(
@@ -39,18 +36,23 @@ class GlutWindow:
         
         #glutHideWindow()
         
-        self.renderer = core.Renderpy(width, height)
+        if renderer is None:
+            self.renderer = core.Renderpy()
+        else:
+            self.renderer = renderer
     
-    def get_color(self):
-        self.renderer.color_render()
+    def get_color(self, *args, **kwargs):
+        glutSetWindow(self.window_id)
+        self.renderer.color_render(*args, **kwargs)
         pixels = glReadPixels(
                 0, 0, self.width, self.height, GL_RGB, GL_UNSIGNED_BYTE)
         image = numpy.frombuffer(pixels, dtype=numpy.uint8).reshape(
                 self.width, self.height, 3)
         return image
     
-    def get_mask(self):
-        self.renderer.mask_render()
+    def get_mask(self, *args, **kwargs):
+        glutSetWindow(self.window_id)
+        self.renderer.mask_render(*args, **kwargs)
         pixels = glReadPixels(
                 0, 0, self.width, self.height, GL_RGB, GL_UNSIGNED_BYTE)
         image = numpy.frombuffer(pixels, dtype=numpy.uint8).reshape(
@@ -62,6 +64,11 @@ if __name__ == '__main__':
     height = 256
     g = GlutWindow(width, height)
     g.renderer.load_scene(example_scenes.second_test())
+    
+    #g2 = GlutWindow(width, height)
+    #g2.renderer.load_scene(example_scenes.second_test())
+    #g2.renderer.scene_description['instances']['cube1']['material_name'] = (
+    #        'candy_color')
     
     theta = [0.0]
     translate = numpy.array([[1,0,0,0],[0,1,0,0],[0,0,1,6],[0,0,0,1]])
@@ -79,16 +86,18 @@ if __name__ == '__main__':
         rotate = numpy.array([
                 [math.cos(theta[0]), 0, -math.sin(theta[0]), 0],
                 [0, 1, 0, 0],
-                [math.sin(theta[0]), 0, math.cos(theta[0]), 0],
+                [math.sin(theta[0]), 0,  math.cos(theta[0]), 0],
                 [0, 0, 0, 1]])
     
         c = numpy.linalg.inv(
                 numpy.dot(rotate, numpy.dot(elevate, translate)))
         g.renderer.move_camera(c)
-    
+        #g2.renderer.move_camera(c)
+        
         theta[0] += 0.0001
         
         img = g.get_color()
+        #img2 = g2.get_color()
         
         rendered_frames +=1
         if rendered_frames % 100 == 0:

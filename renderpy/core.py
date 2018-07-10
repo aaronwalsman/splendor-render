@@ -38,54 +38,59 @@ class NumpyEncoder(json.JSONEncoder):
 
 class Renderpy:
     
-    def __init__(self,
-            width = 256,
-            height = 256):
+    def __init__(self, init_scene=True):
         
-        # scene data
-        self.scene_description = {
-                'meshes':{},
-                'materials':{},
-                'instances':{},
-                'ambient_color':numpy.array([0,0,0]),
-                'point_lights':{},
-                'direction_lights':{},
-                'camera':{
-                    'pose':numpy.array([
-                        [1,0,0,0],
-                        [0,1,0,0],
-                        [0,0,1,0],
-                        [0,0,0,1]]),
-                    'projection':numpy.array([
-                        [1,0,0,0],
-                        [0,1,0,0],
-                        [0,0,1,0],
-                        [0,0,0,1]])}
-        }
+        if init_scene:
+            # scene data
+            self.scene_description = {
+                    'meshes':{},
+                    'materials':{},
+                    'instances':{},
+                    'ambient_color':numpy.array([0,0,0]),
+                    'point_lights':{},
+                    'direction_lights':{},
+                    'camera':{
+                        'pose':numpy.array([
+                            [1,0,0,0],
+                            [0,1,0,0],
+                            [0,0,1,0],
+                            [0,0,0,1]]),
+                        'projection':numpy.array([
+                            [1,0,0,0],
+                            [0,1,0,0],
+                            [0,0,1,0],
+                            [0,0,0,1]])}
+            }
+            
+            self.loaded_data = {
+                    'meshes':{},
+                    'textures':{},
+            }
+            
+            self.gl_data = {
+                    'mesh_buffers':{},
+                    'material_buffers':{},
+                    'color_shader':{},
+                    'mask_shader':{}
+            }
+            
+            self.opengl_init()
+            self.compile_shaders()
+    
+    '''
+    def clone(self):
+        cloned = Renderpy(init_scene=False)
+        cloned.scene_description = copy.deepcopy(self.scene_description)
+        cloned.loaded_data = self.loaded_data
+        cloned.gl_data = self.gl_data
         
-        self.loaded_data = {
-                'meshes':{},
-                'textures':{},
-        }
-        
-        self.gl_data = {
-                'mesh_buffers':{},
-                'material_buffers':{},
-                'color_shader':{},
-                'mask_shader':{}
-        }
-        
-        self.width = width
-        self.height = height
-        
-        self.opengl_init()
-        self.compile_shaders()
+        return cloned
+    '''
     
     def get_json_description(self, **kwargs):
         return json.dumps(self.scene_description, cls=NumpyEncoder, **kwargs)
     
     def opengl_init(self):
-        
         renderer = glGetString(GL_RENDERER).decode('utf-8')
         version = glGetString(GL_VERSION).decode('utf-8')
         print('Renderer: %s'%renderer)
@@ -277,12 +282,23 @@ class Renderpy:
     
     def load_material(self,
             name,
-            texture,
+            texture = None,
+            example_texture = None,
             ka = 1.0,
             kd = 1.0,
             ks = 0.5,
             shine = 4.0,
             crop = None):
+        
+        if texture is not None:
+            pass
+        
+        elif example_texture is not None:
+            texture = primitives.example_texture_paths[example_texture]
+        
+        else:
+            raise Exception('Must specify either a texture or example_texture '
+                    'when loading a material')
         
         self.scene_description['materials'][name] = {
                 'ka' : ka,
@@ -366,6 +382,13 @@ class Renderpy:
     def clear_instances(self):
         self.scene_description['instances'] = {}
     
+    def set_instance_transform(self, instance_name, transform):
+        self.scene_description['instances'][instance_name]['transform'] = (
+                transform)
+    
+    def get_instance_transform(self, instance_name):
+        return self.scene_description['instances'][instance_name]['transform']
+    
     def add_point_light(self, name, position, color):
         self.scene_description['point_lights'][name] = {
                 'position' : numpy.array(position),
@@ -398,11 +421,17 @@ class Renderpy:
         self.scene_description['camera']['projection'] = numpy.array(
                 projection_matrix)
     
+    def get_projection(self):
+        return self.scene_description['camera']['projection']
+    
     def move_camera(self, camera_pose):
         self.scene_description['camera']['pose'] = numpy.array(
                 camera_pose)
     
-    def color_render(self):
+    def get_camera_pose(self):
+        return self.scene_description['camera']['pose']
+    
+    def color_render(self, instances=None):
         
         # clear
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -465,8 +494,10 @@ class Renderpy:
                     direction_light_data.astype(numpy.float32))
                 
             
-            # render all instances
-            for instance_name in self.scene_description['instances']:
+            # render the instances (if None was specified, render all of them)
+            if instances is None:
+                instances = self.scene_description['instances']
+            for instance_name in instances:
                 self.color_render_instance(instance_name)
             
         finally:
@@ -535,7 +566,7 @@ class Renderpy:
             mesh_buffers['vertex_buffer'].unbind()
             glBindTexture(GL_TEXTURE_2D, 0)
     
-    def mask_render(self):
+    def mask_render(self, instances=None):
         
         # clear
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -562,7 +593,9 @@ class Renderpy:
                     projection_matrix.astype(numpy.float32))
             
             # render all instances
-            for instance_name in self.scene_description['instances']:
+            if instances is None:
+                instances = self.scene_description['instances']
+            for instance_name in instances:
                 self.mask_render_instance(instance_name)
             
         finally:
@@ -582,11 +615,11 @@ class Renderpy:
         glUniformMatrix4fv(
                 location_data['model_pose'],
                 1, GL_TRUE,
-                instance_data['transform'].astype(numpy.float32))
+                numpy.array(instance_data['transform'], dtype=numpy.float32))
         
         glUniform3fv(
                 location_data['mask_color'],
-                1, mask_color.astype(numpy.float32))
+                1, numpy.array(mask_color, dtype=numpy.float32))
         
         mesh_buffers['face_buffer'].bind()
         mesh_buffers['vertex_buffer'].bind()

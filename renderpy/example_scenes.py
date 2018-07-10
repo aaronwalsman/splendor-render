@@ -70,14 +70,14 @@ def second_test():
   },
   "materials": {
     "spinner": {
-      "texture": "./example_textures/spinner_tex.png",
+      "example_texture": "spinner_tex",
       "ka": 1.0,
       "kd": 1.0,
       "ks": 0.5,
       "shine": 4.0
     },
     "candy_color": {
-      "texture": "./example_textures/candy_color2.png",
+      "example_texture": "candy_color2",
       "ka": 1.0,
       "kd": 1.0,
       "ks": 0.5,
