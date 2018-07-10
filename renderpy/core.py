@@ -353,13 +353,13 @@ class Renderpy:
             glBindTexture(GL_TEXTURE_2D, 0)
     
     def remove_material(self, name):
-        glDeleteTextures(1, self.gl_data['material_buffers'][name]['texture'])
+        glDeleteTextures(self.gl_data['material_buffers'][name]['texture'])
         del(self.loaded_data['textures'][name])
         del(self.gl_data['material_buffers'][name])
         del(self.scene_description['materials'][name])
     
     def clear_materials(self):
-        for name in self.scene_description['materials']:
+        for name in list(self.scene_description['materials'].keys()):
             self.remove_material(name)
     
     def add_instance(self,
@@ -385,6 +385,10 @@ class Renderpy:
     def set_instance_transform(self, instance_name, transform):
         self.scene_description['instances'][instance_name]['transform'] = (
                 transform)
+    
+    def set_instance_material(self, instance_name, material_name):
+        self.scene_description['instances'][instance_name]['material_name'] = (
+                material_name)
     
     def get_instance_transform(self, instance_name):
         return self.scene_description['instances'][instance_name]['transform']
