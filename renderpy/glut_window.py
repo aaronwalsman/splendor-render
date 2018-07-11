@@ -30,6 +30,7 @@ class GlutWindow:
         glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH)
         glutInitWindowSize(window_size, window_size)
         self.window_id = glutCreateWindow(window_name)
+        self.set_active()
         
         # I think this is only necessary if I'm using the main loop, but I'm not
         #glutSetOption(
@@ -77,11 +78,14 @@ class GlutWindow:
         
         self.renderer = core.Renderpy()
     
+    def set_active(self):
+        glutSetWindow(self.window_id)
+    
     def get_color(self, frame_name, *args, **kwargs):
         
         width, height = self.dimensions[frame_name]
         
-        glutSetWindow(self.window_id)
+        self.set_active()
         glBindFramebuffer(
                 GL_FRAMEBUFFER,
                 self.frame_buffer_data[frame_name]['frame_buffer'])
@@ -103,7 +107,7 @@ class GlutWindow:
         
         width, height = self.dimensions[frame_name]
         
-        glutSetWindow(self.window_id)
+        self.set_active()
         glBindFramebuffer(
                 GL_FRAMEBUFFER,
                 self.frame_buffer_data[frame_name]['frame_buffer'])

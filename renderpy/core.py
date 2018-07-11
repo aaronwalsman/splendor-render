@@ -77,16 +77,6 @@ class Renderpy:
             self.opengl_init()
             self.compile_shaders()
     
-    '''
-    def clone(self):
-        cloned = Renderpy(init_scene=False)
-        cloned.scene_description = copy.deepcopy(self.scene_description)
-        cloned.loaded_data = self.loaded_data
-        cloned.gl_data = self.gl_data
-        
-        return cloned
-    '''
-    
     def get_json_description(self, **kwargs):
         return json.dumps(self.scene_description, cls=NumpyEncoder, **kwargs)
     
@@ -339,6 +329,8 @@ class Renderpy:
         material_buffers = self.gl_data['material_buffers'][name]
         glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
         try:
+            if name == 'color':
+                scipy.misc.imsave('new_color_image.png', image)
             glTexImage2D(
                     GL_TEXTURE_2D, 0, GL_RGB,
                     image.shape[0], image.shape[1], 0,
@@ -349,6 +341,7 @@ class Renderpy:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
                     GL_LINEAR_MIPMAP_LINEAR)
             glGenerateMipmap(GL_TEXTURE_2D)
+        
         finally:
             glBindTexture(GL_TEXTURE_2D, 0)
     
