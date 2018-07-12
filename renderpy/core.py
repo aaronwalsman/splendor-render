@@ -46,6 +46,7 @@ class Renderpy:
                     'meshes':{},
                     'materials':{},
                     'instances':{},
+                    'background_color':numpy.array([0,0,0,0]),
                     'ambient_color':numpy.array([0,0,0]),
                     'point_lights':{},
                     'direction_lights':{},
@@ -329,8 +330,6 @@ class Renderpy:
         material_buffers = self.gl_data['material_buffers'][name]
         glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
         try:
-            if name == 'color':
-                scipy.misc.imsave('new_color_image.png', image)
             glTexImage2D(
                     GL_TEXTURE_2D, 0, GL_RGB,
                     image.shape[0], image.shape[1], 0,
@@ -411,8 +410,8 @@ class Renderpy:
     def set_ambient_color(self, color):
         self.scene_description['ambient_color'] = numpy.array(color)
     
-    def set_background_color(self, color):
-        glClearColor(*color)
+    def set_background_color(self, background_color):
+        self.scene_description['background_color'] = background_color
     
     def set_projection(self, projection_matrix):
         self.scene_description['camera']['projection'] = numpy.array(
@@ -428,9 +427,10 @@ class Renderpy:
     def get_camera_pose(self):
         return self.scene_description['camera']['pose']
     
-    def color_render(self, instances=None):
+    def color_render(self, instances=None, flip_y=True):
         
         # clear
+        glClearColor(*self.scene_description['background_color'])
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         
         # turn on the color shader
@@ -449,6 +449,14 @@ class Renderpy:
             
             # set the camera's projection matrix
             projection_matrix = self.scene_description['camera']['projection']
+            if flip_y:
+                projection_matrix = numpy.dot(
+                        projection_matrix,
+                        numpy.array([
+                            [1,0,0,0],
+                            [0,-1,0,0],
+                            [0,0,1,0],
+                            [0,0,0,1]]))
             glUniformMatrix4fv(
                     location_data['projection_matrix'],
                     1, GL_TRUE,
@@ -563,7 +571,7 @@ class Renderpy:
             mesh_buffers['vertex_buffer'].unbind()
             glBindTexture(GL_TEXTURE_2D, 0)
     
-    def mask_render(self, instances=None):
+    def mask_render(self, instances=None, flip_y=True):
         
         # clear
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -584,6 +592,14 @@ class Renderpy:
             
             # set the camera's projection matrix
             projection_matrix = self.scene_description['camera']['projection']
+            if flip_y:
+                projection_matrix = numpy.dot(
+                        projection_matrix,
+                        numpy.array([
+                            [1,0,0,0],
+                            [0,-1,0,0],
+                            [0,0,1,0],
+                            [0,0,0,1]]))
             glUniformMatrix4fv(
                     location_data['projection_matrix'],
                     1, GL_TRUE,
