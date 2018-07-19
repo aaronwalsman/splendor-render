@@ -71,6 +71,7 @@ class Renderpy:
             self.gl_data = {
                     'mesh_buffers':{},
                     'material_buffers':{},
+                    'light_buffers':{},
                     'color_shader':{},
                     'mask_shader':{}
             }
@@ -226,7 +227,8 @@ class Renderpy:
     def load_mesh(self,
             name,
             mesh_path = None,
-            primitive = None):
+            primitive = None,
+            mesh_data = None):
         
         # if a mesh path was provided, load that
         if mesh_path is not None:
@@ -239,9 +241,14 @@ class Renderpy:
             mesh = obj_mesh.load_mesh(mesh_path)
             self.scene_description['meshes'][name] = {'primitive':primitive}
         
+        # if mesh data was provided, load that
+        elif mesh_data is not None:
+            self.scene_description['meshes'][name] = {'mesh_data':mesh_data}
+            mesh = mesh_data
+        
         else:
-            raise Exception('Must specify either a mesh_path or primitive '
-                    'when loading a mesh')
+            raise Exception('Must supply a "mesh_path", "primitive" or '
+                    '"mesh_data" when loading a mesh')
         
         mesh_buffers = {}
         
@@ -396,10 +403,44 @@ class Renderpy:
     def clear_point_lights(self):
         self.scene_description['point_lights'] = {}
     
-    def add_direction_light(self, name, direction, color):
+    def add_direction_light(self,
+            name,
+            direction,
+            color):
+            #use_shadows = False,
+            #shadow_matrix = None,
+            #shadow_resolution = None):
+        
         self.scene_description['direction_lights'][name] = {
                 'direction' : numpy.array(direction),
-                'color' : numpy.array(color)}
+                'color' : numpy.array(color),
+                'shadow_matrix' : shadow_matrix}
+        
+        '''
+        if use_shadows:
+            buffers = {}
+            buffers['depth_framebuffer'] = glGenFramebuffers(1)
+            glBindFramebuffer(GL_FRAMEBUFFER, buffers['depth_framebuffer'])
+            
+            buffers['depth_texture'] = glGenTextures(1)
+            glBindTexture(GL_TEXTURE_2D, buffers['depth_texture'])
+            glTexImage2D(
+                    GL_TEXTURE_2D, 0, 0, GL_DEPTH_COMPONENT_16,
+                    shadow_resolution[0], shadow_resolution[1],
+                    0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glFrameBufferTexture(
+                    GL_FRAME_BUFFER,
+                    GL_DEPTH_ATTACHMENT,
+                    buffers['depth_texture'],
+                    0);
+            glDrawBuffer(GL_NONE);
+            
+            self.gl_data['light_buffers'][name] = buffers
+        '''
     
     def remove_direction_light(self, name):
         del(self.scene_description['direction_lights'][name])

@@ -17,7 +17,7 @@ import numpy
 import renderpy.core as core
 import renderpy.example_scenes as example_scenes
 
-window_size = 128
+default_window_size = 128
 
 shared_buffer_manager = []
 
@@ -35,19 +35,32 @@ class BufferManager:
         # GLUT_DOUBLE maxes out at 60fps
         #glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
         glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH)
-        glutInitWindowSize(window_size, window_size)
         self.window_id = glutCreateWindow('RENDERPY')
         self.set_active()
+        self.window_width = -1
+        self.window_height = -1
+        self.resize_window(default_window_size, default_window_size)
+        self.hide_window()
         
         # I think this is only necessary if I'm using the main loop, but I'm not
         #glutSetOption(
         #        GLUT_ACTION_ON_WINDOW_CLOSE,
         #        GLUT_ACTION_CONTINUE_EXECUTION)
         
-        glutHideWindow(self.window_id)
-        
         # generate off-screen framebuffer/renderbuffer objects
         self.framebuffer_data = {}
+    
+    def hide_window(self):
+        glutHideWindow(self.window_id)
+    
+    def show_window(self):
+        glutShowWindow(self.window_id)
+    
+    def resize_window(self, width, height):
+        if self.window_width != width or self.window_height != height:
+            self.window_width = width
+            self.window_height = height
+            glutReshapeWindow(width, height)
     
     def add_frame(self, frame_name, width, height):
         
@@ -94,18 +107,27 @@ class BufferManager:
         '''
         glutSetWindow(self.window_id)
     
+    def enable_window(self):
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        glViewport(0, 0, self.window_width, self.window_height)
+    
     def enable_frame(self, frame):
         width = self.framebuffer_data[frame]['width']
         height = self.framebuffer_data[frame]['height']
         glBindFramebuffer(
                 GL_FRAMEBUFFER,
                 self.framebuffer_data[frame]['framebuffer'])
-        glViewport(0,0,width,height)
+        glViewport(0, 0, width, height)
     
     def read_pixels(self, frame):
-        self.enable_frame(frame)
-        width = self.framebuffer_data[frame]['width']
-        height = self.framebuffer_data[frame]['height']
+        if frame is None:
+            self.enable_window()
+            width = self.window_width
+            height = self.window_height
+        else:
+            self.enable_frame(frame)
+            width = self.framebuffer_data[frame]['width']
+            height = self.framebuffer_data[frame]['height']
         
         pixels = glReadPixels(
                 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
@@ -113,7 +135,15 @@ class BufferManager:
                 width, height, 3)
         
         return image
-
+    
+    
+    def finish(self):
+        glFlush()
+        glFinish()
+        glutPostRedisplay()
+        glutSwapBuffers()
+        glutLeaveMainLoop()
+    
 
 if __name__ == '__main__':
     width = 128
@@ -156,9 +186,11 @@ if __name__ == '__main__':
         
         theta[0] += 0.001
         
-        buffer_manager.enable_frame('A')
+        #buffer_manager.enable_frame('A')
+        buffer_manager.show_window()
+        buffer_manager.enable_window()
         rendererA.color_render()
-        imgA = buffer_manager.read_pixels('A')
+        #imgA = buffer_manager.read_pixels('A')
         
         #buffer_manager.enable_frame('B')
         #rendererB.color_render()
