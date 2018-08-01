@@ -1,11 +1,12 @@
 import math
+import random
 import numpy
 
 def projection_matrix(
         horizontal_field_of_view,
         aspect_ratio,
-        near_clip = 0.1,
-        far_clip = 100):
+        near_clip = 0.05,
+        far_clip = 50):
     
     x_limit = near_clip * math.tan(horizontal_field_of_view * 0.5)
     y_limit = x_limit / aspect_ratio
@@ -18,7 +19,7 @@ def projection_matrix(
             [0, 0, -1, 0]])
 
 def turntable_pose(
-        distance, orientation, elevation, spin):
+        distance, orientation, elevation, spin, lift=0):
     
     d = numpy.array([
             [1,0,0,0],
@@ -50,6 +51,64 @@ def turntable_pose(
             [0, 0, 1, 0],
             [0, 0, 0, 1]])
     
+    l = numpy.array([
+            [1, 0, 0, 0],
+            [0, 1, 0, lift],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]])
+    
     return numpy.linalg.inv(
-            numpy.dot(o, numpy.dot(e, numpy.dot(d,s))))
+            numpy.dot(l, numpy.dot(o, numpy.dot(e, numpy.dot(d,s)))))
 
+
+def sample_turntable(
+        distance_extents,
+        num_poses,
+        orientation_range,
+        elevation_extents,
+        spin_extents,
+        lift_extents):
+    
+    theta_step = math.pi * 2. / num_poses
+    theta = random.random() * math.pi * 2.
+    
+    poses = []
+    for _ in range(num_poses):
+        distance_range = distance_extents[1] - distance_extents[0]
+        distance = random.random() * distance_range + distance_extents[0]
+        
+        theta += theta_step
+        orientation = (theta + random.random() * orientation_range -
+                orientation_range * 0.5)
+        
+        elevation_range = elevation_extents[1] - elevation_extents[0]
+        elevation = random.random() * elevation_range + elevation_extents[0]
+        
+        spin_range = spin_extents[1] - spin_extents[0]
+        spin = random.random() * spin_range + spin_extents[0]
+        
+        lift_range = lift_extents[1] - lift_extents[0]
+        lift = random.random() * lift_range + lift_extents[0]
+        
+        poses.append(turntable_pose(distance, theta, elevation, spin, lift))
+    
+    return poses
+
+def position_to_pixels(
+        position,
+        projection_matrix,
+        camera_matrix,
+        screen_resolution,
+        flip_y = True):
+    
+    projected = numpy.dot(numpy.dot(projection_matrix, camera_matrix), position)
+    projected_x = projected[0] / projected[3]
+    projected_y = projected[1] / projected[3]
+    
+    if flip_y:
+        projected_y *= -1
+    
+    x = int(round((projected_x + 1.) * 0.5 * screen_resolution[0]))
+    y = int(round((projected_y + 1.) * 0.5 * screen_resolution[1]))
+    
+    return x, y

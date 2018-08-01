@@ -21,25 +21,27 @@ default_window_size = 128
 
 shared_buffer_manager = []
 
-def initialize_shared_buffer_manager():
+def initialize_shared_buffer_manager(*args, **kwargs):
     if len(shared_buffer_manager):
         return shared_buffer_manager[0]
     else:
-        shared_buffer_manager.append(BufferManager())
+        shared_buffer_manager.append(BufferManager(*args, **kwargs))
         return shared_buffer_manager[0]
 
 class BufferManager:
-    def __init__(self):
+    def __init__(self, window_size = default_window_size):
         
         glutInit([])
         # GLUT_DOUBLE maxes out at 60fps
         #glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
         glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH)
+        glutInitWindowSize(window_size, window_size)
         self.window_id = glutCreateWindow('RENDERPY')
         self.set_active()
-        self.window_width = -1
-        self.window_height = -1
-        self.resize_window(default_window_size, default_window_size)
+        self.window_width = window_size
+        self.window_height = window_size
+        # does not work b/c glut
+        #self.resize_window(window_size, window_size)
         self.hide_window()
         
         # I think this is only necessary if I'm using the main loop, but I'm not
@@ -154,7 +156,7 @@ if __name__ == '__main__':
     #buffer_manager.add_frame('B', width*2, height*2)
     
     rendererA = core.Renderpy()
-    rendererA.load_scene(example_scenes.second_test())
+    rendererA.load_scene(example_scenes.third_test())
     
     #rendererB = core.Renderpy()
     #rendererB.load_scene(example_scenes.second_test())
@@ -181,15 +183,15 @@ if __name__ == '__main__':
     
         c = numpy.linalg.inv(
                 numpy.dot(rotate, numpy.dot(elevate, translate)))
-        rendererA.move_camera(c)
-        #rendererB.move_camera(c)
+        rendererA.set_camera_pose(c)
+        #rendererB.set_camera_pose(c)
         
         theta[0] += 0.001
         
         #buffer_manager.enable_frame('A')
         buffer_manager.show_window()
         buffer_manager.enable_window()
-        rendererA.color_render()
+        rendererA.color_render(flip_y=False)
         #imgA = buffer_manager.read_pixels('A')
         
         #buffer_manager.enable_frame('B')

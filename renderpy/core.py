@@ -9,7 +9,7 @@
 # (I didn't use this because it is too simple for my needs)
 
 # system
-from ctypes import sizeof, c_float, c_uint
+import math
 import json
 
 # opengl
@@ -24,11 +24,18 @@ import numpy
 import scipy.misc
 
 # local
+import renderpy.camera as camera
 import renderpy.shader_definitions as shader_definitions
 import renderpy.obj_mesh as obj_mesh
 import renderpy.primitives as primitives
 
 max_num_lights = 8
+default_camera_pose = camera.turntable_pose(.5, 0, math.radians(-10.), 0, .25)
+default_camera_projection = camera.projection_matrix(math.radians(60.), 1.0)
+default_shadow_light_pose = camera.turntable_pose(
+        .5, 1.0, math.radians(-20.), 0, .25)
+default_shadow_light_projection = camera.projection_matrix(
+        math.radians(60.), 1.0)
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -38,46 +45,56 @@ class NumpyEncoder(json.JSONEncoder):
 
 class Renderpy:
     
-    def __init__(self, init_scene=True):
+    def __init__(self):
+            
+        # scene data
+        self.scene_description = {
+                'meshes':{},
+                'materials':{},
+                'instances':{},
+                'background_color':numpy.array([0,0,0,0]),
+                'ambient_color':numpy.array([0,0,0]),
+                'shadow_light':{
+                    'enabled':True,
+                    'color':[1,1,1],
+                    'pose':default_shadow_light_pose,
+                    'projection':default_shadow_light_projection
+                },
+                'point_lights':{},
+                'direction_lights':{},
+                'camera':{
+                    'pose':default_camera_pose,
+                    'projection':default_camera_projection
+                },
+                'background':{},
+                'active_background':None
+        }
         
-        if init_scene:
-            # scene data
-            self.scene_description = {
-                    'meshes':{},
-                    'materials':{},
-                    'instances':{},
-                    'background_color':numpy.array([0,0,0,0]),
-                    'ambient_color':numpy.array([0,0,0]),
-                    'point_lights':{},
-                    'direction_lights':{},
-                    'camera':{
-                        'pose':numpy.array([
-                            [1,0,0,0],
-                            [0,1,0,0],
-                            [0,0,1,0],
-                            [0,0,0,1]]),
-                        'projection':numpy.array([
-                            [1,0,0,0],
-                            [0,1,0,0],
-                            [0,0,1,0],
-                            [0,0,0,1]])}
-            }
-            
-            self.loaded_data = {
-                    'meshes':{},
-                    'textures':{},
-            }
-            
-            self.gl_data = {
-                    'mesh_buffers':{},
-                    'material_buffers':{},
-                    'light_buffers':{},
-                    'color_shader':{},
-                    'mask_shader':{}
-            }
-            
-            self.opengl_init()
-            self.compile_shaders()
+        self.loaded_data = {
+                'meshes':{},
+                'textures':{},
+        }
+        
+        self.gl_data = {
+                'mesh_buffers':{},
+                'material_buffers':{},
+                'light_buffers':{},
+                'color_shader':{},
+                'mask_shader':{},
+                'background_shader':{}
+        }
+        
+        self.background_vertices = numpy.array([
+                [-1,-1,0],
+                [-1, 1,0],
+                [ 1, 1,0],
+                [ 1,-1,0]])
+        self.background_faces = numpy.array([
+                [0,1,2],
+                [2,3,0]])
+        
+        self.opengl_init()
+        self.compile_shaders()
     
     def get_json_description(self, **kwargs):
         return json.dumps(self.scene_description, cls=NumpyEncoder, **kwargs)
@@ -101,6 +118,7 @@ class Renderpy:
         # book keeping
         color_shader_data = {}
         mask_shader_data = {}
+        background_shader_data = {}
         
         # compile the shaders
         color_shader_data['vertex_shader'] = shaders.compileShader(
@@ -111,6 +129,11 @@ class Renderpy:
                 shader_definitions.mask_vertex_shader, GL_VERTEX_SHADER)
         mask_shader_data['fragment_shader'] = shaders.compileShader(
                 shader_definitions.mask_fragment_shader, GL_FRAGMENT_SHADER)
+        background_shader_data['vertex_shader'] = shaders.compileShader(
+                shader_definitions.background_vertex_shader, GL_VERTEX_SHADER)
+        background_shader_data['fragment_shader'] = shaders.compileShader(
+                shader_definitions.background_fragment_shader,
+                GL_FRAGMENT_SHADER)
         
         # compile the programs
         color_program = shaders.compileProgram(
@@ -121,10 +144,15 @@ class Renderpy:
                 mask_shader_data['vertex_shader'],
                 mask_shader_data['fragment_shader'])
         mask_shader_data['program'] = mask_program
+        background_program = shaders.compileProgram(
+                background_shader_data['vertex_shader'],
+                background_shader_data['fragment_shader'])
+        background_shader_data['program'] = background_program
         
         # get attribute locations
         color_shader_data['locations'] = {}
         mask_shader_data['locations'] = {}
+        background_shader_data['locations'] = {}
         
         # (position/normal/uv)
         color_shader_data['locations']['vertex_position'] = (
@@ -148,6 +176,10 @@ class Renderpy:
             mask_shader_data['locations'][variable] = (
                     glGetUniformLocation(mask_program, variable))
         
+        for variable in 'camera_pose', 'projection_matrix':
+            background_shader_data['locations'][variable] = (
+                    glGetUniformLocation(background_program, variable))
+        
         # (material data)
         color_shader_data['locations']['material_properties'] = (
                 glGetUniformLocation(color_program, 'material_properties'))
@@ -168,6 +200,7 @@ class Renderpy:
         
         self.gl_data['color_shader'] = color_shader_data
         self.gl_data['mask_shader'] = mask_shader_data
+        self.gl_data['background_shader'] = background_shader_data
     
     def load_scene(self, scene, clear_existing=False):
     
@@ -179,6 +212,9 @@ class Renderpy:
         
         for material in scene['materials']:
             self.load_material(material, **scene['materials'][material])
+        
+        for background in scene['background']:
+            self.load_background(background, **scene['background'][background])
         
         for instance in scene['instances']:
             self.add_instance(instance, **scene['instances'][instance])
@@ -198,7 +234,7 @@ class Renderpy:
         
         if 'camera' in scene:
             if 'pose' in scene['camera']:
-                self.move_camera(scene['camera']['pose'])
+                self.set_camera_pose(scene['camera']['pose'])
             if 'projection' in scene['camera']:
                 self.set_projection(scene['camera']['projection'])
     
@@ -267,15 +303,33 @@ class Renderpy:
         self.loaded_data['meshes'][name] = mesh
         self.gl_data['mesh_buffers'][name] = mesh_buffers
     
+    def load_background_mesh(self):
+        if 'BACKGROUND' not in self.gl_data['mesh_buffers']:
+            mesh_buffers = {}
+            vertex_floats = numpy.array([
+                    [-1,-1,0],
+                    [-1, 1,0],
+                    [ 1, 1,0],
+                    [ 1,-1,0]])
+            mesh_buffers['vertex_buffer'] = vbo.VBO(vertex_floats)
+            
+            face_ints = numpy.array([
+                    [0,1,2],
+                    [2,3,0]], dtype=numpy.int32)
+            mesh_buffers['face_buffer'] = vbo.VBO(
+                    face_ints,
+                    target = GL_ELEMENT_ARRAY_BUFFER)
+            self.gl_data['mesh_buffers']['BACKGROUND'] = mesh_buffers
+    
     def remove_mesh(self, name):
-        del(self.scene_description['mesh_paths'][name])
+        del(self.scene_description['meshes'][name])
         self.gl_data['mesh_buffers'][name]['vertex_buffer'].delete()
         self.gl_data['mesh_buffers'][name]['face_buffer'].delete()
         del(self.gl_data['mesh_buffers'][name])
         del(self.loaded_data['meshes'][name])
     
     def clear_meshes(self):
-        for name in self.scene_description['meshes']:
+        for name in list(self.scene_description['meshes'].keys()):
             self.remove_mesh(name)
     
     def load_material(self,
@@ -310,27 +364,60 @@ class Renderpy:
         
         self.replace_texture(name, texture, crop)
     
+    def load_background(self,
+            name,
+            texture = None,
+            example_texture = None,
+            crop = None,
+            set_active = True):
+        
+        if texture is not None:
+            pass
+        
+        elif example_texture is not None:
+            texture = primitives.example_texture_paths[example_texture]
+        
+        else:
+            raise Exception('Must specify either a texture or example_texture '
+                    'when loading a background')
+        
+        material_buffers = {}
+        material_buffers['texture'] = glGenTextures(1)
+        self.gl_data['material_buffers'][name] = material_buffers
+        
+        self.scene_description['background'][name] = {}
+        self.replace_texture(name, texture, crop, texture_type='background')
+        
+        self.load_background_mesh()
+        
+        if set_active:
+            self.scene_description['active_background'] = name
+    
     def replace_texture(self,
             name,
             texture,
-            crop = None):
+            crop = None,
+            texture_type = 'materials'):
         
         if isinstance(texture, str):
-            self.scene_description['materials'][name]['texture'] = texture
+            self.scene_description[texture_type][name]['texture'] = texture
             image = scipy.misc.imread(texture)[:,:,:3]
         else:
-            self.scene_description['materials'][name]['texture'] = -1
+            self.scene_description[texture_type][name]['texture'] = -1
             image = texture
         
         if crop is not None:
             image = image[crop[0]:crop[2], crop[1]:crop[3]]
         
-        if image.shape[0] != image.shape[1]:
-            raise Exception('Only square textures are supported '
-                    '(got %i X %i)'%(image.shape[0], image.shape[1]))
+        #if image.shape[0] != image.shape[1]:
+        #    raise Exception('Only square textures are supported '
+        #            '(got %i X %i)'%(image.shape[0], image.shape[1]))
         if image.shape[0] not in [1,2,4,8,16,32,64,128,256,512,1024,2048,4096]:
-            raise Exception('Image height/width must be a power of 2 '
+            raise Exception('Image height must be a power of 2 '
                     'less than or equal to 4096 (Got %i)'%(image.shape[0]))
+        if image.shape[1] not in [1,2,4,8,16,32,64,128,256,512,1024,2048,4096]:
+            raise Exception('Image width must be a power of 2 '
+                    'less than or equal to 4096 (Got %i)'%(image.shape[1]))
         
         self.loaded_data['textures'][name] = image
         
@@ -339,7 +426,7 @@ class Renderpy:
         try:
             glTexImage2D(
                     GL_TEXTURE_2D, 0, GL_RGB,
-                    image.shape[0], image.shape[1], 0,
+                    image.shape[1], image.shape[0], 0,
                     GL_RGB, GL_UNSIGNED_BYTE, image)
             
             # GL_NEAREST?
@@ -413,8 +500,8 @@ class Renderpy:
         
         self.scene_description['direction_lights'][name] = {
                 'direction' : numpy.array(direction),
-                'color' : numpy.array(color),
-                'shadow_matrix' : shadow_matrix}
+                'color' : numpy.array(color)}
+                #'shadow_matrix' : shadow_matrix}
         
         '''
         if use_shadows:
@@ -452,6 +539,8 @@ class Renderpy:
         self.scene_description['ambient_color'] = numpy.array(color)
     
     def set_background_color(self, background_color):
+        if len(background_color) == 3:
+            background_color = tuple(background_color) + (1,)
         self.scene_description['background_color'] = background_color
     
     def set_projection(self, projection_matrix):
@@ -461,19 +550,28 @@ class Renderpy:
     def get_projection(self):
         return self.scene_description['camera']['projection']
     
-    def move_camera(self, camera_pose):
+    def set_camera_pose(self, camera_pose):
         self.scene_description['camera']['pose'] = numpy.array(
                 camera_pose)
     
     def get_camera_pose(self):
         return self.scene_description['camera']['pose']
     
+    def clear_frame(self):
+        glClearColor(*self.scene_description['background_color'])
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    
     def color_render(self, instances=None, flip_y=True):
         
         # clear
-        glClearColor(*self.scene_description['background_color'])
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        self.clear_frame()
         
+        # render the background
+        if self.scene_description['active_background'] is not None:
+            self.render_background(
+                    self.scene_description['active_background'],
+                    flip_y = flip_y)
+
         # turn on the color shader
         glUseProgram(self.gl_data['color_shader']['program'])
         
@@ -494,10 +592,10 @@ class Renderpy:
                 projection_matrix = numpy.dot(
                         projection_matrix,
                         numpy.array([
-                            [1,0,0,0],
-                            [0,-1,0,0],
-                            [0,0,1,0],
-                            [0,0,0,1]]))
+                            [ 1, 0, 0, 0],
+                            [ 0,-1, 0, 0],
+                            [ 0, 0, 1, 0],
+                            [ 0, 0, 0, 1]]))
             glUniformMatrix4fv(
                     location_data['projection_matrix'],
                     1, GL_TRUE,
@@ -612,6 +710,56 @@ class Renderpy:
             mesh_buffers['vertex_buffer'].unbind()
             glBindTexture(GL_TEXTURE_2D, 0)
     
+    def render_background(self, background_name, flip_y=True):
+            
+            glUseProgram(self.gl_data['background_shader']['program'])
+            
+            mesh_buffers = self.gl_data['mesh_buffers']['BACKGROUND']
+            material_buffers = self.gl_data['material_buffers'][background_name]
+            num_triangles = 2
+            
+            location_data = self.gl_data['background_shader']['locations']
+            
+            # set the camera's pose
+            camera_pose = self.scene_description['camera']['pose']
+            glUniformMatrix4fv(
+                    location_data['camera_pose'],
+                    1, GL_TRUE,
+                    camera_pose.astype(numpy.float32))
+            
+            # set the camera's projection matrix
+            projection_matrix = self.scene_description['camera']['projection']
+            if flip_y:
+                projection_matrix = numpy.dot(
+                        projection_matrix,
+                        numpy.array([
+                            [ 1, 0, 0, 0],
+                            [ 0,-1, 0, 0],
+                            [ 0, 0, 1, 0],
+                            [ 0, 0, 0, 1]]))
+            glUniformMatrix4fv(
+                    location_data['projection_matrix'],
+                    1, GL_TRUE,
+                    projection_matrix.astype(numpy.float32))
+            
+            
+            mesh_buffers['face_buffer'].bind()
+            mesh_buffers['vertex_buffer'].bind()
+            
+            glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
+            
+            try:
+                glDrawElements(
+                        GL_TRIANGLES,
+                        2*3,
+                        GL_UNSIGNED_INT,
+                        None)
+            
+            finally:
+                mesh_buffers['face_buffer'].unbind()
+                mesh_buffers['vertex_buffer'].unbind()
+                glBindTexture(GL_TEXTURE_2D, 0)
+    
     def mask_render(self, instances=None, flip_y=True):
         
         # clear
@@ -696,3 +844,61 @@ class Renderpy:
         finally:
             mesh_buffers['face_buffer'].unbind()
             mesh_buffers['vertex_buffer'].unbind()
+    
+    def render_transform(self, transform, axis_length = 0.1, flip_y = True):
+        glPushMatrix()
+        try:
+            projection_matrix = self.scene_description['camera']['projection']
+            if flip_y:
+                projection_matrix = numpy.dot(projection_matrix, numpy.array([
+                        [1, 0, 0, 0],
+                        [0,-1, 0, 0],
+                        [0, 0, 1, 0],
+                        [0, 0, 0, 1]]))
+            glMultMatrixf(numpy.transpose(numpy.dot(numpy.dot(
+                    projection_matrix,
+                    self.scene_description['camera']['pose']),
+                    transform)))
+        
+            glColor3f(1., 0., 0.);
+            glBegin(GL_LINES)
+            glVertex3f(0., 0., 0.);
+            glVertex3f(axis_length, 0., 0.);
+            glEnd();
+            
+            glColor3f(0., 1., 0.);
+            glBegin(GL_LINES)
+            glVertex3f(0., 0., 0.);
+            glVertex3f(0., axis_length, 0.);
+            glEnd();
+            
+            glColor3f(0., 0., 1.);
+            glBegin(GL_LINES)
+            glVertex3f(0., 0., 0.);
+            glVertex3f(0., 0., axis_length);
+            glEnd();
+            
+            glColor3f(1., 0., 1.);
+            glBegin(GL_LINES)
+            glVertex3f(0., 0., 0.);
+            glVertex3f(-axis_length, 0., 0.);
+            glEnd();
+            
+            glColor3f(1., 1., 0.);
+            glBegin(GL_LINES)
+            glVertex3f(0., 0., 0.);
+            glVertex3f(0., -axis_length, 0.);
+            glEnd();
+            
+            glColor3f(0., 1., 1.);
+            glBegin(GL_LINES)
+            glVertex3f(0., 0., 0.);
+            glVertex3f(0., 0., -axis_length);
+            glEnd();
+        
+        finally:
+            glPopMatrix()
+        
+    def render_vertices(self, instance_name, flip_y = True):
+        #TODO: add this for debugging purposes
+        raise NotImplementedError

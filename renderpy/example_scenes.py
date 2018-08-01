@@ -60,6 +60,188 @@ def first_test(width, height):
 
 def second_test():
     return {
+  "background":{},
+  "meshes": {
+    "test_cube": {
+      "primitive": "cube"
+    },
+    "test_sphere": {
+      "primitive": "sphere"
+    }
+  },
+  "materials": {
+    "spinner": {
+      "example_texture": "spinner_tex",
+      "ka": 1.0,
+      "kd": 1.0,
+      "ks": 0.5,
+      "shine": 4.0
+    },
+    "candy_color": {
+      "example_texture": "candy_color2",
+      "ka": 1.0,
+      "kd": 1.0,
+      "ks": 0.5,
+      "shine": 4.0
+    }
+  },
+  "instances": {
+    "cube1": {
+      "mesh_name": "test_cube",
+      "material_name": "spinner",
+      "transform": [
+        [
+          0.707,
+          0.0,
+          -0.707,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.707,
+          0.0,
+          0.707,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mask_color": [
+        0,
+        0,
+        0
+      ]
+    },
+    "sphere1": {
+      "mesh_name": "test_sphere",
+      "material_name": "candy_color",
+      "transform": [
+        [
+          0.707,
+          0.0,
+          -0.707,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          -0.707,
+          0.0,
+          -0.707,
+          -4.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mask_color": [
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  "ambient_color": [
+    0.2,
+    0.2,
+    0.2
+  ],
+  "point_lights": {},
+  "direction_lights": {
+    "light_main": {
+      "direction": [
+        0.5,
+        0.0,
+        -0.866
+      ],
+      "color": [
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  "camera": {
+    "pose": [
+      [
+        1,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1
+      ]
+    ],
+    "projection": [
+      [
+        1.0000000000000002,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0000000000000002,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        -1.002002002002002,
+        -0.20020020020020018
+      ],
+      [
+        0.0,
+        0.0,
+        -1.0,
+        0.0
+      ]
+    ]
+  }
+}
+
+
+
+def third_test():
+    return {
+  "background":{
+    "background_1": {
+      "example_texture": "woods_background",
+    }
+  },
   "meshes": {
     "test_cube": {
       "primitive": "cube"
