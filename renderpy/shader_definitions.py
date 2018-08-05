@@ -168,66 +168,47 @@ out vec4 fragment_direction;
 void main(){
     mat4 inv_vp = inverse(projection_matrix * camera_pose);
     float SMALL = 1-1e-5;
+    vec4 p0 = inverse(camera_pose) * vec4(0,0,0,1);
     if(gl_VertexID == 0){
         gl_Position = vec4(-1,-1,SMALL,1);
-        //fragment_direction = vec4(-1,-1,-1,0);
     }
     else if(gl_VertexID == 1){
         gl_Position = vec4(-1, 1,SMALL,1);
-        //fragment_direction = vec4(-1, 1,-1,0);
     }
     else if(gl_VertexID == 2){
         gl_Position = vec4( 1, 1,SMALL,1);
-        //fragment_direction = vec4( 1, 1,-1,0);
     }
     else if(gl_VertexID == 3){
         gl_Position = vec4( 1,-1,SMALL,1);
-        //fragment_direction = vec4( 1,-1,-1,0);
     }
     
-    vec4 direction = gl_Position;
-    //direction.z = 0.;
-    direction.w = 0.;
-    fragment_direction = inv_vp * direction;
+    vec4 p1 = inv_vp * gl_Position;
+    p1 /= p1.w;
+    fragment_direction = p1 - p0;
 }
 '''
 
 background_fragment_shader = '''#version 330 core
+#define M_PI 3.1415926535897932384626433832795
 in vec4 fragment_direction;
-
 out vec3 color;
 
 uniform sampler2D texture_sampler;
 
-#define M_PI 3.1415926535897932384626433832795
 
 void main(){
     
     vec3 target_direction = vec3(0,0,1);
     
-    
     vec2 uv;
     vec3 direction_n = normalize(vec3(fragment_direction));
-    uv.y = -asin(fragment_direction.y)/(M_PI * 0.5);
-    uv.y = (uv.y + 1) * 0.5;
+    uv.y = (-asin(direction_n.y) + M_PI * 0.5) / M_PI;
     
-    vec3 planar_n = direction_n;
-    planar_n.y = 0.;
-    planar_n = normalize(planar_n);
-    //uv.x = atan(planar_n.x, planar_n.z);
-    //uv.x = (uv.x / (2 * M_PI)) + 0.5;
-    //uv.x = asin(planar_n.x)/(M_PI * 0.5);
-    //uv.x = (uv.x + 1) * 0.5;
+    direction_n.y = 0;
+    direction_n = normalize(direction_n);
+    uv.x = atan(direction_n.x, direction_n.z) / (M_PI * 2);
     
-    //color = texture(texture_sampler, uv).rgb;
-    //color = vec3(direction_n.x*0.5+0.5, direction_n.y*0.5+0.5, direction_n.z*0.5+0.5);
-    
-    if(dot(target_direction, direction_n) < 0.05){
-        color = vec3(1,0,0);
-    }
-    else{
-        color = vec3(0,0,1);
-    }
+    color = texture(texture_sampler, uv).rgb;
 }
 '''
 

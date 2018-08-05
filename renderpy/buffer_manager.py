@@ -148,10 +148,10 @@ class BufferManager:
     
 
 if __name__ == '__main__':
-    width = 128
-    height = 128
+    width = 512
+    height = 512
     
-    buffer_manager = initialize_shared_buffer_manager()
+    buffer_manager = initialize_shared_buffer_manager(width)
     buffer_manager.add_frame('A', width, height)
     #buffer_manager.add_frame('B', width*2, height*2)
     
@@ -164,7 +164,7 @@ if __name__ == '__main__':
     
     theta = [0.0]
     translate = numpy.array([[1,0,0,0],[0,1,0,0],[0,0,1,6],[0,0,0,1]])
-    e = math.radians(-20)
+    e = math.radians(-40)
     elevate = numpy.array([
             [1, 0, 0, 0],
             [0, math.cos(e), -math.sin(e), 0],
@@ -186,7 +186,7 @@ if __name__ == '__main__':
         rendererA.set_camera_pose(c)
         #rendererB.set_camera_pose(c)
         
-        theta[0] += 0.001
+        theta[0] += 0.0001
         
         #buffer_manager.enable_frame('A')
         buffer_manager.show_window()
