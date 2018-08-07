@@ -366,16 +366,16 @@ class Renderpy:
     
     def load_background(self,
             name,
-            texture = None,
-            example_texture = None,
+            textures = None,
+            example_textures = None,
             crop = None,
             set_active = True):
         
-        if texture is not None:
+        if textures is not None:
             pass
         
-        elif example_texture is not None:
-            texture = primitives.example_texture_paths[example_texture]
+        elif example_textures is not None:
+            textures = primitives.example_cube_texture_paths[example_textures]
         
         else:
             raise Exception('Must specify either a texture or example_texture '
@@ -386,13 +386,62 @@ class Renderpy:
         self.gl_data['material_buffers'][name] = material_buffers
         
         self.scene_description['background'][name] = {}
-        self.replace_texture(name, texture, crop, texture_type='background')
+        self.replace_cube_textures(name, textures)
+        #self.replace_texture(name, texture, crop, texture_type='background')
         
         self.load_background_mesh()
         
         if set_active:
             self.scene_description['active_background'] = name
     
+    @staticmethod
+    def validate_texture(image):
+        if image.shape[0] not in [1,2,4,8,16,32,64,128,256,512,1024,2048,4096]:
+            raise Exception('Image height must be a power of 2 '
+                    'less than or equal to 4096 (Got %i)'%(image.shape[0]))
+        if image.shape[1] not in [1,2,4,8,16,32,64,128,256,512,1024,2048,4096]:
+            raise Exception('Image width must be a power of 2 '
+                    'less than or equal to 4096 (Got %i)'%(image.shape[1]))
+    
+    def replace_cube_textures(self,
+            name,
+            textures):
+        
+        if isinstance(textures[0], str):
+            self.scene_description['background'][name]['textures'] = textures
+            images = [scipy.misc.imread(texture)[:,:,:3]
+                    for texture in textures]
+        else:
+            self.scene_description['background'][name]['textures'] = -1
+            images = textures
+        
+        material_buffers = self.gl_data['material_buffers'][name]
+        glBindTexture(GL_TEXTURE_CUBE_MAP, material_buffers['texture'])
+        try:
+            for i, image in enumerate(images):
+                self.validate_texture(image)
+                glTexImage2D(
+                        GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                        0, GL_RGB, image.shape[1], image.shape[0], 0,
+                        GL_RGB, GL_UNSIGNED_BYTE, image)
+            
+            glTexParameteri(
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+            glTexParameteri(
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER,
+                    GL_LINEAR_MIPMAP_LINEAR)
+            glGenerateMipmap(GL_TEXTURE_CUBE_MAP)
+            glTexParameteri(
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+        finally:
+            glBindTexture(GL_TEXTURE_2D, 0)
+        
+        self.loaded_data['textures'][name] = images
+
     def replace_texture(self,
             name,
             texture,
@@ -412,13 +461,7 @@ class Renderpy:
         #if image.shape[0] != image.shape[1]:
         #    raise Exception('Only square textures are supported '
         #            '(got %i X %i)'%(image.shape[0], image.shape[1]))
-        if image.shape[0] not in [1,2,4,8,16,32,64,128,256,512,1024,2048,4096]:
-            raise Exception('Image height must be a power of 2 '
-                    'less than or equal to 4096 (Got %i)'%(image.shape[0]))
-        if image.shape[1] not in [1,2,4,8,16,32,64,128,256,512,1024,2048,4096]:
-            raise Exception('Image width must be a power of 2 '
-                    'less than or equal to 4096 (Got %i)'%(image.shape[1]))
-        
+        self.validate_texture(image)
         self.loaded_data['textures'][name] = image
         
         material_buffers = self.gl_data['material_buffers'][name]
@@ -746,7 +789,8 @@ class Renderpy:
             mesh_buffers['face_buffer'].bind()
             mesh_buffers['vertex_buffer'].bind()
             
-            glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
+            #glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
+            glBindTexture(GL_TEXTURE_CUBE_MAP, material_buffers['texture'])
             
             try:
                 glDrawElements(
@@ -758,7 +802,8 @@ class Renderpy:
             finally:
                 mesh_buffers['face_buffer'].unbind()
                 mesh_buffers['vertex_buffer'].unbind()
-                glBindTexture(GL_TEXTURE_2D, 0)
+                #glBindTexture(GL_TEXTURE_2D, 0)
+                glBindTexture(GL_TEXTURE_CUBE_MAP, 0)
     
     def mask_render(self, instances=None, flip_y=True):
         

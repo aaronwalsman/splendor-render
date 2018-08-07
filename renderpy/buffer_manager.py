@@ -156,7 +156,7 @@ if __name__ == '__main__':
     #buffer_manager.add_frame('B', width*2, height*2)
     
     rendererA = core.Renderpy()
-    rendererA.load_scene(example_scenes.third_test())
+    rendererA.load_scene(example_scenes.fourth_test())
     
     #rendererB = core.Renderpy()
     #rendererB.load_scene(example_scenes.second_test())

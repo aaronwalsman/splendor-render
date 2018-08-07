@@ -193,15 +193,15 @@ background_fragment_shader = '''#version 330 core
 in vec4 fragment_direction;
 out vec3 color;
 
-uniform sampler2D texture_sampler;
+//uniform sampler2D texture_sampler;
+uniform samplerCube cubemap_sampler;
 
 
 void main(){
     
-    vec3 target_direction = vec3(0,0,1);
-    
-    vec2 uv;
     vec3 direction_n = normalize(vec3(fragment_direction));
+    /*
+    vec2 uv;
     uv.y = (-asin(direction_n.y) + M_PI * 0.5) / M_PI;
     
     direction_n.y = 0;
@@ -209,6 +209,8 @@ void main(){
     uv.x = atan(direction_n.x, direction_n.z) / (M_PI * 2);
     
     color = texture(texture_sampler, uv).rgb;
+    */
+    color = vec3(texture(cubemap_sampler, direction_n));
 }
 '''
 
