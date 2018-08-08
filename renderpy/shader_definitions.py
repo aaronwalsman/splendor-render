@@ -67,8 +67,9 @@ uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
 uniform mat4 camera_pose;
 
-uniform sampler2D texture_sampler;
+uniform sampler2D diffuse_sampler;
 uniform sampler2D shadow_sampler;
+uniform samplerCube reflection_sampler;
 
 vec2 phong(
         vec3 contact_normal,
@@ -130,7 +131,8 @@ void main(){
                 shine);
         
         diffuse_contribution += light_color * light_phong.x;
-        specular_contribution += light_color * light_phong.y;
+        //specular_contribution += light_color * light_phong.y;
+        specular_contribution += light_color;
     }
     
     for(int i = 0; i < num_direction_lights; ++i){
@@ -146,15 +148,19 @@ void main(){
                 shine);
         
         diffuse_contribution += light_color * light_phong.x;
-        specular_contribution += light_color * light_phong.y;
+        //specular_contribution += light_color * light_phong.y;
+        specular_contribution += light_color;
     }
     
-    vec3 texture_color = texture(texture_sampler, fragment_uv).rgb;
+    vec3 texture_color = texture(diffuse_sampler, fragment_uv).rgb;
+    vec3 reflected_direction = vec3(inverse(camera_pose) * vec4(reflect(-eye_direction, fragment_normal_n),0));
+    vec3 reflected_color =
+            vec3(texture(reflection_sampler, reflected_direction));
     
     color = vec3(
             ambient_color * texture_color * ka +
             diffuse_contribution * texture_color * kd +
-            specular_contribution * ks);
+            specular_contribution * reflected_color * ks);
 }
 '''
 
@@ -163,54 +169,42 @@ background_vertex_shader = '''#version 330 core
 uniform mat4 projection_matrix;
 uniform mat4 camera_pose;
 
-out vec4 fragment_direction;
+out vec3 fragment_direction;
+
+#define FAR 1-(1e-5)
 
 void main(){
     mat4 inv_vp = inverse(projection_matrix * camera_pose);
-    float SMALL = 1-1e-5;
     vec4 p0 = inverse(camera_pose) * vec4(0,0,0,1);
     if(gl_VertexID == 0){
-        gl_Position = vec4(-1,-1,SMALL,1);
+        gl_Position = vec4(-1,-1,FAR,1);
     }
     else if(gl_VertexID == 1){
-        gl_Position = vec4(-1, 1,SMALL,1);
+        gl_Position = vec4(-1, 1,FAR,1);
     }
     else if(gl_VertexID == 2){
-        gl_Position = vec4( 1, 1,SMALL,1);
+        gl_Position = vec4( 1, 1,FAR,1);
     }
     else if(gl_VertexID == 3){
-        gl_Position = vec4( 1,-1,SMALL,1);
+        gl_Position = vec4( 1,-1,FAR,1);
     }
     
     vec4 p1 = inv_vp * gl_Position;
     p1 /= p1.w;
-    fragment_direction = p1 - p0;
+    fragment_direction = vec3(p1 - p0);
 }
 '''
 
 background_fragment_shader = '''#version 330 core
 #define M_PI 3.1415926535897932384626433832795
-in vec4 fragment_direction;
+in vec3 fragment_direction;
 out vec3 color;
 
-//uniform sampler2D texture_sampler;
 uniform samplerCube cubemap_sampler;
 
 
 void main(){
-    
-    vec3 direction_n = normalize(vec3(fragment_direction));
-    /*
-    vec2 uv;
-    uv.y = (-asin(direction_n.y) + M_PI * 0.5) / M_PI;
-    
-    direction_n.y = 0;
-    direction_n = normalize(direction_n);
-    uv.x = atan(direction_n.x, direction_n.z) / (M_PI * 2);
-    
-    color = texture(texture_sampler, uv).rgb;
-    */
-    color = vec3(texture(cubemap_sampler, direction_n));
+    color = vec3(texture(cubemap_sampler, fragment_direction));
 }
 '''
 

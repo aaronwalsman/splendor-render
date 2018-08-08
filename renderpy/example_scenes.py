@@ -421,12 +421,12 @@ def fourth_test():
   "background":{
     "background_1": {
       "textures":[
-            "/home/awalsman/Development/cube_maps/px.png",
-            "/home/awalsman/Development/cube_maps/nx.png",
-            "/home/awalsman/Development/cube_maps/py.png",
-            "/home/awalsman/Development/cube_maps/ny.png",
-            "/home/awalsman/Development/cube_maps/pz.png",
-            "/home/awalsman/Development/cube_maps/nz.png"]
+            "/home/awalsman/Development/cube_maps/woods/px.png",
+            "/home/awalsman/Development/cube_maps/woods/nx.png",
+            "/home/awalsman/Development/cube_maps/woods/py.png",
+            "/home/awalsman/Development/cube_maps/woods/ny.png",
+            "/home/awalsman/Development/cube_maps/woods/pz.png",
+            "/home/awalsman/Development/cube_maps/woods/nz.png"]
     }
   },
   "meshes": {
@@ -441,55 +441,20 @@ def fourth_test():
     "spinner": {
       "example_texture": "spinner_tex",
       "ka": 1.0,
-      "kd": 1.0,
-      "ks": 0.5,
+      "kd": 0.5,
+      "ks": 0.8,
       "shine": 4.0
     },
     "candy_color": {
       "example_texture": "candy_color2",
       "ka": 1.0,
-      "kd": 1.0,
+      "kd": 0.5,
       "ks": 0.5,
       "shine": 4.0
     }
   },
   "instances": {
     "cube1": {
-      "mesh_name": "test_cube",
-      "material_name": "spinner",
-      "transform": [
-        [
-          0.707,
-          0.0,
-          -0.707,
-          0.0
-        ],
-        [
-          0.0,
-          1.0,
-          0.0,
-          0.0
-        ],
-        [
-          0.707,
-          0.0,
-          0.707,
-          0.0
-        ],
-        [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ]
-      ],
-      "mask_color": [
-        0,
-        0,
-        0
-      ]
-    },
-    "sphere1": {
       "mesh_name": "test_sphere",
       "material_name": "candy_color",
       "transform": [
@@ -506,10 +471,45 @@ def fourth_test():
           0.0
         ],
         [
+          0.707,
+          0.0,
+          0.707,
+          -4.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mask_color": [
+        0,
+        0,
+        0
+      ]
+    },
+    "sphere1": {
+      "mesh_name": "test_sphere",
+      "material_name": "spinner",
+      "transform": [
+        [
+          0.707,
+          0.0,
+          -0.707,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
           -0.707,
           0.0,
           -0.707,
-          -4.0
+          0.0
         ],
         [
           0.0,

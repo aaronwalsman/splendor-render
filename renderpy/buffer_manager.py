@@ -34,6 +34,7 @@ class BufferManager:
         glutInit([])
         # GLUT_DOUBLE maxes out at 60fps
         #glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
+        #glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_MULTISAMPLE)
         glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH)
         glutInitWindowSize(window_size, window_size)
         self.window_id = glutCreateWindow('RENDERPY')
@@ -154,6 +155,9 @@ if __name__ == '__main__':
     buffer_manager = initialize_shared_buffer_manager(width)
     buffer_manager.add_frame('A', width, height)
     #buffer_manager.add_frame('B', width*2, height*2)
+    
+    #glutSetOption(GLUT_MULTISAMPLE, 4)
+    
     
     rendererA = core.Renderpy()
     rendererA.load_scene(example_scenes.fourth_test())

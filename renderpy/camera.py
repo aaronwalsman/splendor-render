@@ -64,13 +64,16 @@ def turntable_pose(
 def sample_turntable(
         distance_extents,
         num_poses,
-        orientation_range,
+        initial_orientation_extents,
+        orientation_spacing_range,
         elevation_extents,
         spin_extents,
         lift_extents):
     
     theta_step = math.pi * 2. / num_poses
-    theta = random.random() * math.pi * 2.
+    theta = random.random() * (
+            initial_orientation_extents[1] - initial_orientation_extents[0]) + (
+            initial_orientation_extents[0])
     
     poses = []
     for _ in range(num_poses):
@@ -78,8 +81,8 @@ def sample_turntable(
         distance = random.random() * distance_range + distance_extents[0]
         
         theta += theta_step
-        orientation = (theta + random.random() * orientation_range -
-                orientation_range * 0.5)
+        orientation = (theta + random.random() * orientation_spacing_range -
+                orientation_spacing_range * 0.5)
         
         elevation_range = elevation_extents[1] - elevation_extents[0]
         elevation = random.random() * elevation_range + elevation_extents[0]

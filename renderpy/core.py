@@ -184,6 +184,19 @@ class Renderpy:
         color_shader_data['locations']['material_properties'] = (
                 glGetUniformLocation(color_program, 'material_properties'))
         
+        # (sampler data)
+        color_shader_data['locations']['diffuse_sampler'] = (
+                glGetUniformLocation(color_program, 'diffuse_sampler'))
+        #color_shader_data['locations']['shadow_sampler'] = (
+        #        glGetUniformLocation(color_program, 'shadow_sampler'))
+        color_shader_data['locations']['reflection_sampler'] = (
+                glGetUniformLocation(color_program, 'reflection_sampler'))
+        
+        glUseProgram(color_program)
+        glUniform1i(color_shader_data['locations']['diffuse_sampler'], 0)
+        #glUniform1i(color_shader_data['locations']['shadow_sampler'], 1)
+        glUniform1i(color_shader_data['locations']['reflection_sampler'], 2)
+        
         # (light data)
         for variable in (
                 'ambient_color',
@@ -332,38 +345,6 @@ class Renderpy:
         for name in list(self.scene_description['meshes'].keys()):
             self.remove_mesh(name)
     
-    def load_material(self,
-            name,
-            texture = None,
-            example_texture = None,
-            ka = 1.0,
-            kd = 1.0,
-            ks = 0.5,
-            shine = 4.0,
-            crop = None):
-        
-        if texture is not None:
-            pass
-        
-        elif example_texture is not None:
-            texture = primitives.example_texture_paths[example_texture]
-        
-        else:
-            raise Exception('Must specify either a texture or example_texture '
-                    'when loading a material')
-        
-        self.scene_description['materials'][name] = {
-                'ka' : ka,
-                'kd' : kd,
-                'ks' : ks,
-                'shine' : shine}
-        
-        material_buffers = {}
-        material_buffers['texture'] = glGenTextures(1)
-        self.gl_data['material_buffers'][name] = material_buffers
-        
-        self.replace_texture(name, texture, crop)
-    
     def load_background(self,
             name,
             textures = None,
@@ -387,7 +368,6 @@ class Renderpy:
         
         self.scene_description['background'][name] = {}
         self.replace_cube_textures(name, textures)
-        #self.replace_texture(name, texture, crop, texture_type='background')
         
         self.load_background_mesh()
         
@@ -438,29 +418,57 @@ class Renderpy:
             glTexParameteri(
                     GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
         finally:
-            glBindTexture(GL_TEXTURE_2D, 0)
+            glBindTexture(GL_TEXTURE_CUBE_MAP, 0)
         
         self.loaded_data['textures'][name] = images
-
+    
+    def load_material(self,
+            name,
+            texture = None,
+            example_texture = None,
+            ka = 1.0,
+            kd = 1.0,
+            ks = 0.5,
+            shine = 4.0,
+            crop = None):
+        
+        if texture is not None:
+            pass
+        
+        elif example_texture is not None:
+            texture = primitives.example_texture_paths[example_texture]
+        
+        else:
+            raise Exception('Must specify either a texture or example_texture '
+                    'when loading a material')
+        
+        self.scene_description['materials'][name] = {
+                'ka' : ka,
+                'kd' : kd,
+                'ks' : ks,
+                'shine' : shine}
+        
+        material_buffers = {}
+        material_buffers['texture'] = glGenTextures(1)
+        self.gl_data['material_buffers'][name] = material_buffers
+        
+        self.replace_texture(name, texture, crop)
+    
     def replace_texture(self,
             name,
             texture,
-            crop = None,
-            texture_type = 'materials'):
+            crop = None):
         
         if isinstance(texture, str):
-            self.scene_description[texture_type][name]['texture'] = texture
+            self.scene_description['materials'][name]['texture'] = texture
             image = scipy.misc.imread(texture)[:,:,:3]
         else:
-            self.scene_description[texture_type][name]['texture'] = -1
+            self.scene_description['materials'][name]['texture'] = -1
             image = texture
         
         if crop is not None:
             image = image[crop[0]:crop[2], crop[1]:crop[3]]
         
-        #if image.shape[0] != image.shape[1]:
-        #    raise Exception('Only square textures are supported '
-        #            '(got %i X %i)'%(image.shape[0], image.shape[1]))
         self.validate_texture(image)
         self.loaded_data['textures'][name] = image
         
@@ -610,13 +618,18 @@ class Renderpy:
         self.clear_frame()
         
         # render the background
-        if self.scene_description['active_background'] is not None:
-            self.render_background(
-                    self.scene_description['active_background'],
-                    flip_y = flip_y)
+        background_name = self.scene_description['active_background']
+        if background_name is not None:
+            self.render_background(background_name, flip_y = flip_y)
 
         # turn on the color shader
         glUseProgram(self.gl_data['color_shader']['program'])
+        
+        # set the background as the reflection cube map
+        if background_name is not None:
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, self.gl_data[
+                    'material_buffers'][background_name]['texture'])
         
         try:
             
@@ -721,6 +734,7 @@ class Renderpy:
         mesh_buffers['face_buffer'].bind()
         mesh_buffers['vertex_buffer'].bind()
         
+        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
         
         try:
