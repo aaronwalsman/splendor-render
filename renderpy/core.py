@@ -106,6 +106,7 @@ class Renderpy:
         print('OpenGL Version: %s'%version)
         
         glEnable(GL_DEPTH_TEST)
+        glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS)
         glDepthMask(GL_TRUE)
         glDepthFunc(GL_LESS)
         glDepthRange(0.0, 1.0)
@@ -184,18 +185,25 @@ class Renderpy:
         color_shader_data['locations']['material_properties'] = (
                 glGetUniformLocation(color_program, 'material_properties'))
         
+        # (image light properties)
+        color_shader_data['locations']['image_light_properties'] = (
+                glGetUniformLocation(color_program, 'image_light_properties'))
+        
         # (sampler data)
-        color_shader_data['locations']['diffuse_sampler'] = (
-                glGetUniformLocation(color_program, 'diffuse_sampler'))
+        color_shader_data['locations']['texture_sampler'] = (
+                glGetUniformLocation(color_program, 'texture_sampler'))
         #color_shader_data['locations']['shadow_sampler'] = (
         #        glGetUniformLocation(color_program, 'shadow_sampler'))
+        color_shader_data['locations']['diffuse_sampler'] = (
+                glGetUniformLocation(color_program, 'diffuse_sampler'))
         color_shader_data['locations']['reflection_sampler'] = (
                 glGetUniformLocation(color_program, 'reflection_sampler'))
         
         glUseProgram(color_program)
-        glUniform1i(color_shader_data['locations']['diffuse_sampler'], 0)
+        glUniform1i(color_shader_data['locations']['texture_sampler'], 0)
         #glUniform1i(color_shader_data['locations']['shadow_sampler'], 1)
-        glUniform1i(color_shader_data['locations']['reflection_sampler'], 2)
+        glUniform1i(color_shader_data['locations']['diffuse_sampler'], 2)
+        glUniform1i(color_shader_data['locations']['reflection_sampler'], 3)
         
         # (light data)
         for variable in (
@@ -347,27 +355,44 @@ class Renderpy:
     
     def load_background(self,
             name,
-            textures = None,
-            example_textures = None,
+            diffuse_textures = None,
+            example_diffuse_textures = None,
+            reflection_textures = None,
+            example_reflection_textures = None,
             crop = None,
             set_active = True):
         
-        if textures is not None:
+        if diffuse_textures is not None:
             pass
         
-        elif example_textures is not None:
-            textures = primitives.example_cube_texture_paths[example_textures]
+        elif example_diffuse_textures is not None:
+            diffuse_textures = primitives.example_cube_texture_paths[
+                    example_diffuse_textures]
         
         else:
-            raise Exception('Must specify either a texture or example_texture '
+            raise Exception('Must specify either a '
+                    'diffuse_texture or example_diffuse_texture '
+                    'when loading a background')
+        
+        if reflection_textures is not None:
+            pass
+        
+        elif example_reflection_textures is not None:
+            reflection_textures = primitives.example_cube_texture_paths[
+                    example_reflection_textures]
+        
+        else:
+            raise Exception('Must specify either a '
+                    'diffuse_texture or example_diffuse_texture '
                     'when loading a background')
         
         material_buffers = {}
-        material_buffers['texture'] = glGenTextures(1)
+        material_buffers['diffuse_texture'] = glGenTextures(1)
+        material_buffers['reflection_texture'] = glGenTextures(1)
         self.gl_data['material_buffers'][name] = material_buffers
         
         self.scene_description['background'][name] = {}
-        self.replace_cube_textures(name, textures)
+        self.replace_cube_textures(name, diffuse_textures, reflection_textures)
         
         self.load_background_mesh()
         
@@ -385,25 +410,33 @@ class Renderpy:
     
     def replace_cube_textures(self,
             name,
-            textures):
+            diffuse_textures,
+            reflection_textures):
         
-        if isinstance(textures[0], str):
-            self.scene_description['background'][name]['textures'] = textures
-            images = [scipy.misc.imread(texture)[:,:,:3]
-                    for texture in textures]
+        if isinstance(diffuse_textures[0], str):
+            self.scene_description['background'][name]['diffuse_textures'] = (
+                    diffuse_textures)
+            self.scene_description['background'][name]['reflection_textures'] =(
+                    reflection_textures)
+            diffuse_images = [scipy.misc.imread(diffuse_texture)[:,:,:3]
+                    for diffuse_texture in diffuse_textures]
+            reflection_images = [scipy.misc.imread(reflection_texture)[:,:,:3]
+                    for reflection_texture in reflection_textures]
         else:
             self.scene_description['background'][name]['textures'] = -1
-            images = textures
+            diffuse_images = diffuse_textures
+            reflection_images = reflection_textures
         
         material_buffers = self.gl_data['material_buffers'][name]
-        glBindTexture(GL_TEXTURE_CUBE_MAP, material_buffers['texture'])
+        glBindTexture(GL_TEXTURE_CUBE_MAP, material_buffers['diffuse_texture'])
         try:
-            for i, image in enumerate(images):
-                self.validate_texture(image)
+            for i, diffuse_image in enumerate(diffuse_images):
+                self.validate_texture(diffuse_image)
                 glTexImage2D(
                         GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                        0, GL_RGB, image.shape[1], image.shape[0], 0,
-                        GL_RGB, GL_UNSIGNED_BYTE, image)
+                        0, GL_RGB,
+                        diffuse_image.shape[1], diffuse_image.shape[0],
+                        0, GL_RGB, GL_UNSIGNED_BYTE, diffuse_image)
             
             glTexParameteri(
                     GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
@@ -412,15 +445,42 @@ class Renderpy:
                     GL_LINEAR_MIPMAP_LINEAR)
             glGenerateMipmap(GL_TEXTURE_CUBE_MAP)
             glTexParameteri(
-                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
             glTexParameteri(
-                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
             glTexParameteri(
-                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE)
         finally:
             glBindTexture(GL_TEXTURE_CUBE_MAP, 0)
         
-        self.loaded_data['textures'][name] = images
+        glBindTexture(
+                GL_TEXTURE_CUBE_MAP, material_buffers['reflection_texture'])
+        try:
+            for i, reflection_image in enumerate(reflection_images):
+                self.validate_texture(reflection_image)
+                glTexImage2D(
+                        GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                        0, GL_RGB,
+                        reflection_image.shape[1], reflection_image.shape[0],
+                        0, GL_RGB, GL_UNSIGNED_BYTE, reflection_image)
+            
+            glTexParameteri(
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+            glTexParameteri(
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER,
+                    GL_LINEAR_MIPMAP_LINEAR)
+            glGenerateMipmap(GL_TEXTURE_CUBE_MAP)
+            glTexParameteri(
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+            glTexParameteri(
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+            glTexParameteri(
+                    GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE)
+        finally:
+            glBindTexture(GL_TEXTURE_CUBE_MAP, 0)
+        
+        self.loaded_data['textures'][name + '_diffuse'] = diffuse_images
+        self.loaded_data['textures'][name + '_reflect'] = reflection_images
     
     def load_material(self,
             name,
@@ -565,17 +625,17 @@ class Renderpy:
             glTexImage2D(
                     GL_TEXTURE_2D, 0, 0, GL_DEPTH_COMPONENT_16,
                     shadow_resolution[0], shadow_resolution[1],
-                    0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                    0, GL_DEPTH_COMPONENT, GL_FLOAT, 0)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
             glFrameBufferTexture(
                     GL_FRAME_BUFFER,
                     GL_DEPTH_ATTACHMENT,
                     buffers['depth_texture'],
-                    0);
-            glDrawBuffer(GL_NONE);
+                    0)
+            glDrawBuffer(GL_NONE)
             
             self.gl_data['light_buffers'][name] = buffers
         '''
@@ -627,9 +687,12 @@ class Renderpy:
         
         # set the background as the reflection cube map
         if background_name is not None:
-            glActiveTexture(GL_TEXTURE2);
+            glActiveTexture(GL_TEXTURE2)
             glBindTexture(GL_TEXTURE_CUBE_MAP, self.gl_data[
-                    'material_buffers'][background_name]['texture'])
+                    'material_buffers'][background_name]['diffuse_texture'])
+            glActiveTexture(GL_TEXTURE3)
+            glBindTexture(GL_TEXTURE_CUBE_MAP, self.gl_data[
+                    'material_buffers'][background_name]['reflection_texture'])
         
         try:
             
@@ -662,6 +725,11 @@ class Renderpy:
             glUniform3fv(
                     location_data['ambient_color'], 1,
                     ambient_color.astype(numpy.float32))
+            
+            # image light properties
+            glUniform3fv(
+                    location_data['image_light_properties'], 1,
+                    numpy.array([0.9, 0.1, 3]))
             
             # set the point light data
             glUniform1i(
@@ -734,7 +802,7 @@ class Renderpy:
         mesh_buffers['face_buffer'].bind()
         mesh_buffers['vertex_buffer'].bind()
         
-        glActiveTexture(GL_TEXTURE0);
+        glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
         
         try:
@@ -804,7 +872,10 @@ class Renderpy:
             mesh_buffers['vertex_buffer'].bind()
             
             #glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
-            glBindTexture(GL_TEXTURE_CUBE_MAP, material_buffers['texture'])
+            glActiveTexture(GL_TEXTURE0)
+            glBindTexture(
+                    GL_TEXTURE_CUBE_MAP,
+                    material_buffers['reflection_texture'])
             
             try:
                 glDrawElements(
@@ -919,41 +990,41 @@ class Renderpy:
                     self.scene_description['camera']['pose']),
                     transform)))
         
-            glColor3f(1., 0., 0.);
+            glColor3f(1., 0., 0.)
             glBegin(GL_LINES)
-            glVertex3f(0., 0., 0.);
-            glVertex3f(axis_length, 0., 0.);
-            glEnd();
+            glVertex3f(0., 0., 0.)
+            glVertex3f(axis_length, 0., 0.)
+            glEnd()
             
-            glColor3f(0., 1., 0.);
+            glColor3f(0., 1., 0.)
             glBegin(GL_LINES)
-            glVertex3f(0., 0., 0.);
-            glVertex3f(0., axis_length, 0.);
-            glEnd();
+            glVertex3f(0., 0., 0.)
+            glVertex3f(0., axis_length, 0.)
+            glEnd()
             
-            glColor3f(0., 0., 1.);
+            glColor3f(0., 0., 1.)
             glBegin(GL_LINES)
-            glVertex3f(0., 0., 0.);
-            glVertex3f(0., 0., axis_length);
-            glEnd();
+            glVertex3f(0., 0., 0.)
+            glVertex3f(0., 0., axis_length)
+            glEnd()
             
-            glColor3f(1., 0., 1.);
+            glColor3f(1., 0., 1.)
             glBegin(GL_LINES)
-            glVertex3f(0., 0., 0.);
-            glVertex3f(-axis_length, 0., 0.);
-            glEnd();
+            glVertex3f(0., 0., 0.)
+            glVertex3f(-axis_length, 0., 0.)
+            glEnd()
             
-            glColor3f(1., 1., 0.);
+            glColor3f(1., 1., 0.)
             glBegin(GL_LINES)
-            glVertex3f(0., 0., 0.);
-            glVertex3f(0., -axis_length, 0.);
-            glEnd();
+            glVertex3f(0., 0., 0.)
+            glVertex3f(0., -axis_length, 0.)
+            glEnd()
             
-            glColor3f(0., 1., 1.);
+            glColor3f(0., 1., 1.)
             glBegin(GL_LINES)
-            glVertex3f(0., 0., 0.);
-            glVertex3f(0., 0., -axis_length);
-            glEnd();
+            glVertex3f(0., 0., 0.)
+            glVertex3f(0., 0., -axis_length)
+            glEnd()
         
         finally:
             glPopMatrix()

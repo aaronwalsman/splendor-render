@@ -420,7 +420,14 @@ def fourth_test():
     return {
   "background":{
     "background_1": {
-      "textures":[
+      "diffuse_textures":[
+            "/home/awalsman/Development/cube_maps/woods_contrast_diffuse/px.png",
+            "/home/awalsman/Development/cube_maps/woods_contrast_diffuse/nx.png",
+            "/home/awalsman/Development/cube_maps/woods_contrast_diffuse/py.png",
+            "/home/awalsman/Development/cube_maps/woods_contrast_diffuse/ny.png",
+            "/home/awalsman/Development/cube_maps/woods_contrast_diffuse/pz.png",
+            "/home/awalsman/Development/cube_maps/woods_contrast_diffuse/nz.png"],
+      "reflection_textures":[
             "/home/awalsman/Development/cube_maps/woods/px.png",
             "/home/awalsman/Development/cube_maps/woods/nx.png",
             "/home/awalsman/Development/cube_maps/woods/py.png",
@@ -438,8 +445,15 @@ def fourth_test():
     }
   },
   "materials": {
-    "spinner": {
-      "example_texture": "spinner_tex",
+    "cliff": {
+      "example_texture": "cliff",
+      "ka": 1.0,
+      "kd": 0.5,
+      "ks": 0.8,
+      "shine": 4.0
+    },
+    "white": {
+      "example_texture": "white",
       "ka": 1.0,
       "kd": 0.5,
       "ks": 0.8,
@@ -454,7 +468,7 @@ def fourth_test():
     }
   },
   "instances": {
-    "cube1": {
+    "sphere2": {
       "mesh_name": "test_sphere",
       "material_name": "candy_color",
       "transform": [
@@ -491,13 +505,13 @@ def fourth_test():
     },
     "sphere1": {
       "mesh_name": "test_sphere",
-      "material_name": "spinner",
+      "material_name": "white",
       "transform": [
         [
           0.707,
           0.0,
           -0.707,
-          0.0
+          4.0
         ],
         [
           0.0,
@@ -526,25 +540,12 @@ def fourth_test():
     }
   },
   "ambient_color": [
-    0.2,
-    0.2,
-    0.2
+    0.0,
+    0.0,
+    0.0
   ],
   "point_lights": {},
-  "direction_lights": {
-    "light_main": {
-      "direction": [
-        0.5,
-        0.0,
-        -0.866
-      ],
-      "color": [
-        1,
-        1,
-        1
-      ]
-    }
-  },
+  "direction_lights": {},
   "camera": {
     "pose": [
       [
@@ -574,14 +575,14 @@ def fourth_test():
     ],
     "projection": [
       [
-        1.73205081,
+        1.33205081,
         0.0,
         0.0,
         0.0
       ],
       [
         0.0,
-        1.73205081,
+        1.33205081,
         0.0,
         0.0
       ],

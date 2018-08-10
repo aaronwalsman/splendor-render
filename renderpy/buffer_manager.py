@@ -28,6 +28,9 @@ def initialize_shared_buffer_manager(*args, **kwargs):
         shared_buffer_manager.append(BufferManager(*args, **kwargs))
         return shared_buffer_manager[0]
 
+class FrameExistsError(Exception):
+    pass
+
 class BufferManager:
     def __init__(self, window_size = default_window_size):
         
@@ -68,7 +71,7 @@ class BufferManager:
     def add_frame(self, frame_name, width, height):
         
         if frame_name in self.framebuffer_data:
-            raise Exception('The frame %s is already in use'%frame_name)
+            raise FrameExistsError('The frame %s is already in use'%frame_name)
         
         # frame buffer
         frame_buffer = glGenFramebuffers(1)
@@ -162,13 +165,22 @@ if __name__ == '__main__':
     rendererA = core.Renderpy()
     rendererA.load_scene(example_scenes.fourth_test())
     
+    import meshmaker.primitives as primitives
+    nice_cube = primitives.Cube(bezel=0.025)
+    nice_mesh = nice_cube.build_mesh()
+    rendererA.load_mesh('nice_cube', mesh_data = nice_mesh)
+    rendererA.add_instance(
+            'nice_instance',
+            mesh_name = 'nice_cube',
+            material_name = 'cliff')
+    
     #rendererB = core.Renderpy()
     #rendererB.load_scene(example_scenes.second_test())
     #rendererB.set_instance_material('cube1', 'candy_color')
     
     theta = [0.0]
     translate = numpy.array([[1,0,0,0],[0,1,0,0],[0,0,1,6],[0,0,0,1]])
-    e = math.radians(-40)
+    e = math.radians(30)
     elevate = numpy.array([
             [1, 0, 0, 0],
             [0, math.cos(e), -math.sin(e), 0],
@@ -190,7 +202,7 @@ if __name__ == '__main__':
         rendererA.set_camera_pose(c)
         #rendererB.set_camera_pose(c)
         
-        theta[0] += 0.0001
+        theta[0] += 0.00025
         
         #buffer_manager.enable_frame('A')
         buffer_manager.show_window()

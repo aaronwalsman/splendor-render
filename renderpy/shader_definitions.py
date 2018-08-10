@@ -62,13 +62,15 @@ uniform int enable_shadow_light;
 uniform vec3 shadow_light_color;
 //uniform mat4 shadow_light_pose;
 //uniform mat4 shadow_light_projection;
+uniform vec3 image_light_properties;
 uniform vec3 point_light_data[2*MAX_NUM_LIGHTS];
 uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
 uniform mat4 camera_pose;
 
-uniform sampler2D diffuse_sampler;
+uniform sampler2D texture_sampler;
 uniform sampler2D shadow_sampler;
+uniform samplerCube diffuse_sampler;
 uniform samplerCube reflection_sampler;
 
 vec2 phong(
@@ -98,6 +100,10 @@ void main(){
     float ks = material_properties.z;
     float shine = material_properties.w;
     
+    float k_image_light_diffuse = image_light_properties.x;
+    float k_image_light_reflect = image_light_properties.y;
+    float k_image_light_reflect_lod = image_light_properties.z;
+    
     vec3 ambient_contribution = ambient_color;
     vec3 diffuse_contribution = vec3(0.0);
     vec3 specular_contribution = vec3(0.0);
@@ -115,6 +121,20 @@ void main(){
     }
     */
     
+    // image light
+    vec3 image_light_diffuse = k_image_light_diffuse * vec3(
+            texture(diffuse_sampler, vec3(inverse(camera_pose) * vec4(
+            fragment_normal_n,0))));
+    
+    vec3 reflected_direction = vec3(
+            inverse(camera_pose) *
+            vec4(reflect(-eye_direction, fragment_normal_n),0));
+    vec3 reflected_color = vec3(texture(
+            reflection_sampler,
+            reflected_direction,
+            k_image_light_reflect_lod));
+    vec3 image_light_reflection = k_image_light_reflect * reflected_color;
+    
     for(int i = 0; i < num_point_lights; ++i){
         
         vec3 light_color = vec3(point_light_data[2*i]);
@@ -131,8 +151,7 @@ void main(){
                 shine);
         
         diffuse_contribution += light_color * light_phong.x;
-        //specular_contribution += light_color * light_phong.y;
-        specular_contribution += light_color;
+        specular_contribution += light_color * light_phong.y;
     }
     
     for(int i = 0; i < num_direction_lights; ++i){
@@ -148,19 +167,16 @@ void main(){
                 shine);
         
         diffuse_contribution += light_color * light_phong.x;
-        //specular_contribution += light_color * light_phong.y;
-        specular_contribution += light_color;
+        specular_contribution += light_color * light_phong.y;
     }
     
-    vec3 texture_color = texture(diffuse_sampler, fragment_uv).rgb;
-    vec3 reflected_direction = vec3(inverse(camera_pose) * vec4(reflect(-eye_direction, fragment_normal_n),0));
-    vec3 reflected_color =
-            vec3(texture(reflection_sampler, reflected_direction));
+    vec3 texture_color = texture(texture_sampler, fragment_uv).rgb;
     
     color = vec3(
             ambient_color * texture_color * ka +
             diffuse_contribution * texture_color * kd +
-            specular_contribution * reflected_color * ks);
+            specular_contribution * ks +
+            image_light_diffuse * texture_color + image_light_reflection);
 }
 '''
 
@@ -170,6 +186,7 @@ uniform mat4 projection_matrix;
 uniform mat4 camera_pose;
 
 out vec3 fragment_direction;
+out vec2 fragment_uv;
 
 #define FAR 1-(1e-5)
 
@@ -178,15 +195,19 @@ void main(){
     vec4 p0 = inverse(camera_pose) * vec4(0,0,0,1);
     if(gl_VertexID == 0){
         gl_Position = vec4(-1,-1,FAR,1);
+        fragment_uv = vec2(0,0);
     }
     else if(gl_VertexID == 1){
         gl_Position = vec4(-1, 1,FAR,1);
+        fragment_uv = vec2(0,1);
     }
     else if(gl_VertexID == 2){
         gl_Position = vec4( 1, 1,FAR,1);
+        fragment_uv = vec2(1,1);
     }
     else if(gl_VertexID == 3){
         gl_Position = vec4( 1,-1,FAR,1);
+        fragment_uv = vec2(1,0);
     }
     
     vec4 p1 = inv_vp * gl_Position;
@@ -196,15 +217,57 @@ void main(){
 '''
 
 background_fragment_shader = '''#version 330 core
-#define M_PI 3.1415926535897932384626433832795
 in vec3 fragment_direction;
 out vec3 color;
 
 uniform samplerCube cubemap_sampler;
 
-
 void main(){
     color = vec3(texture(cubemap_sampler, fragment_direction));
+}
+'''
+
+panorama_to_cube_fragment_shader = '''#version 330 core
+#define M_PI 3.1415926535897932384626433832795
+
+in vec4 fragment_direction;
+out vec3 color;
+
+uniform sampler2D texture_sampler;
+
+void main(){
+    vec3 target_direction = vec3(0,0,1);
+    vec2 uv;
+    vec3 direction_n = normalize(vec3(fragment_direction));
+    uv.y = (-asin(direction_n.y) + M_PI * 0.5) / M_PI;
+    direction_n.y = 0;
+    direction_n = normalize(direction_n);
+    uv.x = atan(direction_n.x, direction_n.z) / (M_PI * 2);
+    color = texture(texture_sampler, uv).rgb;
+}
+'''
+
+reflection_to_diffuse_fragment_shader = '''#version 330 core
+#define NUM_SAMPLES 512
+in vec3 fragment_direction;
+in vec2 fragment_uv;
+out vec3 color;
+
+uniform float color_scale;
+uniform samplerCube reflection_sampler;
+uniform vec3 sphere_samples[NUM_SAMPLES];
+
+void main(){
+    color = vec3(0,0,0);
+    vec3 fragment_direction_n = normalize(fragment_direction);
+    for(int i = 0; i < NUM_SAMPLES; ++i){
+        float d = dot(fragment_direction_n, sphere_samples[i]);
+        vec3 flipped_sample = sphere_samples[i] * sign(d);
+        vec3 sample_color = vec3(texture(reflection_sampler, flipped_sample));
+        color += sample_color * abs(d);
+    }
+    color /= NUM_SAMPLES;
+    color *= color_scale;
 }
 '''
 
