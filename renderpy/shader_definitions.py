@@ -253,6 +253,8 @@ in vec3 fragment_direction;
 in vec2 fragment_uv;
 out vec3 color;
 
+uniform float brightness;
+uniform float contrast;
 uniform float color_scale;
 uniform samplerCube reflection_sampler;
 uniform vec3 sphere_samples[NUM_SAMPLES];
@@ -264,6 +266,10 @@ void main(){
         float d = dot(fragment_direction_n, sphere_samples[i]);
         vec3 flipped_sample = sphere_samples[i] * sign(d);
         vec3 sample_color = vec3(texture(reflection_sampler, flipped_sample));
+        // brightness
+        sample_color += brightness;
+        // contrast
+        sample_color = (sample_color + 0.5) * contrast - 0.5;
         color += sample_color * abs(d);
     }
     color /= NUM_SAMPLES;

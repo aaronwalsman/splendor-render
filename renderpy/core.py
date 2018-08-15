@@ -729,7 +729,7 @@ class Renderpy:
             # image light properties
             glUniform3fv(
                     location_data['image_light_properties'], 1,
-                    numpy.array([0.9, 0.1, 3]))
+                    numpy.array([0.7, 0.3, 1.0]))
             
             # set the point light data
             glUniform1i(

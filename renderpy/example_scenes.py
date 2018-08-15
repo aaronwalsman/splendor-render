@@ -421,19 +421,19 @@ def fourth_test():
   "background":{
     "background_1": {
       "diffuse_textures":[
-            "/home/awalsman/Development/cube_maps/woods_contrast_diffuse/px.png",
-            "/home/awalsman/Development/cube_maps/woods_contrast_diffuse/nx.png",
-            "/home/awalsman/Development/cube_maps/woods_contrast_diffuse/py.png",
-            "/home/awalsman/Development/cube_maps/woods_contrast_diffuse/ny.png",
-            "/home/awalsman/Development/cube_maps/woods_contrast_diffuse/pz.png",
-            "/home/awalsman/Development/cube_maps/woods_contrast_diffuse/nz.png"],
+            "/home/awalsman/Development/cube_maps/skyscraper_diffuse/px.png",
+            "/home/awalsman/Development/cube_maps/skyscraper_diffuse/nx.png",
+            "/home/awalsman/Development/cube_maps/skyscraper_diffuse/py.png",
+            "/home/awalsman/Development/cube_maps/skyscraper_diffuse/ny.png",
+            "/home/awalsman/Development/cube_maps/skyscraper_diffuse/pz.png",
+            "/home/awalsman/Development/cube_maps/skyscraper_diffuse/nz.png"],
       "reflection_textures":[
-            "/home/awalsman/Development/cube_maps/woods/px.png",
-            "/home/awalsman/Development/cube_maps/woods/nx.png",
-            "/home/awalsman/Development/cube_maps/woods/py.png",
-            "/home/awalsman/Development/cube_maps/woods/ny.png",
-            "/home/awalsman/Development/cube_maps/woods/pz.png",
-            "/home/awalsman/Development/cube_maps/woods/nz.png"]
+            "/home/awalsman/Development/cube_maps/skyscraper/px.png",
+            "/home/awalsman/Development/cube_maps/skyscraper/nx.png",
+            "/home/awalsman/Development/cube_maps/skyscraper/py.png",
+            "/home/awalsman/Development/cube_maps/skyscraper/ny.png",
+            "/home/awalsman/Development/cube_maps/skyscraper/pz.png",
+            "/home/awalsman/Development/cube_maps/skyscraper/nz.png"]
     }
   },
   "meshes": {

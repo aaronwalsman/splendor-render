@@ -29,7 +29,11 @@ def sample_sphere_surface():
         if n <= 1.:
             return point / (n**0.5)
 
-def reflection_to_diffuse(reflection_cube, width):
+def reflection_to_diffuse(
+        reflection_cube,
+        width,
+        brightness = 0,
+        contrast = 1):
     
     # initialize the buffer manager
     manager = buffer_manager.initialize_shared_buffer_manager()
@@ -50,8 +54,11 @@ def reflection_to_diffuse(reflection_cube, width):
     
     glUseProgram(program)
     
+    # get shader variable locations
     projection_location = glGetUniformLocation(program, 'projection_matrix')
     camera_location = glGetUniformLocation(program, 'camera_pose')
+    brightness_location = glGetUniformLocation(program, 'brightness')
+    contrast_location = glGetUniformLocation(program, 'contrast')
     color_scale_location = glGetUniformLocation(program, 'color_scale')
     direction_location = glGetUniformLocation(program, 'sphere_samples')
     sampler_location = glGetUniformLocation(program, 'reflection_sampler')
@@ -72,6 +79,10 @@ def reflection_to_diffuse(reflection_cube, width):
     
     vertex_buffer.bind()
     face_buffer.bind()
+    
+    # brightness/contrast
+    glUniform1f(brightness_location, brightness)
+    glUniform1f(contrast_location, contrast)
     
     # color scale
     # this first color scale ensures that the range of values written to the
@@ -110,10 +121,7 @@ def reflection_to_diffuse(reflection_cube, width):
     
     # cameras
     projection_matrix = camera.projection_matrix(
-            math.radians(90),
-            1.0,
-            0.01,
-            1.0)
+            math.radians(90), 1.0, 0.01, 1.0)
     
     camera_poses = {
             'nz' : numpy.array([
@@ -154,7 +162,7 @@ def reflection_to_diffuse(reflection_cube, width):
     max_color = 0.
     for cube_face in camera_poses:
         camera_pose = camera_poses[cube_face]
-        glClear(GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glUniformMatrix4fv(camera_location, 1, GL_TRUE, camera_pose)
         glDrawElements(GL_TRIANGLES, 2*3, GL_UNSIGNED_INT, None)
         output_images[cube_face] = (
@@ -176,7 +184,7 @@ if __name__ == '__main__':
     cube_images = []
     for cube_face in 'px', 'nx', 'py', 'ny', 'pz', 'nz':
         image = numpy.array(imageio.imread(
-                '/home/awalsman/Development/cube_maps/woods_contrast/%s.png'%
+                '/home/awalsman/Development/cube_maps/skyscraper/%s.png'%
                 cube_face))
         cube_images.append(image[:,:,:3])
     
