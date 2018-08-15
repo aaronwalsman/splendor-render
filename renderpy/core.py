@@ -66,8 +66,8 @@ class Renderpy:
                     'pose':default_camera_pose,
                     'projection':default_camera_projection
                 },
-                'background':{},
-                'active_background':None
+                'image_lights':{},
+                'active_image_light':None
         }
         
         self.loaded_data = {
@@ -83,15 +83,6 @@ class Renderpy:
                 'mask_shader':{},
                 'background_shader':{}
         }
-        
-        self.background_vertices = numpy.array([
-                [-1,-1,0],
-                [-1, 1,0],
-                [ 1, 1,0],
-                [ 1,-1,0]])
-        self.background_faces = numpy.array([
-                [0,1,2],
-                [2,3,0]])
         
         self.opengl_init()
         self.compile_shaders()
@@ -177,7 +168,7 @@ class Renderpy:
             mask_shader_data['locations'][variable] = (
                     glGetUniformLocation(mask_program, variable))
         
-        for variable in 'camera_pose', 'projection_matrix':
+        for variable in 'camera_pose', 'projection_matrix', 'blur':
             background_shader_data['locations'][variable] = (
                     glGetUniformLocation(background_program, variable))
         
@@ -185,7 +176,7 @@ class Renderpy:
         color_shader_data['locations']['material_properties'] = (
                 glGetUniformLocation(color_program, 'material_properties'))
         
-        # (image light properties)
+        # (image light data)
         color_shader_data['locations']['image_light_properties'] = (
                 glGetUniformLocation(color_program, 'image_light_properties'))
         
@@ -198,12 +189,17 @@ class Renderpy:
                 glGetUniformLocation(color_program, 'diffuse_sampler'))
         color_shader_data['locations']['reflection_sampler'] = (
                 glGetUniformLocation(color_program, 'reflection_sampler'))
+        background_shader_data['locations']['cubemap_sampler'] = (
+                glGetUniformLocation(background_program, 'cubemap_sampler'))
         
         glUseProgram(color_program)
         glUniform1i(color_shader_data['locations']['texture_sampler'], 0)
         #glUniform1i(color_shader_data['locations']['shadow_sampler'], 1)
         glUniform1i(color_shader_data['locations']['diffuse_sampler'], 2)
         glUniform1i(color_shader_data['locations']['reflection_sampler'], 3)
+        
+        glUseProgram(background_program)
+        glUniform1i(background_shader_data['locations']['cubemap_sampler'], 0)
         
         # (light data)
         for variable in (
@@ -228,30 +224,42 @@ class Renderpy:
         if clear_existing:
             self.clear_scene()
         
-        for mesh in scene['meshes']:
-            self.load_mesh(mesh, **scene['meshes'][mesh])
+        if 'meshes' in scene:
+            for mesh in scene['meshes']:
+                self.load_mesh(mesh, **scene['meshes'][mesh])
         
-        for material in scene['materials']:
-            self.load_material(material, **scene['materials'][material])
+        if 'materials' in scene:
+            for material in scene['materials']:
+                self.load_material(material, **scene['materials'][material])
         
-        for background in scene['background']:
-            self.load_background(background, **scene['background'][background])
+        if 'active_image_light' in scene:
+            self.scene_description['active_image_light'] = (
+                    scene['active_image_light'])
         
-        for instance in scene['instances']:
-            self.add_instance(instance, **scene['instances'][instance])
+        if 'image_lights' in scene:
+            for image_light in scene['image_lights']:
+                image_light_arguments = scene['image_lights'][image_light]
+                image_light_arguments.setdefault('set_active', False)
+                self.load_image_light(image_light, **image_light_arguments)
+        
+        if 'instances' in scene:
+            for instance in scene['instances']:
+                self.add_instance(instance, **scene['instances'][instance])
         
         if 'ambient_color' in scene:
             self.set_ambient_color(scene['ambient_color'])
         
-        for point_light in scene['point_lights']:
-            self.add_point_light(
-                    point_light,
-                    **scene['point_lights'][point_light])
+        if 'point_lights' in scene:
+            for point_light in scene['point_lights']:
+                self.add_point_light(
+                        point_light,
+                        **scene['point_lights'][point_light])
         
-        for direction_light in scene['direction_lights']:
-            self.add_direction_light(
-                    direction_light,
-                    **scene['direction_lights'][direction_light])
+        if 'direction_lights' in scene:
+            for direction_light in scene['direction_lights']:
+                self.add_direction_light(
+                        direction_light,
+                        **scene['direction_lights'][direction_light])
         
         if 'camera' in scene:
             if 'pose' in scene['camera']:
@@ -262,6 +270,8 @@ class Renderpy:
     def clear_scene(self):
         self.clear_meshes()
         self.clear_materials()
+        self.scene_description['active_image_light'] = None
+        self.clear_image_lights()
         self.clear_instances()
         self.set_ambient_color([0,0,0])
         self.clear_point_lights()
@@ -270,16 +280,8 @@ class Renderpy:
     
     def reset_camera(self):
         self.scene_description['camera'] = {
-                'pose':numpy.array([
-                    [1,0,0,0],
-                    [0,1,0,0],
-                    [0,0,1,0],
-                    [0,0,0,1]]),
-                'projection':numpy.array([
-                    [1,0,0,0],
-                    [0,1,0,0],
-                    [0,0,1,0],
-                    [0,0,0,1]])}
+                'pose':default_camera_pose,
+                'projection':default_camera_projection}
     
     def load_mesh(self,
             name,
@@ -307,6 +309,7 @@ class Renderpy:
             raise Exception('Must supply a "mesh_path", "primitive" or '
                     '"mesh_data" when loading a mesh')
         
+        # create mesh buffers and load the mesh data
         mesh_buffers = {}
         
         vertex_floats = numpy.array(mesh['vertices'], dtype=numpy.float32)
@@ -321,10 +324,12 @@ class Renderpy:
                 face_ints,
                 target = GL_ELEMENT_ARRAY_BUFFER)
         
+        # store the loaded and gl data
         self.loaded_data['meshes'][name] = mesh
         self.gl_data['mesh_buffers'][name] = mesh_buffers
     
     def load_background_mesh(self):
+        # this doesn't use load_mesh above because it doesn't need/want uvs
         if 'BACKGROUND' not in self.gl_data['mesh_buffers']:
             mesh_buffers = {}
             vertex_floats = numpy.array([
@@ -353,12 +358,14 @@ class Renderpy:
         for name in list(self.scene_description['meshes'].keys()):
             self.remove_mesh(name)
     
-    def load_background(self,
+    def load_image_light(self,
             name,
             diffuse_textures = None,
             example_diffuse_textures = None,
             reflection_textures = None,
             example_reflection_textures = None,
+            blur = 0.0,
+            render_background = True,
             crop = None,
             set_active = True):
         
@@ -372,7 +379,7 @@ class Renderpy:
         else:
             raise Exception('Must specify either a '
                     'diffuse_texture or example_diffuse_texture '
-                    'when loading a background')
+                    'when loading an image_light')
         
         if reflection_textures is not None:
             pass
@@ -384,20 +391,24 @@ class Renderpy:
         else:
             raise Exception('Must specify either a '
                     'diffuse_texture or example_diffuse_texture '
-                    'when loading a background')
+                    'when loading an image_light')
         
-        material_buffers = {}
-        material_buffers['diffuse_texture'] = glGenTextures(1)
-        material_buffers['reflection_texture'] = glGenTextures(1)
-        self.gl_data['material_buffers'][name] = material_buffers
+        light_buffers = {}
+        light_buffers['diffuse_texture'] = glGenTextures(1)
+        light_buffers['reflection_texture'] = glGenTextures(1)
+        self.gl_data['light_buffers'][name] = light_buffers
         
-        self.scene_description['background'][name] = {}
-        self.replace_cube_textures(name, diffuse_textures, reflection_textures)
+        self.scene_description['image_lights'][name] = {}
+        self.scene_description['image_lights'][name]['blur'] = blur
+        self.scene_description['image_lights'][name]['render_background'] = (
+                render_background)
+        self.replace_image_light_textures(
+                name, diffuse_textures, reflection_textures)
         
         self.load_background_mesh()
         
         if set_active:
-            self.scene_description['active_background'] = name
+            self.scene_description['active_image_light'] = name
     
     @staticmethod
     def validate_texture(image):
@@ -408,27 +419,27 @@ class Renderpy:
             raise Exception('Image width must be a power of 2 '
                     'less than or equal to 4096 (Got %i)'%(image.shape[1]))
     
-    def replace_cube_textures(self,
+    def replace_image_light_textures(self,
             name,
             diffuse_textures,
             reflection_textures):
         
+        light_description = self.scene_description['image_lights'][name]
+        
         if isinstance(diffuse_textures[0], str):
-            self.scene_description['background'][name]['diffuse_textures'] = (
-                    diffuse_textures)
-            self.scene_description['background'][name]['reflection_textures'] =(
-                    reflection_textures)
+            light_description['diffuse_textures'] = diffuse_textures
+            light_description['reflection_textures'] = reflection_textures
             diffuse_images = [scipy.misc.imread(diffuse_texture)[:,:,:3]
                     for diffuse_texture in diffuse_textures]
             reflection_images = [scipy.misc.imread(reflection_texture)[:,:,:3]
                     for reflection_texture in reflection_textures]
         else:
-            self.scene_description['background'][name]['textures'] = -1
+            self.scene_description['image_lights'][name]['textures'] = -1
             diffuse_images = diffuse_textures
             reflection_images = reflection_textures
         
-        material_buffers = self.gl_data['material_buffers'][name]
-        glBindTexture(GL_TEXTURE_CUBE_MAP, material_buffers['diffuse_texture'])
+        light_buffers = self.gl_data['light_buffers'][name]
+        glBindTexture(GL_TEXTURE_CUBE_MAP, light_buffers['diffuse_texture'])
         try:
             for i, diffuse_image in enumerate(diffuse_images):
                 self.validate_texture(diffuse_image)
@@ -454,7 +465,7 @@ class Renderpy:
             glBindTexture(GL_TEXTURE_CUBE_MAP, 0)
         
         glBindTexture(
-                GL_TEXTURE_CUBE_MAP, material_buffers['reflection_texture'])
+                GL_TEXTURE_CUBE_MAP, light_buffers['reflection_texture'])
         try:
             for i, reflection_image in enumerate(reflection_images):
                 self.validate_texture(reflection_image)
@@ -482,6 +493,26 @@ class Renderpy:
         self.loaded_data['textures'][name + '_diffuse'] = diffuse_images
         self.loaded_data['textures'][name + '_reflect'] = reflection_images
     
+    def remove_image_light(self, name):
+        glDeleteTextures(
+                self.gl_data['light_buffers'][name]['diffuse_texture'])
+        glDeleteTextures(
+                self.gl_data['light_buffers'][name]['reflection_texture'])
+        del(self.gl_data['light_buffers'][name])
+        del(self.loaded_data['textures'][name + '_diffuse'])
+        del(self.loaded_data['textures'][name + '_reflect'])
+        del(self.scene_description['image_lights'][name])
+        
+        # delete the background mesh if there are no image lights left
+        if len(self.scene_description['image_lights']) == 0:
+            self.gl_data['mesh_buffers']['BACKGROUND']['vertex_buffer'].delete()
+            self.gl_data['mesh_buffers']['BACKGROUND']['face_buffer'].delete()
+            del(self.gl_data['mesh_buffers']['BACKGROUND'])
+    
+    def clear_image_lights(self):
+        for image_light in list(self.scene_description['image_lights'].keys()):
+            self.remove_image_light(image_light)
+    
     def load_material(self,
             name,
             texture = None,
@@ -490,6 +521,9 @@ class Renderpy:
             kd = 1.0,
             ks = 0.5,
             shine = 4.0,
+            image_light_kd = 0.7,
+            image_light_ks = 0.3,
+            image_light_blur_reflection = 0.0,
             crop = None):
         
         if texture is not None:
@@ -506,7 +540,10 @@ class Renderpy:
                 'ka' : ka,
                 'kd' : kd,
                 'ks' : ks,
-                'shine' : shine}
+                'shine' : shine,
+                'image_light_kd' : image_light_kd,
+                'image_light_ks' : image_light_ks,
+                'image_light_blur_reflection' : image_light_blur_reflection}
         
         material_buffers = {}
         material_buffers['texture'] = glGenTextures(1)
@@ -678,21 +715,24 @@ class Renderpy:
         self.clear_frame()
         
         # render the background
-        background_name = self.scene_description['active_background']
-        if background_name is not None:
-            self.render_background(background_name, flip_y = flip_y)
+        image_light_name = self.scene_description['active_image_light']
+        if image_light_name is not None:
+            image_light_description = (
+                    self.scene_description['image_lights'][image_light_name])
+            if image_light_description['render_background']:
+                self.render_background(image_light_name, flip_y = flip_y)
 
         # turn on the color shader
         glUseProgram(self.gl_data['color_shader']['program'])
         
-        # set the background as the reflection cube map
-        if background_name is not None:
+        # set the reflection cube map
+        if image_light_name is not None:
             glActiveTexture(GL_TEXTURE2)
             glBindTexture(GL_TEXTURE_CUBE_MAP, self.gl_data[
-                    'material_buffers'][background_name]['diffuse_texture'])
+                    'light_buffers'][image_light_name]['diffuse_texture'])
             glActiveTexture(GL_TEXTURE3)
             glBindTexture(GL_TEXTURE_CUBE_MAP, self.gl_data[
-                    'material_buffers'][background_name]['reflection_texture'])
+                    'light_buffers'][image_light_name]['reflection_texture'])
         
         try:
             
@@ -725,11 +765,6 @@ class Renderpy:
             glUniform3fv(
                     location_data['ambient_color'], 1,
                     ambient_color.astype(numpy.float32))
-            
-            # image light properties
-            glUniform3fv(
-                    location_data['image_light_properties'], 1,
-                    numpy.array([0.7, 0.3, 1.0]))
             
             # set the point light data
             glUniform1i(
@@ -784,6 +819,10 @@ class Renderpy:
                 material_data['kd'],
                 material_data['ks'],
                 material_data['shine']])
+        image_light_material_properties = numpy.array([
+                material_data['image_light_kd'],
+                material_data['image_light_ks'],
+                material_data['image_light_blur_reflection']])
         mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
         material_buffers = self.gl_data['material_buffers'][instance_material]
         num_triangles = len(self.loaded_data['meshes'][instance_mesh]['faces'])
@@ -798,6 +837,10 @@ class Renderpy:
         glUniform4fv(
                 location_data['material_properties'],
                 1, material_properties.astype(numpy.float32))
+        
+        glUniform3fv(
+                location_data['image_light_properties'], 1,
+                image_light_material_properties)
         
         mesh_buffers['face_buffer'].bind()
         mesh_buffers['vertex_buffer'].bind()
@@ -835,60 +878,61 @@ class Renderpy:
             mesh_buffers['vertex_buffer'].unbind()
             glBindTexture(GL_TEXTURE_2D, 0)
     
-    def render_background(self, background_name, flip_y=True):
+    def render_background(self, image_light_name, flip_y=True):
             
-            glUseProgram(self.gl_data['background_shader']['program'])
-            
-            mesh_buffers = self.gl_data['mesh_buffers']['BACKGROUND']
-            material_buffers = self.gl_data['material_buffers'][background_name]
-            num_triangles = 2
-            
-            location_data = self.gl_data['background_shader']['locations']
-            
-            # set the camera's pose
-            camera_pose = self.scene_description['camera']['pose']
-            glUniformMatrix4fv(
-                    location_data['camera_pose'],
-                    1, GL_TRUE,
-                    camera_pose.astype(numpy.float32))
-            
-            # set the camera's projection matrix
-            projection_matrix = self.scene_description['camera']['projection']
-            if flip_y:
-                projection_matrix = numpy.dot(
-                        projection_matrix,
-                        numpy.array([
-                            [ 1, 0, 0, 0],
-                            [ 0,-1, 0, 0],
-                            [ 0, 0, 1, 0],
-                            [ 0, 0, 0, 1]]))
-            glUniformMatrix4fv(
-                    location_data['projection_matrix'],
-                    1, GL_TRUE,
-                    projection_matrix.astype(numpy.float32))
-            
-            
-            mesh_buffers['face_buffer'].bind()
-            mesh_buffers['vertex_buffer'].bind()
-            
-            #glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
-            glActiveTexture(GL_TEXTURE0)
-            glBindTexture(
-                    GL_TEXTURE_CUBE_MAP,
-                    material_buffers['reflection_texture'])
-            
-            try:
-                glDrawElements(
-                        GL_TRIANGLES,
-                        2*3,
-                        GL_UNSIGNED_INT,
-                        None)
-            
-            finally:
-                mesh_buffers['face_buffer'].unbind()
-                mesh_buffers['vertex_buffer'].unbind()
-                #glBindTexture(GL_TEXTURE_2D, 0)
-                glBindTexture(GL_TEXTURE_CUBE_MAP, 0)
+        glUseProgram(self.gl_data['background_shader']['program'])
+        
+        mesh_buffers = self.gl_data['mesh_buffers']['BACKGROUND']
+        light_buffers = self.gl_data['light_buffers'][image_light_name]
+        num_triangles = 2
+        
+        location_data = self.gl_data['background_shader']['locations']
+        
+        # set the camera's pose
+        camera_pose = self.scene_description['camera']['pose']
+        glUniformMatrix4fv(
+                location_data['camera_pose'],
+                1, GL_TRUE,
+                camera_pose.astype(numpy.float32))
+        
+        # set the camera's projection matrix
+        projection_matrix = self.scene_description['camera']['projection']
+        if flip_y:
+            projection_matrix = numpy.dot(
+                    projection_matrix,
+                    numpy.array([
+                        [ 1, 0, 0, 0],
+                        [ 0,-1, 0, 0],
+                        [ 0, 0, 1, 0],
+                        [ 0, 0, 0, 1]]))
+        glUniformMatrix4fv(
+                location_data['projection_matrix'],
+                1, GL_TRUE,
+                projection_matrix.astype(numpy.float32))
+        
+        # set the blur
+        blur = self.scene_description['image_lights'][image_light_name]['blur']
+        glUniform1f(location_data['blur'], blur)
+        
+        mesh_buffers['face_buffer'].bind()
+        mesh_buffers['vertex_buffer'].bind()
+        
+        glActiveTexture(GL_TEXTURE0)
+        glBindTexture(
+                GL_TEXTURE_CUBE_MAP,
+                light_buffers['reflection_texture'])
+        
+        try:
+            glDrawElements(
+                    GL_TRIANGLES,
+                    2*3,
+                    GL_UNSIGNED_INT,
+                    None)
+        
+        finally:
+            mesh_buffers['face_buffer'].unbind()
+            mesh_buffers['vertex_buffer'].unbind()
+            glBindTexture(GL_TEXTURE_CUBE_MAP, 0)
     
     def mask_render(self, instances=None, flip_y=True):
         

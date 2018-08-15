@@ -180,7 +180,7 @@ if __name__ == '__main__':
     
     theta = [0.0]
     translate = numpy.array([[1,0,0,0],[0,1,0,0],[0,0,1,6],[0,0,0,1]])
-    e = math.radians(30)
+    e = math.radians(-30)
     elevate = numpy.array([
             [1, 0, 0, 0],
             [0, math.cos(e), -math.sin(e), 0],

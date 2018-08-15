@@ -102,7 +102,7 @@ void main(){
     
     float k_image_light_diffuse = image_light_properties.x;
     float k_image_light_reflect = image_light_properties.y;
-    float k_image_light_reflect_lod = image_light_properties.z;
+    float k_image_light_reflect_blur = image_light_properties.z;
     
     vec3 ambient_contribution = ambient_color;
     vec3 diffuse_contribution = vec3(0.0);
@@ -132,7 +132,7 @@ void main(){
     vec3 reflected_color = vec3(texture(
             reflection_sampler,
             reflected_direction,
-            k_image_light_reflect_lod));
+            k_image_light_reflect_blur));
     vec3 image_light_reflection = k_image_light_reflect * reflected_color;
     
     for(int i = 0; i < num_point_lights; ++i){
@@ -220,10 +220,11 @@ background_fragment_shader = '''#version 330 core
 in vec3 fragment_direction;
 out vec3 color;
 
+uniform float blur;
 uniform samplerCube cubemap_sampler;
 
 void main(){
-    color = vec3(texture(cubemap_sampler, fragment_direction));
+    color = vec3(texture(cubemap_sampler, fragment_direction, blur));
 }
 '''
 

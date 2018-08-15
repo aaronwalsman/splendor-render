@@ -139,7 +139,7 @@ def panorama_to_cube(panorama_image, cube_width, filter_panorama=False):
 
 if __name__ == '__main__':
     panorama_image = numpy.array(imageio.imread(
-            '/home/awalsman/Development/panoramas/skyscraper_2048.jpg'))
+            '/home/awalsman/Development/panoramas/blue_cave_2048.jpg'))
     out_images = panorama_to_cube(panorama_image, 512)
     for cube_face in out_images:
         imageio.imsave('./%s.png'%cube_face, out_images[cube_face])

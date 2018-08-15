@@ -418,24 +418,27 @@ def third_test():
 
 def fourth_test():
     return {
-  "background":{
+  "image_lights":{
     "background_1": {
       "diffuse_textures":[
-            "/home/awalsman/Development/cube_maps/skyscraper_diffuse/px.png",
-            "/home/awalsman/Development/cube_maps/skyscraper_diffuse/nx.png",
-            "/home/awalsman/Development/cube_maps/skyscraper_diffuse/py.png",
-            "/home/awalsman/Development/cube_maps/skyscraper_diffuse/ny.png",
-            "/home/awalsman/Development/cube_maps/skyscraper_diffuse/pz.png",
-            "/home/awalsman/Development/cube_maps/skyscraper_diffuse/nz.png"],
+            "/home/awalsman/Development/cube_maps/blue_hour_diffuse/px.png",
+            "/home/awalsman/Development/cube_maps/blue_hour_diffuse/nx.png",
+            "/home/awalsman/Development/cube_maps/blue_hour_diffuse/py.png",
+            "/home/awalsman/Development/cube_maps/blue_hour_diffuse/ny.png",
+            "/home/awalsman/Development/cube_maps/blue_hour_diffuse/pz.png",
+            "/home/awalsman/Development/cube_maps/blue_hour_diffuse/nz.png"],
       "reflection_textures":[
-            "/home/awalsman/Development/cube_maps/skyscraper/px.png",
-            "/home/awalsman/Development/cube_maps/skyscraper/nx.png",
-            "/home/awalsman/Development/cube_maps/skyscraper/py.png",
-            "/home/awalsman/Development/cube_maps/skyscraper/ny.png",
-            "/home/awalsman/Development/cube_maps/skyscraper/pz.png",
-            "/home/awalsman/Development/cube_maps/skyscraper/nz.png"]
+            "/home/awalsman/Development/cube_maps/blue_hour/px.png",
+            "/home/awalsman/Development/cube_maps/blue_hour/nx.png",
+            "/home/awalsman/Development/cube_maps/blue_hour/py.png",
+            "/home/awalsman/Development/cube_maps/blue_hour/ny.png",
+            "/home/awalsman/Development/cube_maps/blue_hour/pz.png",
+            "/home/awalsman/Development/cube_maps/blue_hour/nz.png"],
+      "blur":0,
+      "render_background":1
     }
   },
+  "active_image_light" : "background_1",
   "meshes": {
     "test_cube": {
       "primitive": "cube"
@@ -450,21 +453,30 @@ def fourth_test():
       "ka": 1.0,
       "kd": 0.5,
       "ks": 0.8,
-      "shine": 4.0
+      "shine": 4.0,
+      "image_light_kd": 0.85,
+      "image_light_ks": 0.15,
+      "image_light_blur_reflection": 3.0
     },
     "white": {
       "example_texture": "white",
       "ka": 1.0,
       "kd": 0.5,
       "ks": 0.8,
-      "shine": 4.0
+      "shine": 4.0,
+      "image_light_kd": 0.6,
+      "image_light_ks": 0.4,
+      "image_light_blur_reflection": 0.0
     },
     "candy_color": {
       "example_texture": "candy_color2",
       "ka": 1.0,
       "kd": 0.5,
       "ks": 0.5,
-      "shine": 4.0
+      "shine": 4.0,
+      "image_light_kd": 0.9,
+      "image_light_ks": 0.1,
+      "image_light_blur_reflection": 4.0
     }
   },
   "instances": {

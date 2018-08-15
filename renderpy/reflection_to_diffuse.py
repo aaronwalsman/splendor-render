@@ -184,7 +184,7 @@ if __name__ == '__main__':
     cube_images = []
     for cube_face in 'px', 'nx', 'py', 'ny', 'pz', 'nz':
         image = numpy.array(imageio.imread(
-                '/home/awalsman/Development/cube_maps/skyscraper/%s.png'%
+                '/home/awalsman/Development/cube_maps/blue_cave/%s.png'%
                 cube_face))
         cube_images.append(image[:,:,:3])
     
