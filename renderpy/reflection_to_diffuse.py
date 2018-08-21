@@ -89,7 +89,8 @@ def reflection_to_diffuse(
     # image are not too compressed
     pre_color_scale = 0.
     for cube_face in reflection_cube:
-        max_channel = numpy.max(cube_face, axis=0) / 255
+        cube_image = reflection_cube[cube_face]
+        max_channel = numpy.max(cube_image, axis=0) / 255
         pre_color_scale += numpy.sum(max_channel) / max_channel.size
     pre_color_scale /= 6.
     pre_color_scale = 2./pre_color_scale
@@ -107,11 +108,18 @@ def reflection_to_diffuse(
     texture_buffer = glGenTextures(1)
     glActiveTexture(GL_TEXTURE0)
     glBindTexture(GL_TEXTURE_CUBE_MAP, texture_buffer)
-    for i, cube_face in enumerate(reflection_cube):
+    ordered_reflection_cube = [
+            reflection_cube['px'],
+            reflection_cube['nx'],
+            reflection_cube['py'],
+            reflection_cube['ny'],
+            reflection_cube['pz'],
+            reflection_cube['nz']]
+    for i, cube_image in enumerate(ordered_reflection_cube):
         glTexImage2D(
                 GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                0, GL_RGB, cube_face.shape[1], cube_face.shape[0],
-                0, GL_RGB, GL_UNSIGNED_BYTE, cube_face)
+                0, GL_RGB, cube_image.shape[1], cube_image.shape[0],
+                0, GL_RGB, GL_UNSIGNED_BYTE, cube_image)
     
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
@@ -177,16 +185,17 @@ def reflection_to_diffuse(
     vertex_buffer.unbind()
     face_buffer.unbind()
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0)
+    glDeleteTextures(texture_buffer)
     
     return output_images
 
 if __name__ == '__main__':
-    cube_images = []
+    cube_images = {}
     for cube_face in 'px', 'nx', 'py', 'ny', 'pz', 'nz':
         image = numpy.array(imageio.imread(
-                '/home/awalsman/Development/cube_maps/blue_cave/%s.png'%
+                '/home/awalsman/Development/cube_maps/unit/%s.png'%
                 cube_face))
-        cube_images.append(image[:,:,:3])
+        cube_images[cube_face] = image[:,:,:3]
     
     out_images = reflection_to_diffuse(cube_images, 128)
     for cube_face in out_images:

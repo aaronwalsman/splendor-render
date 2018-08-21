@@ -408,7 +408,10 @@ class Renderpy:
         self.load_background_mesh()
         
         if set_active:
-            self.scene_description['active_image_light'] = name
+            self.set_active_image_light(name)
+    
+    def set_active_image_light(self, name):
+        self.scene_description['active_image_light'] = name
     
     @staticmethod
     def validate_texture(image):
@@ -434,7 +437,8 @@ class Renderpy:
             reflection_images = [scipy.misc.imread(reflection_texture)[:,:,:3]
                     for reflection_texture in reflection_textures]
         else:
-            self.scene_description['image_lights'][name]['textures'] = -1
+            light_description['diffuse_textures'] = -1
+            light_description['reflection_textures'] = -1
             diffuse_images = diffuse_textures
             reflection_images = reflection_textures
         
@@ -524,6 +528,7 @@ class Renderpy:
             image_light_kd = 0.7,
             image_light_ks = 0.3,
             image_light_blur_reflection = 0.0,
+            image_light_desaturate_reflection = 0.0,
             crop = None):
         
         if texture is not None:
@@ -543,7 +548,9 @@ class Renderpy:
                 'shine' : shine,
                 'image_light_kd' : image_light_kd,
                 'image_light_ks' : image_light_ks,
-                'image_light_blur_reflection' : image_light_blur_reflection}
+                'image_light_blur_reflection' : image_light_blur_reflection,
+                'image_light_desaturate_reflection' :
+                    image_light_desaturate_reflection}
         
         material_buffers = {}
         material_buffers['texture'] = glGenTextures(1)
@@ -822,7 +829,8 @@ class Renderpy:
         image_light_material_properties = numpy.array([
                 material_data['image_light_kd'],
                 material_data['image_light_ks'],
-                material_data['image_light_blur_reflection']])
+                material_data['image_light_blur_reflection'],
+                material_data['image_light_desaturate_reflection']])
         mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
         material_buffers = self.gl_data['material_buffers'][instance_material]
         num_triangles = len(self.loaded_data['meshes'][instance_mesh]['faces'])
@@ -838,7 +846,7 @@ class Renderpy:
                 location_data['material_properties'],
                 1, material_properties.astype(numpy.float32))
         
-        glUniform3fv(
+        glUniform4fv(
                 location_data['image_light_properties'], 1,
                 image_light_material_properties)
         
@@ -879,7 +887,6 @@ class Renderpy:
             glBindTexture(GL_TEXTURE_2D, 0)
     
     def render_background(self, image_light_name, flip_y=True):
-            
         glUseProgram(self.gl_data['background_shader']['program'])
         
         mesh_buffers = self.gl_data['mesh_buffers']['BACKGROUND']
@@ -1076,3 +1083,16 @@ class Renderpy:
     def render_vertices(self, instance_name, flip_y = True):
         #TODO: add this for debugging purposes
         raise NotImplementedError
+    
+    def list_image_lights(self):
+        return list(self.scene_description['image_lights'].keys())
+    
+    def list_meshes(self):
+        return list(self.scene_description['meshes'].keys())
+    
+    def list_materials(self):
+        return list(self.scene_description['materials'].keys())
+    
+    def list_instances(self):
+        return list(self.scene_description['instances'].keys())
+    

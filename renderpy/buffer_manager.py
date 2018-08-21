@@ -138,7 +138,7 @@ class BufferManager:
         pixels = glReadPixels(
                 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
         image = numpy.frombuffer(pixels, dtype=numpy.uint8).reshape(
-                width, height, 3)
+                height, width, 3)
         
         return image
     
@@ -202,7 +202,8 @@ if __name__ == '__main__':
         rendererA.set_camera_pose(c)
         #rendererB.set_camera_pose(c)
         
-        theta[0] += 0.00025
+        #theta[0] += 0.00025
+        theta[0] += math.pi * 2 / 50000.
         
         #buffer_manager.enable_frame('A')
         buffer_manager.show_window()
@@ -220,3 +221,11 @@ if __name__ == '__main__':
         rendered_frames +=1
         if rendered_frames % 100 == 0:
             print('hz: %.04f'%(rendered_frames / (time.time() - t0)))
+        
+        save_increment = 1000
+        if rendered_frames % save_increment == 0 and theta[0] <= math.pi * 2:
+            img = buffer_manager.read_pixels(None)
+            scipy.misc.imsave(
+                    './turntable_%i.png'%(rendered_frames/save_increment),
+                    numpy.flip(img, axis=0))
+

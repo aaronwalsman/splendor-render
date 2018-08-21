@@ -62,7 +62,7 @@ uniform int enable_shadow_light;
 uniform vec3 shadow_light_color;
 //uniform mat4 shadow_light_pose;
 //uniform mat4 shadow_light_projection;
-uniform vec3 image_light_properties;
+uniform vec4 image_light_properties;
 uniform vec3 point_light_data[2*MAX_NUM_LIGHTS];
 uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
@@ -103,6 +103,7 @@ void main(){
     float k_image_light_diffuse = image_light_properties.x;
     float k_image_light_reflect = image_light_properties.y;
     float k_image_light_reflect_blur = image_light_properties.z;
+    float k_image_light_reflect_desaturate = image_light_properties.w;
     
     vec3 ambient_contribution = ambient_color;
     vec3 diffuse_contribution = vec3(0.0);
@@ -133,6 +134,12 @@ void main(){
             reflection_sampler,
             reflected_direction,
             k_image_light_reflect_blur));
+    float reflected_avg = (
+            reflected_color.x + reflected_color.y + reflected_color.z) / 3.;
+    vec3 reflect_desaturate = vec3(reflected_avg, reflected_avg, reflected_avg);
+    reflected_color = mix(
+            reflected_color, reflect_desaturate,
+            k_image_light_reflect_desaturate);
     vec3 image_light_reflection = k_image_light_reflect * reflected_color;
     
     for(int i = 0; i < num_point_lights; ++i){
@@ -188,7 +195,7 @@ uniform mat4 camera_pose;
 out vec3 fragment_direction;
 out vec2 fragment_uv;
 
-#define FAR 1-(1e-5)
+#define FAR 1-(1e-4)
 
 void main(){
     mat4 inv_vp = inverse(projection_matrix * camera_pose);
@@ -213,6 +220,17 @@ void main(){
     vec4 p1 = inv_vp * gl_Position;
     p1 /= p1.w;
     fragment_direction = vec3(p1 - p0);
+}
+'''
+
+background_2D_fragment_shader = '''#version 330 core
+in vec2 fragment_uv;
+out vec3 color;
+
+uniform sampler2D texture_sampler;
+
+void main(){
+    color = texture(texture_sampler, fragment_uv).rgb;
 }
 '''
 
@@ -295,6 +313,7 @@ void main(){
     gl_Position = pvm * vec4(vertex_position,1);
 }
 '''
+
 mask_fragment_shader = '''#version 330 core
 
 out vec3 color;

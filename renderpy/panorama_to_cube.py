@@ -19,7 +19,7 @@ import shader_definitions
 import buffer_manager
 import camera
 
-def panorama_to_cube(panorama_image, cube_width, filter_panorama=False):
+def panorama_to_cube(panorama_image, cube_width, filter_panorama=True):
     
     # initialize the buffer manager
     manager = buffer_manager.initialize_shared_buffer_manager()
@@ -134,12 +134,13 @@ def panorama_to_cube(panorama_image, cube_width, filter_panorama=False):
     vertex_buffer.unbind()
     face_buffer.unbind()
     glBindTexture(GL_TEXTURE_2D, 0)
+    glDeleteTextures(texture_buffer)
     
     return output_images
 
 if __name__ == '__main__':
     panorama_image = numpy.array(imageio.imread(
-            '/home/awalsman/Development/panoramas/blue_cave_2048.jpg'))
+            '/home/awalsman/Development/panoramas/unit.jpg'))
     out_images = panorama_to_cube(panorama_image, 512)
     for cube_face in out_images:
         imageio.imsave('./%s.png'%cube_face, out_images[cube_face])
