@@ -3,6 +3,8 @@
 # system
 import random
 import math
+import os
+import sys
 
 # opengl
 from OpenGL.GL import *
@@ -33,7 +35,13 @@ def reflection_to_diffuse(
         reflection_cube,
         width,
         brightness = 0,
-        contrast = 1):
+        contrast = 1,
+        importance_threshold = 0.95,
+        num_importance_samples = 64,
+        importance_sample_gain = 0.25,
+        random_sample_gain = 0.75):
+    
+    num_random_samples = NUM_SAMPLES - num_importance_samples
     
     # initialize the buffer manager
     manager = buffer_manager.initialize_shared_buffer_manager()
@@ -61,6 +69,13 @@ def reflection_to_diffuse(
     contrast_location = glGetUniformLocation(program, 'contrast')
     color_scale_location = glGetUniformLocation(program, 'color_scale')
     direction_location = glGetUniformLocation(program, 'sphere_samples')
+    num_importance_sample_location = glGetUniformLocation(
+            program, 'num_importance_samples')
+    importance_gain_location = glGetUniformLocation(
+            program, 'importance_sample_gain')
+    random_gain_location = glGetUniformLocation(
+            program, 'random_sample_gain')
+
     sampler_location = glGetUniformLocation(program, 'reflection_sampler')
     glUniform1i(sampler_location, 0)
     
@@ -84,6 +99,7 @@ def reflection_to_diffuse(
     glUniform1f(brightness_location, brightness)
     glUniform1f(contrast_location, contrast)
     
+    '''
     # color scale
     # this first color scale ensures that the range of values written to the
     # image are not too compressed
@@ -94,15 +110,118 @@ def reflection_to_diffuse(
         pre_color_scale += numpy.sum(max_channel) / max_channel.size
     pre_color_scale /= 6.
     pre_color_scale = 2./pre_color_scale
+    '''
     
+    directions = numpy.zeros((NUM_SAMPLES,3))
+    
+    # importance direction samples
+    intensity_cube = {}
+    max_intensity = 0
+    pre_color_scale = 0
+    for cube_face in reflection_cube:
+        image = reflection_cube[cube_face].astype(numpy.float32)
+        intensity_cube[cube_face] = (
+                0.2989 * image[:,:,0] +
+                0.5870 * image[:,:,1] +
+                0.1140 * image[:,:,2])
+        pre_color_scale += (
+                numpy.sum(intensity_cube[cube_face]) /
+                (numpy.sum(intensity_cube[cube_face].size) * 255.))
+        max_intensity = max(max_intensity, numpy.max(intensity_cube[cube_face]))
+    
+    pre_color_scale /= 6.
+    pre_color_scale = 0.5/pre_color_scale
+    #print(pre_color_scale)
     glUniform1f(color_scale_location, pre_color_scale)
     
-    # direction samples
-    directions = numpy.zeros((NUM_SAMPLES,3))
-    for i in range(NUM_SAMPLES):
-        directions[i] = sample_sphere_surface()
+    intensity_threshold = max_intensity * importance_threshold
+    pixel_locations = []
+    for cube_face in intensity_cube:
+        y,x = numpy.where(
+                intensity_cube[cube_face] > intensity_threshold)
+        for i in range(len(x)):
+            pixel_locations.append((cube_face, x[i], y[i]))
+    
+    camera_poses = {
+            'px' : numpy.array([
+                [ 0, 0,-1, 0],
+                [ 0,-1, 0, 0],
+                [-1, 0, 0, 0],
+                [ 0, 0, 0, 1]]),
+            'nx' : numpy.array([
+                [ 0, 0, 1, 0],
+                [ 0,-1, 0, 0],
+                [ 1, 0, 0, 0],
+                [ 0, 0, 0, 1]]),
+            'py' : numpy.array([
+                [ 1, 0, 0, 0],
+                [ 0, 0, 1, 0],
+                [ 0,-1, 0, 0],
+                [ 0, 0, 0, 1]]),
+            'ny' : numpy.array([
+                [ 1, 0, 0, 0],
+                [ 0, 0,-1, 0],
+                [ 0, 1, 0, 0],
+                [ 0, 0, 0, 1]]),
+            'pz' : numpy.array([
+                [ 1, 0, 0, 0],
+                [ 0,-1, 0, 0],
+                [ 0, 0,-1, 0],
+                [ 0, 0, 0, 1]]),
+            'nz' : numpy.array([
+                [-1, 0, 0, 0],
+                [ 0,-1, 0, 0],
+                [ 0, 0, 1, 0],
+                [ 0, 0, 0, 1]])}
+    
+    face_rotations = {
+            'px':numpy.array([
+                    [ 0, 0,-1],
+                    [ 0,-1, 0],
+                    [-1, 0, 0]]),
+            'nx':numpy.array([
+                    [ 0, 0, 1],
+                    [ 0,-1, 0],
+                    [ 1, 0, 0]]),
+            'py':numpy.array([
+                    [ 1, 0, 0],
+                    [ 0, 0,-1],
+                    [ 0, 1, 0]]),
+            'ny':numpy.array([
+                    [ 1, 0, 0],
+                    [ 0, 0, 1],
+                    [ 0,-1, 0]]),
+            'pz':numpy.array([
+                    [ 1, 0, 0],
+                    [ 0,-1, 0],
+                    [ 0, 0,-1]]),
+            'nz':numpy.array([
+                    [-1, 0, 0],
+                    [ 0,-1, 0],
+                    [ 0, 0, 1]])}
+    
+    face_width = reflection_cube['px'].shape[0]
+    half_width = face_width / 2
+    for i in range(num_importance_samples):
+        cube_face, x, y = random.choice(pixel_locations)
+        position = (x-half_width, y-half_width,-half_width)
+        d = (position[0]**2 + position[1]**2 + position[2]**2)**0.5
+        direction = numpy.array(
+                [position[0]/d, position[1]/d, position[2]/d, 0])
+        #direction = numpy.dot(
+        #        face_rotations[cube_face], direction)
+        direction = numpy.dot(
+                numpy.linalg.inv(camera_poses[cube_face]), direction)
+        directions[i] = direction[:3]
+    
+    # random direction samples
+    for i in range(num_random_samples):
+        directions[num_importance_samples + i] = sample_sphere_surface()
     
     glUniform3fv(direction_location, NUM_SAMPLES, directions)
+    glUniform1i(num_importance_sample_location, num_importance_samples)
+    glUniform1f(importance_gain_location, importance_sample_gain)
+    glUniform1f(random_gain_location, random_sample_gain)
     
     # textures
     texture_buffer = glGenTextures(1)
@@ -131,38 +250,6 @@ def reflection_to_diffuse(
     projection_matrix = camera.projection_matrix(
             math.radians(90), 1.0, 0.01, 1.0)
     
-    camera_poses = {
-            'nz' : numpy.array([
-                [-1, 0, 0, 0],
-                [ 0,-1, 0, 0],
-                [ 0, 0, 1, 0],
-                [ 0, 0, 0, 1]]),
-            'pz' : numpy.array([
-                [ 1, 0, 0, 0],
-                [ 0,-1, 0, 0],
-                [ 0, 0,-1, 0],
-                [ 0, 0, 0, 1]]),
-            'px' : numpy.array([
-                [ 0, 0,-1, 0],
-                [ 0,-1, 0, 0],
-                [-1, 0, 0, 0],
-                [ 0, 0, 0, 1]]),
-            'nx' : numpy.array([
-                [ 0, 0, 1, 0],
-                [ 0,-1, 0, 0],
-                [ 1, 0, 0, 0],
-                [ 0, 0, 0, 1]]),
-            'py' : numpy.array([
-                [ 1, 0, 0, 0],
-                [ 0, 0, 1, 0],
-                [ 0,-1, 0, 0],
-                [ 0, 0, 0, 1]]),
-            'ny' : numpy.array([
-                [ 1, 0, 0, 0],
-                [ 0, 0,-1, 0],
-                [ 0, 1, 0, 0],
-                [ 0, 0, 0, 1]])}
-    
     glUniformMatrix4fv(projection_location, 1, GL_TRUE, projection_matrix)
     
     output_images = {}
@@ -190,13 +277,20 @@ def reflection_to_diffuse(
     return output_images
 
 if __name__ == '__main__':
+    arg_path = sys.argv[1]
     cube_images = {}
     for cube_face in 'px', 'nx', 'py', 'ny', 'pz', 'nz':
-        image = numpy.array(imageio.imread(
-                '/home/awalsman/Development/cube_maps/unit/%s.png'%
-                cube_face))
+        try:
+            image = numpy.array(imageio.imread(
+                    os.path.join(arg_path, '%s_ref.jpg'%cube_face)))
+        except FileNotFoundError:
+            image = numpy.array(imageio.imread(
+                    os.path.join(arg_path, '%s_ref.png'%cube_face)))
         cube_images[cube_face] = image[:,:,:3]
     
-    out_images = reflection_to_diffuse(cube_images, 128)
+    out_images = reflection_to_diffuse(
+            cube_images, 128, brightness=0, contrast=1)
     for cube_face in out_images:
-        imageio.imsave('./%s.png'%cube_face, out_images[cube_face])
+        imageio.imsave(
+                os.path.join(arg_path, '%s_dif.jpg'%cube_face),
+                out_images[cube_face])

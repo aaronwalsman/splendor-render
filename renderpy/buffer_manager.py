@@ -166,7 +166,8 @@ if __name__ == '__main__':
     rendererA.load_scene(example_scenes.fourth_test())
     
     import meshmaker.primitives as primitives
-    nice_cube = primitives.Cube(bezel=0.025)
+    nice_cube = primitives.Cube(bezel=0.05)
+    nice_cube.write_obj('./tmp.obj')
     nice_mesh = nice_cube.build_mesh()
     rendererA.load_mesh('nice_cube', mesh_data = nice_mesh)
     rendererA.add_instance(
@@ -179,7 +180,7 @@ if __name__ == '__main__':
     #rendererB.set_instance_material('cube1', 'candy_color')
     
     theta = [0.0]
-    translate = numpy.array([[1,0,0,0],[0,1,0,0],[0,0,1,6],[0,0,0,1]])
+    translate = numpy.array([[1,0,0,0],[0,1,0,0],[0,0,1,8],[0,0,0,1]])
     e = math.radians(-30)
     elevate = numpy.array([
             [1, 0, 0, 0],
@@ -202,6 +203,16 @@ if __name__ == '__main__':
         rendererA.set_camera_pose(c)
         #rendererB.set_camera_pose(c)
         
+        blur = (rendered_frames % 10000)/10000. * 8
+        
+        '''
+        rendererA.scene_description['image_lights']['background_1']['blur'] = (
+                blur)
+        '''
+        '''
+        rendererA.scene_description['materials']['cliff']['image_light_blur_reflection'] = blur
+        rendererA.scene_description['materials']['white']['image_light_blur_reflection'] = blur
+        '''
         #theta[0] += 0.00025
         theta[0] += math.pi * 2 / 50000.
         
@@ -223,9 +234,11 @@ if __name__ == '__main__':
             print('hz: %.04f'%(rendered_frames / (time.time() - t0)))
         
         save_increment = 1000
+        '''
         if rendered_frames % save_increment == 0 and theta[0] <= math.pi * 2:
             img = buffer_manager.read_pixels(None)
             scipy.misc.imsave(
                     './turntable_%i.png'%(rendered_frames/save_increment),
                     numpy.flip(img, axis=0))
+        '''
 

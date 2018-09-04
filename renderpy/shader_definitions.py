@@ -242,7 +242,7 @@ uniform float blur;
 uniform samplerCube cubemap_sampler;
 
 void main(){
-    color = vec3(texture(cubemap_sampler, fragment_direction, blur));
+    color = vec3(textureLod(cubemap_sampler, fragment_direction, blur));
 }
 '''
 
@@ -277,10 +277,16 @@ uniform float contrast;
 uniform float color_scale;
 uniform samplerCube reflection_sampler;
 uniform vec3 sphere_samples[NUM_SAMPLES];
+uniform int num_importance_samples;
+uniform float importance_sample_gain;
+uniform float random_sample_gain;
 
 void main(){
-    color = vec3(0,0,0);
+    vec3 importance_color = vec3(0,0,0);
+    vec3 random_color = vec3(0,0,0);
     vec3 fragment_direction_n = normalize(fragment_direction);
+    int visible_importance_samples = 0;
+    int visible_random_samples = 0;
     for(int i = 0; i < NUM_SAMPLES; ++i){
         float d = dot(fragment_direction_n, sphere_samples[i]);
         vec3 flipped_sample = sphere_samples[i] * sign(d);
@@ -289,10 +295,38 @@ void main(){
         sample_color += brightness;
         // contrast
         sample_color = (sample_color + 0.5) * contrast - 0.5;
-        color += sample_color * abs(d);
+        /*
+        float gain = importance_sample_gain;
+        if(i >= num_importance_samples || d < 0.){
+            gain = random_sample_gain;
+        }
+        color += sample_color * abs(d) * gain;
+        */
+        if(i >= num_importance_samples){ // || d < 0.){
+            random_color += sample_color * abs(d);
+            visible_random_samples += 1;
+        }
+        else{
+            importance_color += sample_color * abs(d);
+            visible_importance_samples += 1;
+        }
     }
+    if(visible_importance_samples > 0){
+        importance_color /= visible_importance_samples;
+    }
+    if(visible_random_samples > 0){
+        random_color /= visible_random_samples;
+    }
+    
+    color = (importance_sample_gain * importance_color +
+            random_sample_gain * random_color) /
+            (importance_sample_gain + random_sample_gain);
+    color *= color_scale;
+    
+    /*
     color /= NUM_SAMPLES;
     color *= color_scale;
+    */
 }
 '''
 

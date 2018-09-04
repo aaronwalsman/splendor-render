@@ -96,6 +96,7 @@ class Renderpy:
         print('Renderer: %s'%renderer)
         print('OpenGL Version: %s'%version)
         
+        #glEnable(GL_MULTISAMPLE)
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS)
         glDepthMask(GL_TRUE)
@@ -364,6 +365,7 @@ class Renderpy:
             example_diffuse_textures = None,
             reflection_textures = None,
             example_reflection_textures = None,
+            reflection_mipmaps = None,
             blur = 0.0,
             render_background = True,
             crop = None,
@@ -403,7 +405,7 @@ class Renderpy:
         self.scene_description['image_lights'][name]['render_background'] = (
                 render_background)
         self.replace_image_light_textures(
-                name, diffuse_textures, reflection_textures)
+                name, diffuse_textures, reflection_textures, reflection_mipmaps)
         
         self.load_background_mesh()
         
@@ -425,22 +427,38 @@ class Renderpy:
     def replace_image_light_textures(self,
             name,
             diffuse_textures,
-            reflection_textures):
+            reflection_textures,
+            reflection_mipmaps = None):
         
         light_description = self.scene_description['image_lights'][name]
         
         if isinstance(diffuse_textures[0], str):
             light_description['diffuse_textures'] = diffuse_textures
-            light_description['reflection_textures'] = reflection_textures
             diffuse_images = [scipy.misc.imread(diffuse_texture)[:,:,:3]
                     for diffuse_texture in diffuse_textures]
+        else:
+            light_description['diffuse_textures'] = -1
+            diffuse_images = diffuse_textures
+        
+        if isinstance(reflection_textures[0], str):
+            light_description['reflection_textures'] = reflection_textures
             reflection_images = [scipy.misc.imread(reflection_texture)[:,:,:3]
                     for reflection_texture in reflection_textures]
         else:
-            light_description['diffuse_textures'] = -1
             light_description['reflection_textures'] = -1
-            diffuse_images = diffuse_textures
             reflection_images = reflection_textures
+            
+        if reflection_mipmaps:
+            if isinstance(reflection_mipmaps[0][0], str):
+                light_description['reflection_mipmaps'] = reflection_mipmaps
+                reflection_mipmaps = [
+                        [scipy.misc.imread(mipmap)[:,:,:3]
+                         for mipmap in mipmaps]
+                        for mipmaps in reflection_mipmaps]
+            else:
+                light_description['reflection_mipmaps'] = -1
+        else:
+            light_description['reflection_mipmaps'] = -1
         
         light_buffers = self.gl_data['light_buffers'][name]
         glBindTexture(GL_TEXTURE_CUBE_MAP, light_buffers['diffuse_texture'])
@@ -478,13 +496,29 @@ class Renderpy:
                         0, GL_RGB,
                         reflection_image.shape[1], reflection_image.shape[0],
                         0, GL_RGB, GL_UNSIGNED_BYTE, reflection_image)
+                if reflection_mipmaps is not None:
+                    for j, mipmap in enumerate(reflection_mipmaps[i]):
+                        self.validate_texture(mipmap)
+                        glTexImage2D(
+                                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                                j+1, GL_RGB,
+                                mipmap.shape[1], mipmap.shape[0],
+                                0, GL_RGB, GL_UNSIGNED_BYTE, mipmap)
+                        #print(mipmap.shape, j)
+                        #lkjlkjl
             
             glTexParameteri(
                     GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
             glTexParameteri(
                     GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER,
                     GL_LINEAR_MIPMAP_LINEAR)
-            glGenerateMipmap(GL_TEXTURE_CUBE_MAP)
+            if reflection_mipmaps is None:
+                glGenerateMipmap(GL_TEXTURE_CUBE_MAP)
+            else:
+                glTexParameteri(
+                        GL_TEXTURE_CUBE_MAP,
+                        GL_TEXTURE_MAX_LEVEL, 
+                        len(reflection_mipmaps[0]))
             glTexParameteri(
                     GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
             glTexParameteri(
@@ -831,6 +865,10 @@ class Renderpy:
                 material_data['image_light_ks'],
                 material_data['image_light_blur_reflection'],
                 material_data['image_light_desaturate_reflection']])
+        #glTexParameterf(
+        #        GL_TEXTURE_CUBE_MAP,
+        #        GL_TEXTURE_MIN_LOD,
+        #        material_data['image_light_blur_reflection'])
         mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
         material_buffers = self.gl_data['material_buffers'][instance_material]
         num_triangles = len(self.loaded_data['meshes'][instance_mesh]['faces'])
@@ -920,6 +958,7 @@ class Renderpy:
         # set the blur
         blur = self.scene_description['image_lights'][image_light_name]['blur']
         glUniform1f(location_data['blur'], blur)
+        #glUniform1f(location_data['blur'], 0)
         
         mesh_buffers['face_buffer'].bind()
         mesh_buffers['vertex_buffer'].bind()
@@ -928,6 +967,13 @@ class Renderpy:
         glBindTexture(
                 GL_TEXTURE_CUBE_MAP,
                 light_buffers['reflection_texture'])
+        #glTexParameterf(
+        #        GL_TEXTURE_CUBE_MAP,
+        #        GL_TEXTURE_MIN_LOD,
+        #        0)
+        # THIS IS WEIRD... THE MIN_LOD LOOKS BETTER FOR THE REFLECTIONS,
+        # BUT WORSE HERE.  MAYBE THE RIGHT THING IS TO GENERATE BLURRED
+        # MIPMAPS AND DO EXPLICIT LOD LOOKUPS INSTEAD OF BIAS???
         
         try:
             glDrawElements(

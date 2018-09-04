@@ -421,20 +421,51 @@ def fourth_test():
   "image_lights":{
     "background_1": {
       "diffuse_textures":[
-            "/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/px_dif.jpg",
-            "/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/nx_dif.jpg",
-            "/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/py_dif.jpg",
-            "/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/ny_dif.jpg",
-            "/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/pz_dif.jpg",
-            "/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/nz_dif.jpg"],
+            #"/home/awalsman/Development/cube_maps/overhead_area_diffuse/px.png",
+            #"/home/awalsman/Development/cube_maps/overhead_area_diffuse/nx.png",
+            #"/home/awalsman/Development/cube_maps/overhead_area_diffuse/py.png",
+            #"/home/awalsman/Development/cube_maps/overhead_area_diffuse/ny.png",
+            #"/home/awalsman/Development/cube_maps/overhead_area_diffuse/pz.png",
+            #"/home/awalsman/Development/cube_maps/overhead_area_diffuse/nz.png"],
+            #"/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/px_dif.jpg",
+            #"/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/nx_dif.jpg",
+            #"/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/py_dif.jpg",
+            #"/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/ny_dif.jpg",
+            #"/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/pz_dif.jpg",
+            #"/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/nz_dif.jpg"],
+            "/home/awalsman/Development/renderpy/renderpy/example_background5/px_dif.jpg",
+            "/home/awalsman/Development/renderpy/renderpy/example_background5/nx_dif.jpg",
+            "/home/awalsman/Development/renderpy/renderpy/example_background5/py_dif.jpg",
+            "/home/awalsman/Development/renderpy/renderpy/example_background5/ny_dif.jpg",
+            "/home/awalsman/Development/renderpy/renderpy/example_background5/pz_dif.jpg",
+            "/home/awalsman/Development/renderpy/renderpy/example_background5/nz_dif.jpg"],
       "reflection_textures":[
-            "/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/px_ref.jpg",
-            "/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/nx_ref.jpg",
-            "/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/py_ref.jpg",
-            "/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/ny_ref.jpg",
-            "/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/pz_ref.jpg",
-            "/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/nz_ref.jpg"],
-      "blur":0,
+            #"/home/awalsman/Development/cube_maps/overhead_area_diffuse/px.png",
+            #"/home/awalsman/Development/cube_maps/overhead_area_diffuse/nx.png",
+            #"/home/awalsman/Development/cube_maps/overhead_area_diffuse/py.png",
+            #"/home/awalsman/Development/cube_maps/overhead_area_diffuse/ny.png",
+            #"/home/awalsman/Development/cube_maps/overhead_area_diffuse/px.png",
+            #"/home/awalsman/Development/cube_maps/overhead_area_diffuse/nz.png"],
+            #"/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/px_ref.jpg",
+            #"/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/nx_ref.jpg",
+            #"/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/py_ref.jpg",
+            #"/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/ny_ref.jpg",
+            #"/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/pz_ref.jpg",
+            #"/home/awalsman/Development/matterport_environments/f8f15aaf58354ce1b990df2ab33381bb/nz_ref.jpg"],
+            "/home/awalsman/Development/renderpy/renderpy/example_background5/px_ref.jpg",
+            "/home/awalsman/Development/renderpy/renderpy/example_background5/nx_ref.jpg",
+            "/home/awalsman/Development/renderpy/renderpy/example_background5/py_ref.jpg",
+            "/home/awalsman/Development/renderpy/renderpy/example_background5/ny_ref.jpg",
+            "/home/awalsman/Development/renderpy/renderpy/example_background5/pz_ref.jpg",
+            "/home/awalsman/Development/renderpy/renderpy/example_background5/nz_ref.jpg"],
+      "reflection_mipmaps": [
+            ["/home/awalsman/Development/renderpy/renderpy/example_background/px_ref_%i.jpg"%i for i in range(1,8)],
+            ["/home/awalsman/Development/renderpy/renderpy/example_background/nx_ref_%i.jpg"%i for i in range(1,8)],
+            ["/home/awalsman/Development/renderpy/renderpy/example_background/py_ref_%i.jpg"%i for i in range(1,8)],
+            ["/home/awalsman/Development/renderpy/renderpy/example_background/ny_ref_%i.jpg"%i for i in range(1,8)],
+            ["/home/awalsman/Development/renderpy/renderpy/example_background/pz_ref_%i.jpg"%i for i in range(1,8)],
+            ["/home/awalsman/Development/renderpy/renderpy/example_background/nz_ref_%i.jpg"%i for i in range(1,8)]],
+      "blur":2,
       "render_background":1
     }
   },
@@ -449,14 +480,14 @@ def fourth_test():
   },
   "materials": {
     "cliff": {
-      "example_texture": "cliff",
+      "example_texture": "bokeh",
       "ka": 1.0,
       "kd": 0.5,
       "ks": 0.8,
       "shine": 4.0,
       "image_light_kd": 0.7,
       "image_light_ks": 0.3,
-      "image_light_blur_reflection": 3.0,
+      "image_light_blur_reflection": 0,
       "image_light_desaturate_reflection": 0.0
     },
     "white": {
@@ -467,7 +498,7 @@ def fourth_test():
       "shine": 4.0,
       "image_light_kd": 0.6,
       "image_light_ks": 0.4,
-      "image_light_blur_reflection": 0.0,
+      "image_light_blur_reflection": 0,
       "image_light_desaturate_reflection": 0.0
     },
     "candy_color": {
@@ -476,8 +507,8 @@ def fourth_test():
       "kd": 0.5,
       "ks": 0.5,
       "shine": 4.0,
-      "image_light_kd": 0.9,
-      "image_light_ks": 0.1,
+      "image_light_kd": 1.,
+      "image_light_ks": 0.,
       "image_light_blur_reflection": 4.0,
       "image_light_desaturate_reflection": 1.0
     }
@@ -588,32 +619,33 @@ def fourth_test():
         1
       ]
     ],
-    "projection": [
-      [
-        1.33205081,
-        0.0,
-        0.0,
-        0.0
-      ],
-      [
-        0.0,
-        1.33205081,
-        0.0,
-        0.0
-      ],
-      [
-        0.0,
-        0.0,
-        -1.002002002002002,
-        -0.100100
-      ],
-      [
-        0.0,
-        0.0,
-        -1.0,
-        0.0
-      ]
-    ]
+    "projection": camera.projection_matrix(math.radians(75), 1),
+      #  [
+      #[
+      #  1.33205081,
+      #  0.0,
+      #  0.0,
+      #  0.0
+      #],
+      #[
+      #  0.0,
+      #  1.33205081,
+      #  0.0,
+      #  0.0
+      #],
+      #[
+      #  0.0,
+      #  0.0,
+      #  -1.002002002002002,
+      #  -0.100100
+      #],
+      #[
+      #  0.0,
+      #  0.0,
+      #  -1.0,
+      #  0.0
+      #]
+    #]
   }
 }
 
