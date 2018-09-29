@@ -307,7 +307,9 @@ void main(){
             visible_random_samples += 1;
         }
         else{
-            importance_color += sample_color * abs(d);
+            if(d > 0.){
+                importance_color += sample_color * abs(d);
+            }
             visible_importance_samples += 1;
         }
     }
