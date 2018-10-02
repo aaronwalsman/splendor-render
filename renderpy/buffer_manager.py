@@ -32,18 +32,24 @@ class FrameExistsError(Exception):
     pass
 
 class BufferManager:
-    def __init__(self, window_size = default_window_size):
+    def __init__(self,
+            window_size = default_window_size,
+            anti_aliasing = True):
         
         glutInit([])
         # GLUT_DOUBLE maxes out at 60fps
         #glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
-        #glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_MULTISAMPLE)
-        glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH)
+        if anti_aliasing:
+            glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_MULTISAMPLE)
+            glEnable(GL_MULTISAMPLE)
+        else:
+            glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH)
         glutInitWindowSize(window_size, window_size)
         self.window_id = glutCreateWindow('RENDERPY')
         self.set_active()
         self.window_width = window_size
         self.window_height = window_size
+        self.anti_aliasing = anti_aliasing
         # does not work b/c glut
         #self.resize_window(window_size, window_size)
         self.hide_window()
@@ -55,6 +61,7 @@ class BufferManager:
         
         # generate off-screen framebuffer/renderbuffer objects
         self.framebuffer_data = {}
+        
     
     def hide_window(self):
         glutHideWindow(self.window_id)
@@ -98,13 +105,47 @@ class BufferManager:
                 GL_DEPTH_ATTACHMENT,
                 GL_RENDERBUFFER,
                 depth_buffer)
-        
+    
         self.framebuffer_data[frame_name] = {
                 'width':width,
                 'height':height,
                 'framebuffer':frame_buffer,
                 'renderbuffer':render_buffer,
                 'depthbuffer':depth_buffer}
+        
+        if self.anti_aliasing:
+            # multi-sample frame buffer
+            frame_buffer_multi = glGenFramebuffers(1)
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frame_buffer_multi)
+            
+            # color multi-sample renderbuffer
+            render_buffer_multi = glGenRenderbuffers(1)
+            glBindRenderbuffer(GL_RENDERBUFFER, render_buffer_multi)
+            glRenderbufferStorageMultisample(
+                    GL_RENDERBUFFER, 8, GL_RGBA8, width, height)
+            glFramebufferRenderbuffer(
+                    GL_FRAMEBUFFER,
+                    GL_COLOR_ATTACHMENT0,
+                    GL_RENDERBUFFER,
+                    render_buffer_multi)
+            
+            # depth multi-sample renderbuffer
+            depth_buffer_multi = glGenRenderbuffers(1)
+            glBindRenderbuffer(GL_RENDERBUFFER, depth_buffer_multi)
+            glRenderbufferStorageMultisample(
+                    GL_RENDERBUFFER, 8, GL_DEPTH_COMPONENT16, width, height)
+            glFramebufferRenderbuffer(
+                    GL_FRAMEBUFFER,
+                    GL_DEPTH_ATTACHMENT,
+                    GL_RENDERBUFFER,
+                    depth_buffer_multi)
+            
+            self.framebuffer_data[frame_name]['framebuffermulti'] = (
+                    frame_buffer_multi)
+            self.framebuffer_data[frame_name]['depthbuffermulti'] = (
+                    depth_buffer_multi)
+            self.framebuffer_data[frame_name]['renderbuffermulti'] = (
+                    render_buffer_multi)
     
     def set_active(self):
         '''
@@ -120,9 +161,14 @@ class BufferManager:
     def enable_frame(self, frame):
         width = self.framebuffer_data[frame]['width']
         height = self.framebuffer_data[frame]['height']
-        glBindFramebuffer(
-                GL_FRAMEBUFFER,
-                self.framebuffer_data[frame]['framebuffer'])
+        if self.anti_aliasing:
+            glBindFramebuffer(
+                    GL_FRAMEBUFFER,
+                    self.framebuffer_data[frame]['framebuffermulti'])
+        else:
+            glBindFramebuffer(
+                    GL_FRAMEBUFFER,
+                    self.framebuffer_data[frame]['framebuffer'])
         glViewport(0, 0, width, height)
     
     def read_pixels(self, frame):
@@ -131,9 +177,24 @@ class BufferManager:
             width = self.window_width
             height = self.window_height
         else:
-            self.enable_frame(frame)
             width = self.framebuffer_data[frame]['width']
             height = self.framebuffer_data[frame]['height']
+            if self.anti_aliasing:
+                glBindFramebuffer(
+                        GL_READ_FRAMEBUFFER,
+                        self.framebuffer_data[frame]['framebuffermulti'])
+                glBindFramebuffer(
+                        GL_DRAW_FRAMEBUFFER,
+                        self.framebuffer_data[frame]['framebuffer'])
+                glBlitFramebuffer(
+                        0, 0, width, height,
+                        0, 0, width, height,
+                        GL_COLOR_BUFFER_BIT, GL_NEAREST)
+                glBindFramebuffer(
+                        GL_FRAMEBUFFER,
+                        self.framebuffer_data[frame]['framebuffer'])
+            else:
+                self.enable_frame(frame)
         
         pixels = glReadPixels(
                 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
@@ -214,7 +275,7 @@ if __name__ == '__main__':
         rendererA.scene_description['materials']['white']['image_light_blur_reflection'] = blur
         '''
         #theta[0] += 0.00025
-        theta[0] += math.pi * 2 / 50000.
+        theta[0] += math.pi * 2 / 5000.
         
         #buffer_manager.enable_frame('A')
         buffer_manager.show_window()

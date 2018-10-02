@@ -582,9 +582,7 @@ class Renderpy:
                 'shine' : shine,
                 'image_light_kd' : image_light_kd,
                 'image_light_ks' : image_light_ks,
-                'image_light_blur_reflection' : image_light_blur_reflection,
-                'image_light_desaturate_reflection' :
-                    image_light_desaturate_reflection}
+                'image_light_blur_reflection' : image_light_blur_reflection}
         
         material_buffers = {}
         material_buffers['texture'] = glGenTextures(1)

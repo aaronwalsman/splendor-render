@@ -38,8 +38,8 @@ def reflection_to_diffuse(
         contrast = 1,
         importance_threshold = 0.95,
         num_importance_samples = 64,
-        importance_sample_gain = 0.25,
-        random_sample_gain = 0.75):
+        importance_sample_gain = 0.3,
+        random_sample_gain = 0.7):
     
     num_random_samples = NUM_SAMPLES - num_importance_samples
     
@@ -131,7 +131,6 @@ def reflection_to_diffuse(
     
     pre_color_scale /= 6.
     pre_color_scale = 0.5/pre_color_scale
-    #print(pre_color_scale)
     glUniform1f(color_scale_location, pre_color_scale)
     
     intensity_threshold = max_intensity * importance_threshold
@@ -283,7 +282,7 @@ if __name__ == '__main__':
         try:
             image = numpy.array(imageio.imread(
                     os.path.join(arg_path, '%s_ref.jpg'%cube_face)))
-        except FileNotFoundError:
+        except OSError:
             image = numpy.array(imageio.imread(
                     os.path.join(arg_path, '%s_ref.png'%cube_face)))
         cube_images[cube_face] = image[:,:,:3]
