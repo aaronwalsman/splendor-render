@@ -562,7 +562,7 @@ class Renderpy:
             image_light_kd = 0.7,
             image_light_ks = 0.3,
             image_light_blur_reflection = 0.0,
-            image_light_desaturate_reflection = 0.0,
+            image_light_contrast = 1.0,
             crop = None):
         
         if texture is not None:
@@ -582,7 +582,9 @@ class Renderpy:
                 'shine' : shine,
                 'image_light_kd' : image_light_kd,
                 'image_light_ks' : image_light_ks,
-                'image_light_blur_reflection' : image_light_blur_reflection}
+                'image_light_blur_reflection' : image_light_blur_reflection,
+                'image_light_contrast' :
+                    image_light_contrast}
         
         material_buffers = {}
         material_buffers['texture'] = glGenTextures(1)
@@ -862,7 +864,7 @@ class Renderpy:
                 material_data['image_light_kd'],
                 material_data['image_light_ks'],
                 material_data['image_light_blur_reflection'],
-                material_data['image_light_desaturate_reflection']])
+                material_data['image_light_contrast']])
         #glTexParameterf(
         #        GL_TEXTURE_CUBE_MAP,
         #        GL_TEXTURE_MIN_LOD,

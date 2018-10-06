@@ -488,7 +488,7 @@ def fourth_test():
       "image_light_kd": 1.0,
       "image_light_ks": 0.0,
       "image_light_blur_reflection": 0,
-      "image_light_desaturate_reflection": 0.0
+      "image_light_contrast": 1
     },
     "white": {
       "example_texture": "white",
@@ -499,7 +499,7 @@ def fourth_test():
       "image_light_kd": 1.0,
       "image_light_ks": 0.0,
       "image_light_blur_reflection": 0,
-      "image_light_desaturate_reflection": 0.0
+      "image_light_contrast": 1
     },
     "candy_color": {
       "example_texture": "candy_color2",
@@ -510,7 +510,7 @@ def fourth_test():
       "image_light_kd": 1.,
       "image_light_ks": 0.,
       "image_light_blur_reflection": 4.0,
-      "image_light_desaturate_reflection": 1.0
+      "image_light_contrast": 1.0
     }
   },
   "instances": {

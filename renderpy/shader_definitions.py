@@ -103,7 +103,7 @@ void main(){
     float k_image_light_diffuse = image_light_properties.x;
     float k_image_light_reflect = image_light_properties.y;
     float k_image_light_reflect_blur = image_light_properties.z;
-    float k_image_light_reflect_desaturate = image_light_properties.w;
+    float k_image_light_contrast = image_light_properties.w;
     
     vec3 ambient_contribution = ambient_color;
     vec3 diffuse_contribution = vec3(0.0);
@@ -126,6 +126,11 @@ void main(){
     vec3 image_light_diffuse = k_image_light_diffuse * vec3(
             texture(diffuse_sampler, vec3(inverse(camera_pose) * vec4(
             fragment_normal_n,0))));
+    // This is stupid and wrong.  Do it better or don't.
+    //image_light_diffuse = (image_light_diffuse - 0.5) *
+    //        k_image_light_contrast + 0.5;
+    //image_light_diffuse = clamp(
+    //        image_light_diffuse, vec3(0,0,0), vec3(1,1,1));
     
     vec3 reflected_direction = vec3(
             inverse(camera_pose) *
@@ -134,12 +139,6 @@ void main(){
             reflection_sampler,
             reflected_direction,
             k_image_light_reflect_blur));
-    float reflected_avg = (
-            reflected_color.x + reflected_color.y + reflected_color.z) / 3.;
-    vec3 reflect_desaturate = vec3(reflected_avg, reflected_avg, reflected_avg);
-    reflected_color = mix(
-            reflected_color, reflect_desaturate,
-            k_image_light_reflect_desaturate);
     vec3 image_light_reflection = k_image_light_reflect * reflected_color;
     
     for(int i = 0; i < num_point_lights; ++i){
