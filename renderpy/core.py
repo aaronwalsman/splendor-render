@@ -990,7 +990,7 @@ class Renderpy:
     def mask_render(self, instances=None, flip_y=True):
         
         # clear
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        self.clear_frame()
         
         # tun on the shader
         glUseProgram(self.gl_data['mask_shader']['program'])

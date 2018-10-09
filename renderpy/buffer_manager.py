@@ -201,6 +201,12 @@ class BufferManager:
         image = numpy.frombuffer(pixels, dtype=numpy.uint8).reshape(
                 height, width, 3)
         
+        # re-enable the multibuffer for future drawing
+        if self.anti_aliasing:
+            glBindFramebuffer(
+                    GL_FRAMEBUFFER,
+                    self.framebuffer_data[frame]['framebuffermulti'])
+        
         return image
     
     
