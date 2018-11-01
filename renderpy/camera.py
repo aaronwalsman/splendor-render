@@ -102,6 +102,46 @@ def turntable_pose(
             numpy.dot(l, numpy.dot(o, numpy.dot(e, numpy.dot(d,s)))))
 
 
+def sample_mesh_turntable(
+        mesh,
+        projection_matrix,
+        num_poses,
+        distance_scale_extents,
+        initial_orientation_extents,
+        orientation_spacing_range,
+        elevation_extents,
+        spin_extents,
+        lift_extents):
+    
+    v_min = numpy.min(mesh['vertices'], axis=0)
+    v_max = numpy.max(mesh['vertices'], axis=0)
+    v_offset = v_max - v_min
+    v_centroid = v_offset * 0.5 + v_min
+    radius_3d = numpy.linalg.norm(v_offset) * 0.5
+
+    size_based_distance = projection_matrix[0,0] * radius_3d
+    distance_extents = (
+            size_based_distance * distance_scale_extents[0],
+            size_based_distance * distance_scale_extents[1])
+
+    centroid_offset = numpy.eye(4)
+    centroid_offset[:3,3] -= v_centroid
+    model_camera_poses = sample_turntable(
+            distance_extents = distance_extents,
+            num_poses = num_images,
+            initial_orientation_extents = initial_orientation_extents,
+            orientation_spacing_range =
+                math.pi * 2. / (2 * num_images),
+            elevation_extents = elevation_extents,
+            spin_extents = spin_extents,
+            lift_extents = lift_extents)
+
+    model_camera_poses = [numpy.dot(camera_pose, centroid_offset)
+            for camera_pose in model_camera_poses]
+    
+    return model_camera_poses
+
+
 def sample_turntable(
         distance_extents,
         num_poses,
@@ -152,7 +192,14 @@ def position_to_pixels(
     if flip_y:
         projected_y *= -1
     
-    x = int(round((projected_x + 1.) * 0.5 * screen_resolution[0]))
-    y = int(round((projected_y + 1.) * 0.5 * screen_resolution[1]))
+    if isinstance(projected_x, numpy.ndarray):
+        x = numpy.round((projected_x + 1.) * 0.5 * screen_resolution[0])
+    else:
+        x = int(round((projected_x + 1.) * 0.5 * screen_resolution[0]))
+    
+    if isinstance(projected_y, numpy.ndarray):
+        y = numpy.round((projected_y + 1.) * 0.5 * screen_resolution[1])
+    else:
+        y = int(round((projected_y + 1.) * 0.5 * screen_resolution[1]))
     
     return x, y
