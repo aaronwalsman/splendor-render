@@ -1,6 +1,36 @@
+import os
+import shutil
 
 class MeshError(Exception):
     pass
+
+def copy_rename_obj(
+        obj_path,
+        mtl_path,
+        tex_path,
+        destination,
+        new_name):
+    
+    mtl_file_name = os.path.basename(mtl_path)
+    tex_file_name = os.path.basename(tex_path)
+    tex_file_extension = tex_file_name.split('.')[-1]
+    tex_new_name = new_name + '.' + tex_file_extension
+    
+    with open(obj_path, 'r') as f:
+        obj_data = f.read()
+        obj_data = obj_data.replace(
+                'mtllib %s'%mtl_file_name,
+                'mtllib %s.mtl'%new_name)
+        with open(os.path.join(destination, new_name + '.obj'), 'w') as g:
+            g.write(obj_data)
+    
+    with open(mtl_path, 'r') as f:
+        mtl_data = f.read()
+        mtl_data = mtl_data.replace(tex_file_name, tex_new_name)
+        with open(os.path.join(destination, new_name + '.mtl'), 'w') as g:
+            g.write(mtl_data)
+    
+    shutil.copy2(tex_path, os.path.join(destination, tex_new_name))
 
 def load_mesh(mesh_path, strict=False):
     
