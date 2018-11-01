@@ -11,6 +11,7 @@
 # system
 import math
 import json
+import os
 
 # opengl
 from OpenGL.GL import *
@@ -365,6 +366,7 @@ class Renderpy:
             example_diffuse_textures = None,
             reflection_textures = None,
             example_reflection_textures = None,
+            texture_directory = None,
             reflection_mipmaps = None,
             blur = 0.0,
             render_background = True,
@@ -405,7 +407,11 @@ class Renderpy:
         self.scene_description['image_lights'][name]['render_background'] = (
                 render_background)
         self.replace_image_light_textures(
-                name, diffuse_textures, reflection_textures, reflection_mipmaps)
+                name,
+                diffuse_textures,
+                reflection_textures,
+                texture_directory,
+                reflection_mipmaps)
         
         self.load_background_mesh()
         
@@ -426,9 +432,32 @@ class Renderpy:
     
     def replace_image_light_textures(self,
             name,
-            diffuse_textures,
-            reflection_textures,
+            diffuse_textures = None,
+            reflection_textures = None,
+            texture_directory = None,
             reflection_mipmaps = None):
+        
+        # make sure that either diffuse and reflection textures were provided
+        # or an image directory was provided
+        if texture_directory is not None:
+            cube_order = {'px':0, 'nx':1, 'py':2, 'ny':3, 'pz':4, 'nz':5}
+            all_images = os.listdir(texture_directory)
+            diffuse_files = sorted(
+                    [image for image in all_images if '_dif.' in image],
+                    key = lambda x : cube_order[x[:2]])
+            diffuse_textures = [
+                    os.path.join(texture_directory, diffuse_file)
+                    for diffuse_file in diffuse_files]
+            reflection_files = sorted(
+                    [image for image in all_images if '_ref.' in image],
+                    key = lambda x : cube_order[x[:2]])
+            reflection_textures = [
+                    os.path.join(texture_directory, reflection_file)
+                    for reflection_file in reflection_files]
+        
+        elif diffuse_textures is None or reflection_textures is None:
+            raise Exception('Must provide either diffuse and reflection'
+                    'textures, or an image directory')
         
         light_description = self.scene_description['image_lights'][name]
         
