@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # system
+import os
 import math
 
 # opengl
@@ -20,6 +21,9 @@ import renderpy.example_scenes as example_scenes
 default_window_size = 128
 
 shared_buffer_manager = []
+
+os.environ['XAUTHORITY'] = "/home/awalsman/.Xauthority"
+os.environ['DISPLAY'] = ':0'
 
 def initialize_shared_buffer_manager(*args, **kwargs):
     if len(shared_buffer_manager):
