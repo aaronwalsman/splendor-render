@@ -373,29 +373,30 @@ class Renderpy:
             crop = None,
             set_active = True):
         
-        if diffuse_textures is not None:
-            pass
-        
-        elif example_diffuse_textures is not None:
-            diffuse_textures = primitives.example_cube_texture_paths[
-                    example_diffuse_textures]
-        
-        else:
-            raise Exception('Must specify either a '
-                    'diffuse_texture or example_diffuse_texture '
-                    'when loading an image_light')
-        
-        if reflection_textures is not None:
-            pass
-        
-        elif example_reflection_textures is not None:
-            reflection_textures = primitives.example_cube_texture_paths[
-                    example_reflection_textures]
-        
-        else:
-            raise Exception('Must specify either a '
-                    'diffuse_texture or example_diffuse_texture '
-                    'when loading an image_light')
+        if texture_directory is None:
+            if diffuse_textures is not None:
+                pass
+            
+            elif example_diffuse_textures is not None:
+                diffuse_textures = primitives.example_cube_texture_paths[
+                        example_diffuse_textures]
+            
+            else:
+                raise Exception('Must specify either a '
+                        'diffuse_texture or example_diffuse_texture '
+                        'when loading an image_light')
+            
+            if reflection_textures is not None:
+                pass
+            
+            elif example_reflection_textures is not None:
+                reflection_textures = primitives.example_cube_texture_paths[
+                        example_reflection_textures]
+            
+            else:
+                raise Exception('Must specify either a '
+                        'diffuse_texture or example_diffuse_texture '
+                        'when loading an image_light')
         
         light_buffers = {}
         light_buffers['diffuse_texture'] = glGenTextures(1)

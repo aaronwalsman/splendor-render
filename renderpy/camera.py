@@ -128,10 +128,10 @@ def sample_mesh_turntable(
     centroid_offset[:3,3] -= v_centroid
     model_camera_poses = sample_turntable(
             distance_extents = distance_extents,
-            num_poses = num_images,
+            num_poses = num_poses,
             initial_orientation_extents = initial_orientation_extents,
             orientation_spacing_range =
-                math.pi * 2. / (2 * num_images),
+                math.pi * 2. / (2 * num_poses),
             elevation_extents = elevation_extents,
             spin_extents = spin_extents,
             lift_extents = lift_extents)
