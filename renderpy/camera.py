@@ -47,12 +47,12 @@ def projection_matrix_from_intrinsics(
     P = numpy.zeros((4,4))
     
     P[0,0] = 2 * near_clip / (R-L)
-    P[1,1] = 2 * near_clip / (T-B)
+    P[1,1] = 2 * near_clip / (T-B) * -1 #### hack
     
     P[0,2] = (R+L)/(L-R)
     P[1,2] = (T+B)/(B-T)
-    P[2,2] = (far_clip + near_clip) / (far_clip - near_clip)
-    P[3,2] = 1.0
+    P[2,2] = (far_clip + near_clip) / (far_clip - near_clip) * -1 #### hack
+    P[3,2] = 1.0 * -1 #### hack
     
     P[2,3] = (2 * far_clip * near_clip)/(near_clip - far_clip)
     
