@@ -18,6 +18,47 @@ def projection_matrix(
                 -2 * far_clip * near_clip / (far_clip - near_clip)],
             [0, 0, -1, 0]])
 
+
+def projection_matrix_from_intrinsics(
+        intrinsics,
+        image_resolution,
+        near_clip = 0.05,
+        far_clip = 50):
+    
+    '''
+    OpenGlMatrixSpec ProjectionMatrixRDF_TopLeft(
+            int w, int h,
+            GLprecision fu, GLprecision fv, GLprecision u0, GLprecision v0,
+            GLprecision zNear, GLprecision zFar )
+    '''
+    
+    fu = intrinsics[0,0]
+    fv = intrinsics[1,1]
+    u0 = intrinsics[0,2]
+    v0 = intrinsics[1,2]
+    w = image_resolution[1]
+    h = image_resolution[0]
+    
+    L = -(u0) * near_clip / fu
+    R = +(w-u0) * near_clip / fu
+    T = -(v0) * near_clip / fv
+    B = +(h-v0) * near_clip / fv
+    
+    P = numpy.zeros((4,4))
+    
+    P[0,0] = 2 * near_clip / (R-L)
+    P[1,1] = 2 * near_clip / (T-B)
+    
+    P[0,2] = (R+L)/(L-R)
+    P[1,2] = (T+B)/(B-T)
+    P[2,2] = (far_clip + near_clip) / (far_clip - near_clip)
+    P[3,2] = 1.0
+    
+    P[2,3] = (2 * far_clip * near_clip)/(near_clip - far_clip)
+    
+    return P
+
+
 def turntable_pose(
         distance, orientation, elevation, spin, lift=0):
     
