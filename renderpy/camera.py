@@ -210,13 +210,13 @@ def position_to_pixels(
         projected_y *= -1
     
     if isinstance(projected_x, numpy.ndarray):
-        x = numpy.round((projected_x + 1.) * 0.5 * screen_resolution[0])
+        x = numpy.round((projected_x + 1.) * 0.5 * screen_resolution[1])
     else:
-        x = int(round((projected_x + 1.) * 0.5 * screen_resolution[0]))
+        x = int(round((projected_x + 1.) * 0.5 * screen_resolution[1]))
     
     if isinstance(projected_y, numpy.ndarray):
-        y = numpy.round((projected_y + 1.) * 0.5 * screen_resolution[1])
+        y = numpy.round((projected_y + 1.) * 0.5 * screen_resolution[0])
     else:
-        y = int(round((projected_y + 1.) * 0.5 * screen_resolution[1]))
+        y = int(round((projected_y + 1.) * 0.5 * screen_resolution[0]))
     
     return x, y
