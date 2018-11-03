@@ -47,12 +47,12 @@ def projection_matrix_from_intrinsics(
     P = numpy.zeros((4,4))
     
     P[0,0] = 2 * near_clip / (R-L)
-    P[1,1] = 2 * near_clip / (T-B) * -1 #### hack
+    P[1,1] = 2 * near_clip / (T-B) #* -1 #### hack
     
     P[0,2] = (R+L)/(L-R)
     P[1,2] = (T+B)/(B-T)
-    P[2,2] = (far_clip + near_clip) / (far_clip - near_clip) * -1 #### hack
-    P[3,2] = 1.0 * -1 #### hack
+    P[2,2] = (far_clip + near_clip) / (far_clip - near_clip) #* -1 #### hack
+    P[3,2] = 1.0 #* -1 #### hack
     
     P[2,3] = (2 * far_clip * near_clip)/(near_clip - far_clip)
     
@@ -193,13 +193,13 @@ def position_to_pixels(
         projected_y *= -1
     
     if isinstance(projected_x, numpy.ndarray):
-        x = numpy.round((projected_x + 1.) * 0.5 * screen_resolution[0])
+        x = numpy.round((projected_x + 1.) * 0.5 * screen_resolution[1])
     else:
-        x = int(round((projected_x + 1.) * 0.5 * screen_resolution[0]))
+        x = int(round((projected_x + 1.) * 0.5 * screen_resolution[1]))
     
     if isinstance(projected_y, numpy.ndarray):
-        y = numpy.round((projected_y + 1.) * 0.5 * screen_resolution[1])
+        y = numpy.round((projected_y + 1.) * 0.5 * screen_resolution[0])
     else:
-        y = int(round((projected_y + 1.) * 0.5 * screen_resolution[1]))
+        y = int(round((projected_y + 1.) * 0.5 * screen_resolution[0]))
     
     return x, y
