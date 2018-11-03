@@ -127,10 +127,10 @@ void main(){
             texture(diffuse_sampler, vec3(inverse(camera_pose) * vec4(
             fragment_normal_n,0))));
     // This is stupid and wrong.  Do it better or don't.
-    //image_light_diffuse = (image_light_diffuse - 0.5) *
-    //        k_image_light_contrast + 0.5;
-    //image_light_diffuse = clamp(
-    //        image_light_diffuse, vec3(0,0,0), vec3(1,1,1));
+    image_light_diffuse = (image_light_diffuse - 0.75) *
+            k_image_light_contrast + 0.75;
+    image_light_diffuse = clamp(
+            image_light_diffuse, vec3(0,0,0), vec3(1,1,1));
     
     vec3 reflected_direction = vec3(
             inverse(camera_pose) *
