@@ -23,7 +23,9 @@ def projection_matrix_from_intrinsics(
         intrinsics,
         image_resolution,
         near_clip = 0.05,
-        far_clip = 50):
+        far_clip = 50,
+        offset_x = 0,
+        offset_y = 0):
     
     '''
     OpenGlMatrixSpec ProjectionMatrixRDF_TopLeft(
@@ -34,8 +36,8 @@ def projection_matrix_from_intrinsics(
     
     fu = intrinsics[0,0]
     fv = intrinsics[1,1]
-    u0 = intrinsics[0,2]
-    v0 = intrinsics[1,2]
+    u0 = intrinsics[0,2] + offset_x
+    v0 = intrinsics[1,2] + offset_y
     w = image_resolution[1]
     h = image_resolution[0]
     
@@ -57,6 +59,19 @@ def projection_matrix_from_intrinsics(
     P[2,3] = (2 * far_clip * near_clip)/(near_clip - far_clip)
     
     return P
+
+
+def change_projection_aspect_ratio(
+        projection_matrix,
+        old_resolution,
+        new_resolution):
+    y_scale = old_resolution[0] / new_resolution[0]
+    x_scale = old_resolution[1] / new_resolution[1]
+    scaled_projection_matrix = numpy.copy(projection_matrix)
+    scaled_projection_matrix[0] *= x_scale
+    scaled_projection_matrix[1] *= y_scale
+    
+    return scaled_projection_matrix
 
 
 def turntable_pose(
@@ -104,6 +119,7 @@ def turntable_pose(
 
 def sample_mesh_turntable(
         mesh,
+        mesh_transform,
         projection_matrix,
         num_poses,
         distance_scale_extents,
@@ -117,6 +133,7 @@ def sample_mesh_turntable(
     v_max = numpy.max(mesh['vertices'], axis=0)
     v_offset = v_max - v_min
     v_centroid = v_offset * 0.5 + v_min
+    v_centroid = numpy.dot(mesh_transform, numpy.append(v_centroid, 1.0))[:3]
     radius_3d = numpy.linalg.norm(v_offset) * 0.5
 
     size_based_distance = projection_matrix[0,0] * radius_3d

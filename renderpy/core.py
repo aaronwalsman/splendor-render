@@ -94,8 +94,8 @@ class Renderpy:
     def opengl_init(self):
         renderer = glGetString(GL_RENDERER).decode('utf-8')
         version = glGetString(GL_VERSION).decode('utf-8')
-        print('Renderer: %s'%renderer)
-        print('OpenGL Version: %s'%version)
+        #print('Renderer: %s'%renderer)
+        #print('OpenGL Version: %s'%version)
         
         #glEnable(GL_MULTISAMPLE)
         glEnable(GL_DEPTH_TEST)

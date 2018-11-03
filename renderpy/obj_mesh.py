@@ -21,6 +21,9 @@ def copy_rename_obj(
         obj_data = obj_data.replace(
                 'mtllib %s'%mtl_file_name,
                 'mtllib %s.mtl'%new_name)
+        obj_data = obj_data.replace(
+                'mtllib ./%s'%mtl_file_name,
+                'mtllib %s.mtl'%new_name)
         with open(os.path.join(destination, new_name + '.obj'), 'w') as g:
             g.write(obj_data)
     
