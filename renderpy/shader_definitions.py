@@ -186,6 +186,169 @@ void main(){
 }
 '''
 
+vertex_color_vertex_shader = '''#version 330 core
+
+layout(location=0) in vec3 vertex_position;
+layout(location=1) in vec3 vertex_normal;
+layout(location=2) in vec3 vertex_color;
+
+out vec4 fragment_position;
+out vec4 fragment_normal;
+out vec3 fragment_color;
+
+uniform mat4 projection_matrix;
+uniform mat4 model_pose;
+uniform mat4 camera_pose;
+
+void main(){
+    mat4 vm = camera_pose * model_pose;
+    mat4 pvm = projection_matrix * vm;
+    
+    gl_Position = pvm * vec4(vertex_position,1);
+    
+    fragment_position = vm * vec4(vertex_position,1);
+    fragment_normal = vm * vec4(vertex_normal,0);
+    fragment_color = vertex_color;
+}
+'''
+
+vertex_color_fragment_shader = '''#version 330 core
+#pragma optimize (off)
+
+const int MAX_NUM_LIGHTS = 8;
+
+in vec4 fragment_position;
+in vec4 fragment_normal;
+in vec3 fragment_color;
+
+out vec3 color;
+
+uniform vec4 material_properties;
+
+uniform vec3 ambient_color;
+uniform int num_point_lights;
+uniform int num_direction_lights;
+uniform int enable_shadow_light;
+uniform vec3 shadow_light_color;
+uniform vec4 image_light_properties;
+uniform vec3 point_light_data[2*MAX_NUM_LIGHTS];
+uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
+
+uniform mat4 camera_pose;
+
+uniform samplerCube diffuse_sampler;
+uniform samplerCube reflection_sampler;
+
+vec2 phong(
+        vec3 contact_normal,
+        vec3 light_direction,
+        vec3 eye_direction,
+        float shine){
+    
+    float diffuse = clamp(
+            dot(-light_direction, contact_normal), 0, 1);
+    
+    vec3 reflected_direction = reflect(
+            -light_direction, contact_normal);
+    float specular = clamp(
+            dot(-eye_direction, reflected_direction), 0, 1);
+    if(specular > 0.0){
+        specular = pow(specular, shine);
+    }
+    
+    return vec2(diffuse, specular);
+}
+
+void main(){
+    
+    float ka = material_properties.x;
+    float kd = material_properties.y;
+    float ks = material_properties.z;
+    float shine = material_properties.w;
+    
+    /*
+    if(ka < 10000000){
+        color = vec3(1., 0, 0);
+        return;
+    }
+    */
+    
+    float k_image_light_diffuse = image_light_properties.x;
+    float k_image_light_reflect = image_light_properties.y;
+    float k_image_light_reflect_blur = image_light_properties.z;
+    float k_image_light_contrast = image_light_properties.w;
+    
+    vec3 ambient_contribution = ambient_color;
+    vec3 diffuse_contribution = vec3(0.0);
+    vec3 specular_contribution = vec3(0.0);
+    
+    vec3 eye_direction = normalize(vec3(-fragment_position));
+    
+    vec3 fragment_normal_n = normalize(vec3(fragment_normal));
+    
+    // image light
+    vec3 image_light_diffuse = k_image_light_diffuse * vec3(
+            texture(diffuse_sampler, vec3(inverse(camera_pose) * vec4(
+            fragment_normal_n,0))));
+    // This is stupid and wrong.  Do it better or don't.
+    image_light_diffuse = (image_light_diffuse - 0.75) *
+            k_image_light_contrast + 0.75;
+    image_light_diffuse = clamp(
+            image_light_diffuse, vec3(0,0,0), vec3(1,1,1));
+    
+    vec3 reflected_direction = vec3(
+            inverse(camera_pose) *
+            vec4(reflect(-eye_direction, fragment_normal_n),0));
+    vec3 reflected_color = vec3(texture(
+            reflection_sampler,
+            reflected_direction,
+            k_image_light_reflect_blur));
+    vec3 image_light_reflection = k_image_light_reflect * reflected_color;
+    
+    for(int i = 0; i < num_point_lights; ++i){
+        
+        vec3 light_color = vec3(point_light_data[2*i]);
+        vec3 light_position = vec3(
+                camera_pose * vec4(point_light_data[2*i+1],1));
+        vec3 light_direction = vec3(fragment_position) - light_position;
+        float light_distance = length(light_direction);
+        light_direction = light_direction / light_distance;
+        
+        vec2 light_phong = phong(
+                fragment_normal_n,
+                light_direction,
+                eye_direction,
+                shine);
+        
+        diffuse_contribution += light_color * light_phong.x;
+        specular_contribution += light_color * light_phong.y;
+    }
+    
+    for(int i = 0; i < num_direction_lights; ++i){
+        
+        vec3 light_color = vec3(direction_light_data[2*i]);
+        vec3 light_direction = vec3(
+                camera_pose * vec4(direction_light_data[2*i+1],0));
+        
+        vec2 light_phong = phong(
+                fragment_normal_n,
+                light_direction,
+                eye_direction,
+                shine);
+        
+        diffuse_contribution += light_color * light_phong.x;
+        specular_contribution += light_color * light_phong.y;
+    }
+    
+    
+    color = vec3(
+            ambient_color * fragment_color * ka +
+            diffuse_contribution * fragment_color * kd +
+            specular_contribution * ks +
+            image_light_diffuse * fragment_color + image_light_reflection);
+}
+'''
+
 background_vertex_shader = '''#version 330 core
 
 uniform mat4 projection_matrix;

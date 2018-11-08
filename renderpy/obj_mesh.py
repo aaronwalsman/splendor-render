@@ -35,18 +35,20 @@ def copy_rename_obj(
     
     shutil.copy2(tex_path, os.path.join(destination, tex_new_name))
 
-def load_mesh(mesh_path, strict=False):
+def load_mesh(mesh_path, strict=False, scale=1.0):
     
     try:
         obj_vertices = []
         obj_normals = []
         obj_uvs = []
         obj_faces = []
+        obj_vertex_colors = []
         
         mesh = {
             'vertices':[],
             'normals':[],
             'uvs':[],
+            'vertex_colors':[],
             'faces':[]}
         
         #vertex_uv_mapping = {}
@@ -60,11 +62,16 @@ def load_mesh(mesh_path, strict=False):
                     continue
                 if tokens[0] == 'v':
                     # add a vertex
-                    if len(tokens) != 4:
+                    if len(tokens) != 4 and len(tokens) != 7:
                         if strict:
                             raise MeshError(
-                                    'Vertex must have exactly three elements')
-                    obj_vertices.append([float(xyz) for xyz in tokens[1:4]])
+                                    'Vertex must have exactly three '
+                                    'or six elements')
+                    obj_vertices.append(
+                            [float(xyz) * scale for xyz in tokens[1:4]])
+                    if len(tokens) > 4:
+                        obj_vertex_colors.append(
+                                [float(rgb) for rgb in tokens[4:7]])
                 
                 if tokens[0] == 'vt':
                     # add a uv
@@ -89,10 +96,14 @@ def load_mesh(mesh_path, strict=False):
                     face_id = len(obj_faces)
                     for i, part_group in enumerate(tokens[1:]):
                         face_parts = part_group.split('/')
+                        if len(face_parts) == 1:
+                            face_parts = face_parts * 3
                         if len(face_parts) != 3:
                             raise MeshError(
                                     'Each face must contain an vertex, '
                                     'uv and normal')
+                        if face_parts[1] == '':
+                            face_parts[1] = 0
                         face_parts = [int(part)-1 for part in face_parts]
                         face.append(face_parts)
                         
@@ -133,8 +144,11 @@ def load_mesh(mesh_path, strict=False):
                             new_vertex_id, new_vertex_id, new_vertex_id]
                 
                 mesh['vertices'].append(vertex)
-                mesh['uvs'].append(obj_uvs[uv_id])
+                if len(obj_uvs):
+                    mesh['uvs'].append(obj_uvs[uv_id])
                 mesh['normals'].append(obj_normals[normal_id])
+                if len(obj_vertex_colors):
+                    mesh['vertex_colors'].append(obj_vertex_colors[vertex_id])
         
         mesh['faces'] = [[corner[0] for corner in face] for face in obj_faces]
     

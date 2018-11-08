@@ -111,6 +111,7 @@ class Renderpy:
         
         # book keeping
         color_shader_data = {}
+        vertex_color_shader_data = {}
         mask_shader_data = {}
         background_shader_data = {}
         
@@ -119,6 +120,11 @@ class Renderpy:
                 shader_definitions.color_vertex_shader, GL_VERTEX_SHADER)
         color_shader_data['fragment_shader'] = shaders.compileShader(
                 shader_definitions.color_fragment_shader, GL_FRAGMENT_SHADER)
+        vertex_color_shader_data['vertex_shader'] = shaders.compileShader(
+                shader_definitions.vertex_color_vertex_shader, GL_VERTEX_SHADER)
+        vertex_color_shader_data['fragment_shader'] = shaders.compileShader(
+                shader_definitions.vertex_color_fragment_shader,
+                GL_FRAGMENT_SHADER)
         mask_shader_data['vertex_shader'] = shaders.compileShader(
                 shader_definitions.mask_vertex_shader, GL_VERTEX_SHADER)
         mask_shader_data['fragment_shader'] = shaders.compileShader(
@@ -134,6 +140,10 @@ class Renderpy:
                 color_shader_data['vertex_shader'],
                 color_shader_data['fragment_shader'])
         color_shader_data['program'] = color_program
+        vertex_color_program = shaders.compileProgram(
+                vertex_color_shader_data['vertex_shader'],
+                vertex_color_shader_data['fragment_shader'])
+        vertex_color_shader_data['program'] = vertex_color_program
         mask_program = shaders.compileProgram(
                 mask_shader_data['vertex_shader'],
                 mask_shader_data['fragment_shader'])
@@ -145,6 +155,7 @@ class Renderpy:
         
         # get attribute locations
         color_shader_data['locations'] = {}
+        vertex_color_shader_data['locations'] = {}
         mask_shader_data['locations'] = {}
         background_shader_data['locations'] = {}
         
@@ -155,6 +166,13 @@ class Renderpy:
                 glGetAttribLocation(color_program, 'vertex_normal'))
         color_shader_data['locations']['vertex_uv'] = (
                 glGetAttribLocation(color_program, 'vertex_uv'))
+        
+        vertex_color_shader_data['locations']['vertex_position'] = (
+                glGetAttribLocation(vertex_color_program, 'vertex_position'))
+        vertex_color_shader_data['locations']['vertex_normal'] = (
+                glGetAttribLocation(vertex_color_program, 'vertex_normal'))
+        vertex_color_shader_data['locations']['vertex_color'] = (
+                glGetAttribLocation(vertex_color_program, 'vertex_color'))
         
         mask_shader_data['locations']['vertex_position'] = (
                 glGetAttribLocation(mask_program, 'vertex_position'))
@@ -167,6 +185,8 @@ class Renderpy:
         for variable in 'camera_pose', 'projection_matrix', 'model_pose':
             color_shader_data['locations'][variable] = (
                     glGetUniformLocation(color_program, variable))
+            vertex_color_shader_data['locations'][variable] = (
+                    glGetUniformLocation(vertex_color_program, variable))
             mask_shader_data['locations'][variable] = (
                     glGetUniformLocation(mask_program, variable))
         
@@ -175,22 +195,25 @@ class Renderpy:
                     glGetUniformLocation(background_program, variable))
         
         # (material data)
-        color_shader_data['locations']['material_properties'] = (
-                glGetUniformLocation(color_program, 'material_properties'))
-        
-        # (image light data)
-        color_shader_data['locations']['image_light_properties'] = (
-                glGetUniformLocation(color_program, 'image_light_properties'))
+        for variable in (
+                'material_properties',
+                'image_light_properties',
+                'diffuse_sampler',
+                'reflection_sampler'):
+            color_shader_data['locations'][variable] = (
+                    glGetUniformLocation(color_program, variable))
+            vertex_color_shader_data['locations'][variable] = (
+                    glGetUniformLocation(color_program, variable))
         
         # (sampler data)
         color_shader_data['locations']['texture_sampler'] = (
                 glGetUniformLocation(color_program, 'texture_sampler'))
         #color_shader_data['locations']['shadow_sampler'] = (
         #        glGetUniformLocation(color_program, 'shadow_sampler'))
-        color_shader_data['locations']['diffuse_sampler'] = (
-                glGetUniformLocation(color_program, 'diffuse_sampler'))
-        color_shader_data['locations']['reflection_sampler'] = (
-                glGetUniformLocation(color_program, 'reflection_sampler'))
+        #color_shader_data['locations']['diffuse_sampler'] = (
+        #        glGetUniformLocation(color_program, 'diffuse_sampler'))
+        #color_shader_data['locations']['reflection_sampler'] = (
+        #        glGetUniformLocation(color_program, 'reflection_sampler'))
         background_shader_data['locations']['cubemap_sampler'] = (
                 glGetUniformLocation(background_program, 'cubemap_sampler'))
         
@@ -199,6 +222,12 @@ class Renderpy:
         #glUniform1i(color_shader_data['locations']['shadow_sampler'], 1)
         glUniform1i(color_shader_data['locations']['diffuse_sampler'], 2)
         glUniform1i(color_shader_data['locations']['reflection_sampler'], 3)
+        
+        glUseProgram(vertex_color_program)
+        glUniform1i(vertex_color_shader_data['locations']['diffuse_sampler'], 2)
+        glUniform1i(
+                vertex_color_shader_data['locations']['reflection_sampler'], 3)
+        
         
         glUseProgram(background_program)
         glUniform1i(background_shader_data['locations']['cubemap_sampler'], 0)
@@ -212,12 +241,15 @@ class Renderpy:
                 'direction_light_data'):
             color_shader_data['locations'][variable] = (
                     glGetUniformLocation(color_program, variable))
+            vertex_color_shader_data['locations'][variable] = (
+                    glGetUniformLocation(color_program, variable))
         
         # (mask data)
         mask_shader_data['locations']['mask_color'] = (
                 glGetUniformLocation(mask_program, 'mask_color'))
         
         self.gl_data['color_shader'] = color_shader_data
+        self.gl_data['vertex_color_shader'] = vertex_color_shader_data
         self.gl_data['mask_shader'] = mask_shader_data
         self.gl_data['background_shader'] = background_shader_data
     
@@ -289,11 +321,12 @@ class Renderpy:
             name,
             mesh_path = None,
             primitive = None,
-            mesh_data = None):
+            mesh_data = None,
+            scale = 1.0):
         
         # if a mesh path was provided, load that
         if mesh_path is not None:
-            mesh = obj_mesh.load_mesh(mesh_path)
+            mesh = obj_mesh.load_mesh(mesh_path, scale=scale)
             self.scene_description['meshes'][name] = {'mesh_path':mesh_path}
         
         # if a primitive was specified, load that
@@ -316,11 +349,19 @@ class Renderpy:
         
         vertex_floats = numpy.array(mesh['vertices'], dtype=numpy.float32)
         normal_floats = numpy.array(mesh['normals'], dtype=numpy.float32)
-        uv_floats = numpy.array(mesh['uvs'], dtype=numpy.float32)
-        combined_floats = numpy.concatenate(
-                (vertex_floats, normal_floats, uv_floats), axis = 1)
-        mesh_buffers['vertex_buffer'] = vbo.VBO(combined_floats)
+        if len(mesh['uvs']):
+            uv_floats = numpy.array(mesh['uvs'], dtype=numpy.float32)
+            combined_floats = numpy.concatenate(
+                    (vertex_floats, normal_floats, uv_floats), axis=1)
+            mesh_buffers['vertex_buffer'] = vbo.VBO(combined_floats)
         
+        else:
+            vertex_color_floats = numpy.array(
+                    mesh['vertex_colors'], dtype=numpy.float32)
+            combined_floats = numpy.concatenate(
+                    (vertex_floats, normal_floats, vertex_color_floats), axis=1)
+            mesh_buffers['vertex_buffer'] = vbo.VBO(combined_floats)
+            
         face_ints = numpy.array(mesh['faces'], dtype=numpy.int32)
         mesh_buffers['face_buffer'] = vbo.VBO(
                 face_ints,
@@ -601,9 +642,9 @@ class Renderpy:
         elif example_texture is not None:
             texture = primitives.example_texture_paths[example_texture]
         
-        else:
-            raise Exception('Must specify either a texture or example_texture '
-                    'when loading a material')
+        #else:
+        #    raise Exception('Must specify either a texture or example_texture '
+        #            'when loading a material')
         
         self.scene_description['materials'][name] = {
                 'ka' : ka,
@@ -620,7 +661,8 @@ class Renderpy:
         material_buffers['texture'] = glGenTextures(1)
         self.gl_data['material_buffers'][name] = material_buffers
         
-        self.replace_texture(name, texture, crop)
+        if texture is not None:
+            self.replace_texture(name, texture, crop)
     
     def replace_texture(self,
             name,
@@ -659,7 +701,8 @@ class Renderpy:
     
     def remove_material(self, name):
         glDeleteTextures(self.gl_data['material_buffers'][name]['texture'])
-        del(self.loaded_data['textures'][name])
+        if name in self.loaded_data['textures']:
+            del(self.loaded_data['textures'][name])
         del(self.gl_data['material_buffers'][name])
         del(self.scene_description['materials'][name])
     
@@ -792,9 +835,6 @@ class Renderpy:
                     self.scene_description['image_lights'][image_light_name])
             if image_light_description['render_background']:
                 self.render_background(image_light_name, flip_y = flip_y)
-
-        # turn on the color shader
-        glUseProgram(self.gl_data['color_shader']['program'])
         
         # set the reflection cube map
         if image_light_name is not None:
@@ -805,77 +845,101 @@ class Renderpy:
             glBindTexture(GL_TEXTURE_CUBE_MAP, self.gl_data[
                     'light_buffers'][image_light_name]['reflection_texture'])
         
-        try:
+        # figure out which programs we need (color/vertex_color)
+        if instances is None:
+            instances = self.scene_description['instances']
+        
+        color_shader_instances = []
+        vertex_color_shader_instances = []
+        for instance in instances:
+            instance_mesh = (
+                    self.scene_description['instances'][instance]['mesh_name'])
+            mesh_data = self.loaded_data['meshes'][instance_mesh]
+            if len(mesh_data['uvs']):
+                color_shader_instances.append(instance)
+            else:
+                vertex_color_shader_instances.append(instance)
+        
+        for shader_name, shader_instances in (
+                ('color_shader', color_shader_instances),
+                ('vertex_color_shader', vertex_color_shader_instances)):
             
-            location_data = self.gl_data['color_shader']['locations']
+            if len(shader_instances) == 0:
+                continue
             
-            # set the camera's pose
-            camera_pose = self.scene_description['camera']['pose']
-            glUniformMatrix4fv(
-                    location_data['camera_pose'],
-                    1, GL_TRUE,
-                    camera_pose.astype(numpy.float32))
+            # turn on the shader
+            glUseProgram(self.gl_data[shader_name]['program'])
             
-            # set the camera's projection matrix
-            projection_matrix = self.scene_description['camera']['projection']
-            if flip_y:
-                projection_matrix = numpy.dot(
-                        projection_matrix,
-                        numpy.array([
-                            [ 1, 0, 0, 0],
-                            [ 0,-1, 0, 0],
-                            [ 0, 0, 1, 0],
-                            [ 0, 0, 0, 1]]))
-            glUniformMatrix4fv(
-                    location_data['projection_matrix'],
-                    1, GL_TRUE,
-                    projection_matrix.astype(numpy.float32))
-            
-            # set the ambient light's color
-            ambient_color = self.scene_description['ambient_color']
-            glUniform3fv(
-                    location_data['ambient_color'], 1,
-                    ambient_color.astype(numpy.float32))
-            
-            # set the point light data
-            glUniform1i(
-                    location_data['num_point_lights'],
-                    len(self.scene_description['point_lights']))
-            point_light_data = numpy.zeros((max_num_lights*2,3))
-            for i, light_name in enumerate(
-                    self.scene_description['point_lights']):
-                light_data = self.scene_description[
-                        'point_lights'][light_name]
-                point_light_data[i*2] = light_data['color']
-                point_light_data[i*2+1] = light_data['position']
-            glUniform3fv(
-                    location_data['point_light_data'], max_num_lights*2,
-                    point_light_data.astype(numpy.float32))
-            
-            # set the direction light data
-            glUniform1i(
-                    location_data['num_direction_lights'],
-                    len(self.scene_description['direction_lights']))
-            direction_light_data = numpy.zeros((max_num_lights*2,3))
-            for i, light_name in enumerate(
-                    self.scene_description['direction_lights']):
-                light_data = self.scene_description[
-                        'direction_lights'][light_name]
-                direction_light_data[i*2] = light_data['color']
-                direction_light_data[i*2+1] = light_data['direction']
-            glUniform3fv(
-                    location_data['direction_light_data'], max_num_lights*2,
-                    direction_light_data.astype(numpy.float32))
+            try:
                 
-            
-            # render the instances (if None was specified, render all of them)
-            if instances is None:
-                instances = self.scene_description['instances']
-            for instance_name in instances:
-                self.color_render_instance(instance_name)
-            
-        finally:
-            glUseProgram(0)
+                location_data = self.gl_data[shader_name]['locations']
+                
+                # set the camera's pose
+                camera_pose = self.scene_description['camera']['pose']
+                glUniformMatrix4fv(
+                        location_data['camera_pose'],
+                        1, GL_TRUE,
+                        camera_pose.astype(numpy.float32))
+                
+                # set the camera's projection matrix
+                projection_matrix = (
+                        self.scene_description['camera']['projection'])
+                if flip_y:
+                    projection_matrix = numpy.dot(
+                            projection_matrix,
+                            numpy.array([
+                                [ 1, 0, 0, 0],
+                                [ 0,-1, 0, 0],
+                                [ 0, 0, 1, 0],
+                                [ 0, 0, 0, 1]]))
+                glUniformMatrix4fv(
+                        location_data['projection_matrix'],
+                        1, GL_TRUE,
+                        projection_matrix.astype(numpy.float32))
+                
+                # set the ambient light's color
+                ambient_color = self.scene_description['ambient_color']
+                glUniform3fv(
+                        location_data['ambient_color'], 1,
+                        ambient_color.astype(numpy.float32))
+                
+                # set the point light data
+                glUniform1i(
+                        location_data['num_point_lights'],
+                        len(self.scene_description['point_lights']))
+                point_light_data = numpy.zeros((max_num_lights*2,3))
+                for i, light_name in enumerate(
+                        self.scene_description['point_lights']):
+                    light_data = self.scene_description[
+                            'point_lights'][light_name]
+                    point_light_data[i*2] = light_data['color']
+                    point_light_data[i*2+1] = light_data['position']
+                glUniform3fv(
+                        location_data['point_light_data'], max_num_lights*2,
+                        point_light_data.astype(numpy.float32))
+                
+                # set the direction light data
+                glUniform1i(
+                        location_data['num_direction_lights'],
+                        len(self.scene_description['direction_lights']))
+                direction_light_data = numpy.zeros((max_num_lights*2,3))
+                for i, light_name in enumerate(
+                        self.scene_description['direction_lights']):
+                    light_data = self.scene_description[
+                            'direction_lights'][light_name]
+                    direction_light_data[i*2] = light_data['color']
+                    direction_light_data[i*2+1] = light_data['direction']
+                glUniform3fv(
+                        location_data['direction_light_data'], max_num_lights*2,
+                        direction_light_data.astype(numpy.float32))
+                    
+                
+                # render the instances
+                for instance_name in shader_instances:
+                    self.color_render_instance(instance_name)
+                
+            finally:
+                glUseProgram(0)
         
         glFinish()
     
@@ -901,9 +965,15 @@ class Renderpy:
         #        material_data['image_light_blur_reflection'])
         mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
         material_buffers = self.gl_data['material_buffers'][instance_material]
-        num_triangles = len(self.loaded_data['meshes'][instance_mesh]['faces'])
+        mesh_data = self.loaded_data['meshes'][instance_mesh]
+        num_triangles = len(mesh_data['faces'])
         
-        location_data = self.gl_data['color_shader']['locations']
+        do_textured_mesh = len(mesh_data['uvs']) > 0
+        
+        if do_textured_mesh:
+            location_data = self.gl_data['color_shader']['locations']
+        else:
+            location_data = self.gl_data['vertex_color_shader']['locations']
         
         glUniformMatrix4fv(
                 location_data['model_pose'],
@@ -921,27 +991,44 @@ class Renderpy:
         mesh_buffers['face_buffer'].bind()
         mesh_buffers['vertex_buffer'].bind()
         
-        glActiveTexture(GL_TEXTURE0)
-        glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
+        if do_textured_mesh:
+            glActiveTexture(GL_TEXTURE0)
+            glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
         
         try:
             glEnableVertexAttribArray(location_data['vertex_position'])
             glEnableVertexAttribArray(location_data['vertex_normal'])
-            glEnableVertexAttribArray(location_data['vertex_uv'])
+            if do_textured_mesh:
+                glEnableVertexAttribArray(location_data['vertex_uv'])
+                stride = (3+3+2) * 4
+                glVertexAttribPointer(
+                        location_data['vertex_position'],
+                        3, GL_FLOAT, False, stride,
+                        mesh_buffers['vertex_buffer'])
+                glVertexAttribPointer(
+                        location_data['vertex_normal'],
+                        3, GL_FLOAT, False, stride,
+                        mesh_buffers['vertex_buffer']+((3)*4))
+                glVertexAttribPointer(
+                        location_data['vertex_uv'],
+                        2, GL_FLOAT, False, stride,
+                        mesh_buffers['vertex_buffer']+((3+3)*4))
+            else:
+                glEnableVertexAttribArray(location_data['vertex_color'])
+                stride = (3+3+3) * 4
+                glVertexAttribPointer(
+                        location_data['vertex_position'],
+                        3, GL_FLOAT, False, stride,
+                        mesh_buffers['vertex_buffer'])
+                glVertexAttribPointer(
+                        location_data['vertex_normal'],
+                        3, GL_FLOAT, False, stride,
+                        mesh_buffers['vertex_buffer']+((3)*4))
+                glVertexAttribPointer(
+                        location_data['vertex_color'],
+                        3, GL_FLOAT, False, stride,
+                        mesh_buffers['vertex_buffer']+((3+3)*4))
             
-            stride = (3+3+2) * 4
-            glVertexAttribPointer(
-                    location_data['vertex_position'],
-                    3, GL_FLOAT, False, stride,
-                    mesh_buffers['vertex_buffer'])
-            glVertexAttribPointer(
-                    location_data['vertex_normal'],
-                    3, GL_FLOAT, False, stride,
-                    mesh_buffers['vertex_buffer']+((3)*4))
-            glVertexAttribPointer(
-                    location_data['vertex_uv'],
-                    2, GL_FLOAT, False, stride,
-                    mesh_buffers['vertex_buffer']+((3+3)*4))
             
             glDrawElements(
                     GL_TRIANGLES,

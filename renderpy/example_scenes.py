@@ -476,6 +476,10 @@ def fourth_test():
     },
     "test_sphere": {
       "primitive": "sphere"
+    },
+    "test_ape": {
+      "mesh_path": "/home/awalsman/Development/LINEMOD_Occlusion/OcclusionChallengeICCV2015/models/Duck/007_mod.obj",
+      "scale":10.0
     }
   },
   "materials": {
@@ -485,10 +489,10 @@ def fourth_test():
       "kd": 0.5,
       "ks": 0.8,
       "shine": 4.0,
-      "image_light_kd": 1.0,
-      "image_light_ks": 0.0,
+      "image_light_kd": 0.5,
+      "image_light_ks": 0.5,
       "image_light_blur_reflection": 0,
-      "image_light_contrast": 1
+      "image_light_contrast": 1.5
     },
     "white": {
       "example_texture": "white",
@@ -499,7 +503,7 @@ def fourth_test():
       "image_light_kd": 1.0,
       "image_light_ks": 0.0,
       "image_light_blur_reflection": 0,
-      "image_light_contrast": 1
+      "image_light_contrast": 1.5
     },
     "candy_color": {
       "example_texture": "candy_color2",
@@ -510,12 +514,12 @@ def fourth_test():
       "image_light_kd": 1.,
       "image_light_ks": 0.,
       "image_light_blur_reflection": 4.0,
-      "image_light_contrast": 1.0
+      "image_light_contrast": 1.5
     }
   },
   "instances": {
     "sphere2": {
-      "mesh_name": "test_sphere",
+      "mesh_name": "test_ape",
       "material_name": "candy_color",
       "transform": [
         [
