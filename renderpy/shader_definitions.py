@@ -1,3 +1,103 @@
+phong_fn = '''
+vec2 phong(
+        vec3 contact_normal,
+        vec3 light_direction,
+        vec3 eye_direction,
+        float shine){
+    
+    float diffuse = clamp(dot(-light_direction, contact_normal), 0, 1);
+    
+    vec3 reflected_direction = reflect(-light_direction, contact_normal);
+    float specular = clamp(dot(-eye_direction, reflected_direction), 0, 1);
+    if(specular > 0.0){
+        specular = pow(specular, shine);
+    }
+    
+    return vec2(diffuse, specular);
+}
+'''
+
+softish_step_fn = '''
+float softish_step(float t, float alpha){
+    if(t <= 0){
+        return 0;
+    }
+    else if(t >= 1){
+        return 1;
+    }
+    
+    if(t < 0.5){
+        return 0.5 * pow((2*t),alpha);
+    }
+    else{
+        return -0.5 * pow((2*(1-t)),alpha)+1;
+    }
+}
+'''
+
+image_light_diffuse_fn = softish_step_fn + '''
+vec3 image_light_diffuse(
+        float diffuse_contribution,
+        vec3 fragment_normal,
+        float diffuse_min,
+        float diffuse_max,
+        float intensity_contrast,
+        float intensity_target_lo,
+        float intensity_target_hi,
+        vec3 tint_lo,
+        vec3 tint_hi){
+    
+    vec3 diffuse_color = vec3(texture(
+            diffuse_sampler, fragment_normal));
+    float diffuse_intensity =
+            diffuse_color.x * 0.2989 +
+            diffuse_color.y * 0.5870 +
+            diffuse_color.z * 0.1140;
+    
+    float diffuse_range = diffuse_max - diffuse_min;
+    float diffuse_midpoint = diffuse_range * 0.5 + diffuse_min;
+    
+    float soft_normalized_diffuse_intensity = 1.0;
+    float diffuse_lo = 0.;
+    float diffuse_hi = 1.;
+    if(intensity_target_lo < 1.0){
+        diffuse_lo = intensity_target_lo * diffuse_min;
+    }
+    else{
+        diffuse_lo =
+                (diffuse_midpoint - diffuse_min) *
+                (intensity_target_lo - 1.) + diffuse_min;
+    }
+    if(intensity_target_hi < 1.0){
+        diffuse_hi = 1. - intensity_target_hi * (1. - diffuse_max);
+    }
+    else{
+        diffuse_hi =
+                (diffuse_max - diffuse_midpoint) *
+                (2. - intensity_target_hi) + diffuse_midpoint;
+    }
+    float diffuse_retarget_range = diffuse_hi - diffuse_lo;
+    
+    if(diffuse_range > 0.){
+        float normalized_diffuse_intensity =
+                (diffuse_intensity - diffuse_min) / diffuse_range;
+        soft_normalized_diffuse_intensity = softish_step(
+            normalized_diffuse_intensity, intensity_contrast);
+        float soft_diffuse_intensity = (
+                soft_normalized_diffuse_intensity*diffuse_retarget_range) +
+                diffuse_lo;
+        if(diffuse_intensity > 0.){
+            diffuse_color *= soft_diffuse_intensity / diffuse_intensity;
+        }
+    }
+    
+    vec3 diffuse_tint_color = 
+            soft_normalized_diffuse_intensity * tint_hi +
+            (1. - soft_normalized_diffuse_intensity) * tint_lo;
+    return diffuse_contribution * diffuse_color + diffuse_tint_color;
+}
+'''
+
 color_vertex_shader = '''#version 330 core
 
 layout(location=0) in vec3 vertex_position;
@@ -62,7 +162,12 @@ uniform int enable_shadow_light;
 uniform vec3 shadow_light_color;
 //uniform mat4 shadow_light_pose;
 //uniform mat4 shadow_light_projection;
-uniform vec4 image_light_properties;
+uniform vec2 image_light_diffuse_minmax;
+uniform vec3 image_light_diffuse_rescale;
+uniform vec3 image_light_diffuse_tint_lo;
+uniform vec3 image_light_diffuse_tint_hi;
+uniform vec3 image_light_reflect_tint;
+uniform vec3 image_light_material_properties;
 uniform vec3 point_light_data[2*MAX_NUM_LIGHTS];
 uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
@@ -71,27 +176,8 @@ uniform mat4 camera_pose;
 uniform sampler2D texture_sampler;
 uniform sampler2D shadow_sampler;
 uniform samplerCube diffuse_sampler;
-uniform samplerCube reflection_sampler;
-
-vec2 phong(
-        vec3 contact_normal,
-        vec3 light_direction,
-        vec3 eye_direction,
-        float shine){
-    
-    float diffuse = clamp(
-            dot(-light_direction, contact_normal), 0, 1);
-    
-    vec3 reflected_direction = reflect(
-            -light_direction, contact_normal);
-    float specular = clamp(
-            dot(-eye_direction, reflected_direction), 0, 1);
-    if(specular > 0.0){
-        specular = pow(specular, shine);
-    }
-    
-    return vec2(diffuse, specular);
-}
+uniform samplerCube reflect_sampler;
+''' + phong_fn + image_light_diffuse_fn + '''
 
 void main(){
     
@@ -100,10 +186,13 @@ void main(){
     float ks = material_properties.z;
     float shine = material_properties.w;
     
-    float k_image_light_diffuse = image_light_properties.x;
-    float k_image_light_reflect = image_light_properties.y;
-    float k_image_light_reflect_blur = image_light_properties.z;
-    float k_image_light_contrast = image_light_properties.w;
+    float k_image_light_diffuse = image_light_material_properties.x;
+    float k_image_light_reflect = image_light_material_properties.y;
+    float k_image_light_reflect_blur = image_light_material_properties.z;
+    
+    float k_image_light_contrast = image_light_diffuse_rescale.x;
+    float k_image_light_target_lo = image_light_diffuse_rescale.y;
+    float k_image_light_target_hi = image_light_diffuse_rescale.z;
     
     vec3 ambient_contribution = ambient_color;
     vec3 diffuse_contribution = vec3(0.0);
@@ -123,24 +212,29 @@ void main(){
     */
     
     // image light
-    vec3 image_light_diffuse = k_image_light_diffuse * vec3(
-            texture(diffuse_sampler, vec3(inverse(camera_pose) * vec4(
-            fragment_normal_n,0))));
-    // This is stupid and wrong.  Do it better or don't.
-    image_light_diffuse = (image_light_diffuse - 0.75) *
-            k_image_light_contrast + 0.75;
-    image_light_diffuse = clamp(
-            image_light_diffuse, vec3(0,0,0), vec3(1,1,1));
+    vec3 camera_fragment_normal =
+            vec3(inverse(camera_pose) * vec4(fragment_normal_n,0));
+    vec3 image_light_diffuse_color = image_light_diffuse(
+            k_image_light_diffuse,
+            camera_fragment_normal,
+            image_light_diffuse_minmax.x,
+            image_light_diffuse_minmax.y,
+            k_image_light_contrast,
+            k_image_light_target_lo,
+            k_image_light_target_hi,
+            image_light_diffuse_tint_lo,
+            image_light_diffuse_tint_hi);
     
     vec3 reflected_direction = vec3(
             inverse(camera_pose) *
             vec4(reflect(-eye_direction, fragment_normal_n),0));
     vec3 reflected_color = vec3(texture(
-            reflection_sampler,
+            reflect_sampler,
             reflected_direction,
-            k_image_light_reflect_blur));
+            k_image_light_reflect_blur)) + image_light_reflect_tint;
     vec3 image_light_reflection = k_image_light_reflect * reflected_color;
     
+    // point lights
     for(int i = 0; i < num_point_lights; ++i){
         
         vec3 light_color = vec3(point_light_data[2*i]);
@@ -160,6 +254,7 @@ void main(){
         specular_contribution += light_color * light_phong.y;
     }
     
+    // direction lights
     for(int i = 0; i < num_direction_lights; ++i){
         
         vec3 light_color = vec3(direction_light_data[2*i]);
@@ -182,7 +277,8 @@ void main(){
             ambient_color * texture_color * ka +
             diffuse_contribution * texture_color * kd +
             specular_contribution * ks +
-            image_light_diffuse * texture_color + image_light_reflection);
+            image_light_diffuse_color * texture_color +
+            image_light_reflection);
 }
 '''
 
@@ -230,34 +326,21 @@ uniform int num_point_lights;
 uniform int num_direction_lights;
 uniform int enable_shadow_light;
 uniform vec3 shadow_light_color;
-uniform vec4 image_light_properties;
+uniform vec2 image_light_diffuse_minmax;
+uniform vec3 image_light_diffuse_rescale;
+uniform vec3 image_light_diffuse_tint_lo;
+uniform vec3 image_light_diffuse_tint_hi;
+uniform vec3 image_light_reflect_tint;
+uniform vec3 image_light_material_properties;
 uniform vec3 point_light_data[2*MAX_NUM_LIGHTS];
 uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
 uniform mat4 camera_pose;
 
 uniform samplerCube diffuse_sampler;
-uniform samplerCube reflection_sampler;
+uniform samplerCube reflect_sampler;
 
-vec2 phong(
-        vec3 contact_normal,
-        vec3 light_direction,
-        vec3 eye_direction,
-        float shine){
-    
-    float diffuse = clamp(
-            dot(-light_direction, contact_normal), 0, 1);
-    
-    vec3 reflected_direction = reflect(
-            -light_direction, contact_normal);
-    float specular = clamp(
-            dot(-eye_direction, reflected_direction), 0, 1);
-    if(specular > 0.0){
-        specular = pow(specular, shine);
-    }
-    
-    return vec2(diffuse, specular);
-}
+''' + phong_fn + image_light_diffuse_fn + '''
 
 void main(){
     
@@ -266,17 +349,13 @@ void main(){
     float ks = material_properties.z;
     float shine = material_properties.w;
     
-    /*
-    if(ka < 10000000){
-        color = vec3(1., 0, 0);
-        return;
-    }
-    */
+    float k_image_light_diffuse = image_light_material_properties.x;
+    float k_image_light_reflect = image_light_material_properties.y;
+    float k_image_light_reflect_blur = image_light_material_properties.z;
     
-    float k_image_light_diffuse = image_light_properties.x;
-    float k_image_light_reflect = image_light_properties.y;
-    float k_image_light_reflect_blur = image_light_properties.z;
-    float k_image_light_contrast = image_light_properties.w;
+    float k_image_light_contrast = image_light_diffuse_rescale.x;
+    float k_image_light_target_lo = image_light_diffuse_rescale.y;
+    float k_image_light_target_hi = image_light_diffuse_rescale.z;
     
     vec3 ambient_contribution = ambient_color;
     vec3 diffuse_contribution = vec3(0.0);
@@ -287,22 +366,27 @@ void main(){
     vec3 fragment_normal_n = normalize(vec3(fragment_normal));
     
     // image light
-    vec3 image_light_diffuse = k_image_light_diffuse * vec3(
-            texture(diffuse_sampler, vec3(inverse(camera_pose) * vec4(
-            fragment_normal_n,0))));
-    // This is stupid and wrong.  Do it better or don't.
-    image_light_diffuse = (image_light_diffuse - 0.75) *
-            k_image_light_contrast + 0.75;
-    image_light_diffuse = clamp(
-            image_light_diffuse, vec3(0,0,0), vec3(1,1,1));
+    vec3 camera_fragment_normal =
+            vec3(inverse(camera_pose) * vec4(fragment_normal_n,0));
+    vec3 image_light_diffuse_color = image_light_diffuse(
+            k_image_light_diffuse,
+            camera_fragment_normal,
+            image_light_diffuse_minmax.x,
+            image_light_diffuse_minmax.y,
+            k_image_light_contrast,
+            k_image_light_target_lo,
+            k_image_light_target_hi,
+            image_light_diffuse_tint_lo,
+            image_light_diffuse_tint_hi);
     
     vec3 reflected_direction = vec3(
             inverse(camera_pose) *
             vec4(reflect(-eye_direction, fragment_normal_n),0));
+    
     vec3 reflected_color = vec3(texture(
-            reflection_sampler,
+            reflect_sampler,
             reflected_direction,
-            k_image_light_reflect_blur));
+            k_image_light_reflect_blur)) + image_light_reflect_tint;
     vec3 image_light_reflection = k_image_light_reflect * reflected_color;
     
     for(int i = 0; i < num_point_lights; ++i){
@@ -340,12 +424,12 @@ void main(){
         specular_contribution += light_color * light_phong.y;
     }
     
-    
     color = vec3(
             ambient_color * fragment_color * ka +
             diffuse_contribution * fragment_color * kd +
             specular_contribution * ks +
-            image_light_diffuse * fragment_color + image_light_reflection);
+            image_light_diffuse_color * fragment_color +
+            image_light_reflection);
 }
 '''
 
@@ -437,7 +521,7 @@ out vec3 color;
 uniform float brightness;
 uniform float contrast;
 uniform float color_scale;
-uniform samplerCube reflection_sampler;
+uniform samplerCube reflect_sampler;
 uniform vec3 sphere_samples[NUM_SAMPLES];
 uniform int num_importance_samples;
 uniform float importance_sample_gain;
@@ -450,7 +534,7 @@ void main(){
     for(int i = 0; i < NUM_SAMPLES; ++i){
         float d = dot(fragment_direction_n, sphere_samples[i]);
         vec3 flipped_sample = sphere_samples[i] * sign(d);
-        vec3 sample_color = vec3(texture(reflection_sampler, flipped_sample));
+        vec3 sample_color = vec3(texture(reflect_sampler, flipped_sample));
         
         // brightness
         sample_color += brightness;

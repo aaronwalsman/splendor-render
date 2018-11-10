@@ -1,4 +1,3 @@
-
 # Sources
 
 # https://github.com/BerkeleyAutomation/meshrender
@@ -197,13 +196,18 @@ class Renderpy:
         # (material data)
         for variable in (
                 'material_properties',
-                'image_light_properties',
+                'image_light_diffuse_minmax',
+                'image_light_diffuse_rescale',
+                'image_light_diffuse_tint_lo',
+                'image_light_diffuse_tint_hi',
+                'image_light_reflect_tint',
+                'image_light_material_properties',
                 'diffuse_sampler',
-                'reflection_sampler'):
+                'reflect_sampler'):
             color_shader_data['locations'][variable] = (
                     glGetUniformLocation(color_program, variable))
             vertex_color_shader_data['locations'][variable] = (
-                    glGetUniformLocation(color_program, variable))
+                    glGetUniformLocation(vertex_color_program, variable))
         
         # (sampler data)
         color_shader_data['locations']['texture_sampler'] = (
@@ -221,12 +225,11 @@ class Renderpy:
         glUniform1i(color_shader_data['locations']['texture_sampler'], 0)
         #glUniform1i(color_shader_data['locations']['shadow_sampler'], 1)
         glUniform1i(color_shader_data['locations']['diffuse_sampler'], 2)
-        glUniform1i(color_shader_data['locations']['reflection_sampler'], 3)
+        glUniform1i(color_shader_data['locations']['reflect_sampler'], 3)
         
         glUseProgram(vertex_color_program)
         glUniform1i(vertex_color_shader_data['locations']['diffuse_sampler'], 2)
-        glUniform1i(
-                vertex_color_shader_data['locations']['reflection_sampler'], 3)
+        glUniform1i(vertex_color_shader_data['locations']['reflect_sampler'], 3)
         
         
         glUseProgram(background_program)
@@ -410,6 +413,12 @@ class Renderpy:
             texture_directory = None,
             reflection_mipmaps = None,
             blur = 0.0,
+            diffuse_contrast = 1.,
+            diffuse_lo_rescale = 1.,
+            diffuse_hi_rescale = 1.,
+            diffuse_tint_lo = (0,0,0),
+            diffuse_tint_hi = (0,0,0),
+            reflect_tint = (0,0,0),
             render_background = True,
             crop = None,
             set_active = True):
@@ -444,10 +453,16 @@ class Renderpy:
         light_buffers['reflection_texture'] = glGenTextures(1)
         self.gl_data['light_buffers'][name] = light_buffers
         
-        self.scene_description['image_lights'][name] = {}
-        self.scene_description['image_lights'][name]['blur'] = blur
-        self.scene_description['image_lights'][name]['render_background'] = (
-                render_background)
+        image_light_data = {}
+        image_light_data['blur'] = blur
+        image_light_data['render_background'] = render_background
+        image_light_data['diffuse_contrast'] = diffuse_contrast
+        image_light_data['diffuse_lo_rescale'] = diffuse_lo_rescale
+        image_light_data['diffuse_hi_rescale'] = diffuse_hi_rescale
+        image_light_data['diffuse_tint_lo'] = diffuse_tint_lo
+        image_light_data['diffuse_tint_hi'] = diffuse_tint_hi
+        image_light_data['reflect_tint'] = reflect_tint
+        self.scene_description['image_lights'][name] = image_light_data
         self.replace_image_light_textures(
                 name,
                 diffuse_textures,
@@ -534,6 +549,8 @@ class Renderpy:
         light_buffers = self.gl_data['light_buffers'][name]
         glBindTexture(GL_TEXTURE_CUBE_MAP, light_buffers['diffuse_texture'])
         try:
+            diffuse_min = float('inf')
+            diffuse_max = -float('inf')
             for i, diffuse_image in enumerate(diffuse_images):
                 self.validate_texture(diffuse_image)
                 glTexImage2D(
@@ -541,6 +558,17 @@ class Renderpy:
                         0, GL_RGB,
                         diffuse_image.shape[1], diffuse_image.shape[0],
                         0, GL_RGB, GL_UNSIGNED_BYTE, diffuse_image)
+                
+                diffuse_intensity = (
+                        diffuse_image[:,:,0] * 0.2989 +
+                        diffuse_image[:,:,1] * 0.5870 +
+                        diffuse_image[:,:,2] * 0.1140)
+                
+                diffuse_min = min(diffuse_min, numpy.min(diffuse_intensity))
+                diffuse_max = max(diffuse_max, numpy.max(diffuse_intensity))
+            
+            light_description['diffuse_min'] = diffuse_min / 255.
+            light_description['diffuse_max'] = diffuse_max / 255.
             
             glTexParameteri(
                     GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
@@ -633,7 +661,6 @@ class Renderpy:
             image_light_kd = 0.7,
             image_light_ks = 0.3,
             image_light_blur_reflection = 0.0,
-            image_light_contrast = 1.0,
             crop = None):
         
         if texture is not None:
@@ -653,9 +680,7 @@ class Renderpy:
                 'shine' : shine,
                 'image_light_kd' : image_light_kd,
                 'image_light_ks' : image_light_ks,
-                'image_light_blur_reflection' : image_light_blur_reflection,
-                'image_light_contrast' :
-                    image_light_contrast}
+                'image_light_blur_reflection' : image_light_blur_reflection}
         
         material_buffers = {}
         material_buffers['texture'] = glGenTextures(1)
@@ -836,7 +861,7 @@ class Renderpy:
             if image_light_description['render_background']:
                 self.render_background(image_light_name, flip_y = flip_y)
         
-        # set the reflection cube map
+        # set image light maps
         if image_light_name is not None:
             glActiveTexture(GL_TEXTURE2)
             glBindTexture(GL_TEXTURE_CUBE_MAP, self.gl_data[
@@ -932,7 +957,46 @@ class Renderpy:
                 glUniform3fv(
                         location_data['direction_light_data'], max_num_lights*2,
                         direction_light_data.astype(numpy.float32))
-                    
+                
+                # set the image light parameters
+                if image_light_name is not None:
+                    image_light_data = (
+                            self.scene_description['image_lights'][
+                                image_light_name])
+                    diffuse_minmax = numpy.array(
+                            [image_light_data['diffuse_min'],
+                             image_light_data['diffuse_max']],
+                            dtype=numpy.float32)
+                    diffuse_rescale = numpy.array(
+                            [image_light_data['diffuse_contrast'],
+                             image_light_data['diffuse_lo_rescale'],
+                             image_light_data['diffuse_hi_rescale']],
+                            dtype=numpy.float32)
+                    diffuse_tint_lo = numpy.array(
+                            image_light_data['diffuse_tint_lo'],
+                            dtype=numpy.float32)
+                    diffuse_tint_hi = numpy.array(
+                            image_light_data['diffuse_tint_hi'],
+                            dtype=numpy.float32)
+                    reflect_tint = numpy.array(
+                            image_light_data['reflect_tint'],
+                            dtype=numpy.float32)
+                    glUniform2fv(
+                            location_data['image_light_diffuse_minmax'],
+                            1, diffuse_minmax)
+                    glUniform3fv(
+                            location_data['image_light_diffuse_rescale'],
+                            1, diffuse_rescale)
+                    glUniform3fv(
+                            location_data['image_light_diffuse_tint_lo'],
+                            1, diffuse_tint_lo)
+                    glUniform3fv(
+                            location_data['image_light_diffuse_tint_hi'],
+                            1, diffuse_tint_hi)
+                    glUniform3fv(
+                            location_data['image_light_reflect_tint'],
+                            1, reflect_tint)
+        
                 
                 # render the instances
                 for instance_name in shader_instances:
@@ -957,8 +1021,7 @@ class Renderpy:
         image_light_material_properties = numpy.array([
                 material_data['image_light_kd'],
                 material_data['image_light_ks'],
-                material_data['image_light_blur_reflection'],
-                material_data['image_light_contrast']])
+                material_data['image_light_blur_reflection']])
         #glTexParameterf(
         #        GL_TEXTURE_CUBE_MAP,
         #        GL_TEXTURE_MIN_LOD,
@@ -984,8 +1047,8 @@ class Renderpy:
                 location_data['material_properties'],
                 1, material_properties.astype(numpy.float32))
         
-        glUniform4fv(
-                location_data['image_light_properties'], 1,
+        glUniform3fv(
+                location_data['image_light_material_properties'], 1,
                 image_light_material_properties)
         
         mesh_buffers['face_buffer'].bind()

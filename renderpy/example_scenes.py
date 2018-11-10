@@ -466,7 +466,13 @@ def fourth_test():
             #["/home/awalsman/Development/renderpy/renderpy/example_background/pz_ref_%i.jpg"%i for i in range(1,8)],
             #["/home/awalsman/Development/renderpy/renderpy/example_background/nz_ref_%i.jpg"%i for i in range(1,8)]],
       "blur":2,
-      "render_background":1
+      "render_background":1,
+      "diffuse_contrast":5,
+      "diffuse_lo_rescale":0.0,
+      "diffuse_hi_rescale":1.0,
+      "diffuse_tint_lo":(0.0,0.0,0.0),
+      "diffuse_tint_hi":(0.0,0.0,0.0),
+      "reflect_tint":(0.0,0.0,0.0)
     }
   },
   "active_image_light" : "background_1",
@@ -478,8 +484,8 @@ def fourth_test():
       "primitive": "sphere"
     },
     "test_ape": {
-      "mesh_path": "/home/awalsman/Development/LINEMOD_Occlusion/OcclusionChallengeICCV2015/models/Duck/007_mod.obj",
-      "scale":10.0
+      "mesh_path": "/home/awalsman/Development/LINEMOD_Occlusion/OcclusionChallengeICCV2015/models/Ape/001.obj",
+      "scale":40.0
     }
   },
   "materials": {
@@ -489,10 +495,9 @@ def fourth_test():
       "kd": 0.5,
       "ks": 0.8,
       "shine": 4.0,
-      "image_light_kd": 0.5,
-      "image_light_ks": 0.5,
-      "image_light_blur_reflection": 0,
-      "image_light_contrast": 1.5
+      "image_light_kd": 1.0,
+      "image_light_ks": 0.0,
+      "image_light_blur_reflection": 4,
     },
     "white": {
       "example_texture": "white",
@@ -503,7 +508,6 @@ def fourth_test():
       "image_light_kd": 1.0,
       "image_light_ks": 0.0,
       "image_light_blur_reflection": 0,
-      "image_light_contrast": 1.5
     },
     "candy_color": {
       "example_texture": "candy_color2",
@@ -511,10 +515,9 @@ def fourth_test():
       "kd": 0.5,
       "ks": 0.5,
       "shine": 4.0,
-      "image_light_kd": 1.,
-      "image_light_ks": 0.,
-      "image_light_blur_reflection": 4.0,
-      "image_light_contrast": 1.5
+      "image_light_kd": 0.5,
+      "image_light_ks": 0.5,
+      "image_light_blur_reflection": 0.3,
     }
   },
   "instances": {

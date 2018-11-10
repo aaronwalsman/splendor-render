@@ -277,6 +277,10 @@ if __name__ == '__main__':
         
         blur = (rendered_frames % 10000)/10000. * 8
         
+        #contrast = (rendered_frames % 3000)/3000. *10 + 1
+        #rendererA.scene_description['image_lights']['background_1'][
+        #        'diffuse_contrast'] = (contrast)
+        
         '''
         rendererA.scene_description['image_lights']['background_1']['blur'] = (
                 blur)
