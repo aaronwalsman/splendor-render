@@ -157,3 +157,40 @@ def load_mesh(mesh_path, strict=False, scale=1.0):
         raise
     
     return mesh
+
+def write_obj(mesh, obj_path, texture_name=None):
+    v = mesh['vertices']
+    n = mesh['normals']
+    u = mesh['uvs']
+    f = mesh['faces']
+
+    obj_name = os.path.basename(obj_path)
+    base_path, _ = os.path.splitext(obj_path)
+    mtl_path = base_path + '.mtl'
+    mtl_name = os.path.basename(mtl_path)
+    if texture_name is None:
+        texture_path = base_path + '.png'
+        texture_name = os.path.basename(texture_path)
+    with open(obj_path, 'w') as obj:
+        obj.write('mtllib %s\n'%mtl_name)
+        for i in range(v.shape[0]):
+            obj.write('v %f %f %f\n'%(v[i,0], v[i,1], v[i,2]))
+        for i in range(u.shape[0]):
+            obj.write('vt %f %f\n'%(u[i,0], u[i,1]))
+        for i in range(n.shape[0]):
+            obj.write('vn %f %f %f\n'%(n[i,0], n[i,1], n[i,2]))
+        for i in range(f.shape[0]):
+            obj.write('f %i/%i/%i %i/%i/%i %i/%i/%i\n'%(
+                    f[i,0]+1, f[i,0]+1, f[i,0]+1,
+                    f[i,1]+1, f[i,1]+1, f[i,1]+1,
+                    f[i,2]+1, f[i,2]+1, f[i,2]+1))
+
+    with open(mtl_path, 'w') as mtl:
+        mtl.write('newmtl singleShader\n')
+        mtl.write('illum 4\n')
+        mtl.write('Kd 1.00 1.00 1.00\n')
+        mtl.write('Ka 0.00 0.00 0.00\n')
+        mtl.write('Tf 1.00 1.00 1.00\n')
+        mtl.write('Ni 1.00\n')
+        mtl.write('map_Kd %s\n'%texture_name)
+

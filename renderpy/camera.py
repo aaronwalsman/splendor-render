@@ -175,8 +175,9 @@ def sample_turntable(
     
     poses = []
     for _ in range(num_poses):
-        distance_range = distance_extents[1] - distance_extents[0]
-        distance = random.random() * distance_range + distance_extents[0]
+        #distance_range = distance_extents[1] - distance_extents[0]
+        #distance = random.random() * distance_range + distance_extents[0]
+        distance = random.uniform(*distance_extents)
         
         theta += theta_step
         orientation = (theta + random.random() * orientation_spacing_range -
@@ -201,6 +202,9 @@ def position_to_pixels(
         camera_matrix,
         screen_resolution,
         flip_y = True):
+    
+    if len(position) == 3:
+        position = numpy.append(position, [1])
     
     projected = numpy.dot(numpy.dot(projection_matrix, camera_matrix), position)
     projected_x = projected[0] / projected[3]
