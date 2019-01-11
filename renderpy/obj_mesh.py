@@ -75,10 +75,10 @@ def load_mesh(mesh_path, strict=False, scale=1.0):
                 
                 if tokens[0] == 'vt':
                     # add a uv
-                    if len(tokens) != 3:
+                    if len(tokens) != 3 and len(tokens) != 4:
                         raise MeshError(
-                                'UV must have exactly two elements')
-                    obj_uvs.append([float(uv) for uv in tokens[1:]])
+                                'UV must have two or three elements')
+                    obj_uvs.append([float(uv) for uv in tokens[1:3]])
                 
                 if tokens[0] == 'vn':
                     # add a normal
