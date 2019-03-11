@@ -485,6 +485,8 @@ def fourth_test():
     },
     "test_ape": {
       "mesh_path": "/home/awalsman/Development/LINEMOD_Occlusion/OcclusionChallengeICCV2015/models/Ape/001.obj",
+      #"mesh_path" : "/home/awalsman/Development/renderpy/renderpy/from_xuan/mesh0.obj",
+        #"/home/awalsman/Downloads/from_adam/model_normalized.obj",
       "scale":40.0
     }
   },
@@ -515,8 +517,8 @@ def fourth_test():
       "kd": 0.5,
       "ks": 0.5,
       "shine": 4.0,
-      "image_light_kd": 0.5,
-      "image_light_ks": 0.5,
+      "image_light_kd": 0.2,
+      "image_light_ks": 0.8,
       "image_light_blur_reflection": 0.3,
     }
   },
@@ -530,6 +532,146 @@ def fourth_test():
           0.0,
           -0.707,
           0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.707,
+          0.0,
+          0.707,
+          -4.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mask_color": [
+        0,
+        0,
+        0
+      ]
+    },
+    "xuan_0":{
+        "mesh_name": "test_ape",
+      "material_name": "candy_color",
+      "transform": [
+        [
+          0.707,
+          0.0,
+          -0.707,
+          5.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.707,
+          0.0,
+          0.707,
+          -4.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mask_color": [
+        0,
+        0,
+        0
+      ]
+    },
+    "xuan_1":{
+        "mesh_name": "test_ape",
+      "material_name": "candy_color",
+      "transform": [
+        [
+          0.707,
+          0.0,
+          -0.707,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          -5.0
+        ],
+        [
+          0.707,
+          0.0,
+          0.707,
+          -4.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mask_color": [
+        0,
+        0,
+        0
+      ]
+    },
+    "xuan_2":{
+        "mesh_name": "test_ape",
+      "material_name": "candy_color",
+      "transform": [
+        [
+          0.707,
+          0.0,
+          -0.707,
+          10.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          -5.0
+        ],
+        [
+          0.707,
+          0.0,
+          0.707,
+          -4.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "mask_color": [
+        0,
+        0,
+        0
+      ]
+    },
+    "xuan_3":{
+        "mesh_name": "test_ape",
+      "material_name": "candy_color",
+      "transform": [
+        [
+          0.707,
+          0.0,
+          -0.707,
+          -5.0
         ],
         [
           0.0,
@@ -626,7 +768,7 @@ def fourth_test():
         1
       ]
     ],
-    "projection": camera.projection_matrix(math.radians(75), 1),
+    "projection": camera.projection_matrix(math.radians(75), 1, far_clip=1000),
       #  [
       #[
       #  1.33205081,

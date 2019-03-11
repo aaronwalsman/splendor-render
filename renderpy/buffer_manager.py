@@ -237,6 +237,7 @@ if __name__ == '__main__':
     rendererA = core.Renderpy()
     rendererA.load_scene(example_scenes.fourth_test())
     
+    
     import meshmaker.primitives as primitives
     nice_cube = primitives.Cube(bezel=0.05)
     nice_cube.write_obj('./tmp.obj')
@@ -247,12 +248,39 @@ if __name__ == '__main__':
             mesh_name = 'nice_cube',
             material_name = 'cliff')
     
+    
+    '''
+    rendererA.load_mesh('from_adam', '/home/awalsman/Downloads/from_adam/model_normalized.obj')
+    rendererA.load_material(
+            'from_adam_mat',
+            '/home/awalsman/Downloads/from_adam/texture0.jpg',
+            image_light_kd=0.0,
+            image_light_ks=1.0,
+            image_light_blur_reflection=2)
+    rendererA.add_instance(
+            'nice_instance',
+            mesh_name = 'from_adam',
+            material_name = 'from_adam_mat')
+    
+    '''
+    rendererA.load_image_light('nice_image_light',
+            texture_directory = '/home/awalsman/Development/matterport_environments/fffe7407b0324ceca095d418d02e2ea3')
+    
+    
+    '''
+    rendererA.add_direction_light(
+            name = 'light_main',
+            direction = numpy.array([0.5,0,-0.866]),
+            color = numpy.array([1,1,1]))
+    
+    rendererA.set_ambient_color(numpy.array([0.2, 0.2, 0.2]))
+    '''
     #rendererB = core.Renderpy()
     #rendererB.load_scene(example_scenes.second_test())
     #rendererB.set_instance_material('cube1', 'candy_color')
     
     theta = [0.0]
-    translate = numpy.array([[1,0,0,0],[0,1,0,0],[0,0,1,8],[0,0,0,1]])
+    translate = numpy.array([[1,0,0,0],[0,1,0,0],[0,0,1,10],[0,0,0,1]])
     e = math.radians(-30)
     elevate = numpy.array([
             [1, 0, 0, 0],

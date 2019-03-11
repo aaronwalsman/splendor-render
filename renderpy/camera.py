@@ -21,6 +21,41 @@ def projection_matrix(
 
 def projection_matrix_from_intrinsics(
         intrinsics,
+        image_resolution,   
+        near_clip = 0.05,
+        far_clip = 50,
+        offset_x = 0,
+        offset_y = 0):
+    
+    fu = intrinsics[0,0]
+    fv = intrinsics[1,1]
+    u0 = intrinsics[0,2] + offset_x
+    v0 = intrinsics[1,2] + offset_y
+    w = image_resolution[1]
+    h = image_resolution[0]
+    
+    L = -(u0) * near_clip / fu
+    R = +(w-u0) * near_clip / fu
+    B = -(v0) * near_clip / fv
+    T = +(h-v0) * near_clip / fv
+    
+    P = numpy.zeros((4,4))
+    
+    P[0,0] = 2 * near_clip / (R-L)
+    P[1,1] = 2 * near_clip / (T-B)
+    
+    P[0,2] = (R+L)/(L-R)
+    P[1,2] = (T+B)/(B-T)
+    P[2,2] = -(far_clip + near_clip) / (far_clip - near_clip)
+    P[3,2] = -1.0
+    
+    P[2,3] = -(2 * far_clip * near_clip)/(far_clip - near_clip)
+    
+    return P
+
+
+def projection_matrix_from_intrinsics_old(
+        intrinsics,
         image_resolution,
         near_clip = 0.05,
         far_clip = 50,
@@ -196,12 +231,41 @@ def sample_turntable(
     
     return poses
 
+
+def crop_projection_matrix(box, resolution, projection):
+    box_width = box[3] - box[1]
+    box_height = box[2] - box[0]
+    try:
+        cropped_projection = projection.clone()
+    except:
+        cropped_projection = projection.copy()
+    x_scale = resolution[1] / box_width
+    y_scale = resolution[0] / box_height
+    cropped_projection[0,0] *= x_scale
+    cropped_projection[1,1] *= y_scale
+    
+    box_center_x = box_width * 0.5 + box[1]
+    box_center_y = box_height * 0.5 + box[0]
+    x_offset = (box_center_x - resolution[1]/2.) * 2 / box_width
+    # this -1 scale is due to the inverse relationship between pixels
+    # and normalized device coordinates
+    y_offset = -(box_center_y - resolution[0]/2.) * 2 / box_height
+    
+    cropped_projection[0,2] = (
+            cropped_projection[0,2] * x_scale + x_offset)
+    cropped_projection[1,2] = (
+            cropped_projection[1,2] * y_scale + y_offset)
+    
+    return cropped_projection
+
+
 def position_to_pixels(
         position,
         projection_matrix,
         camera_matrix,
         screen_resolution,
-        flip_y = True):
+        flip_y = True,
+        round_output=True):
     
     if len(position) == 3:
         position = numpy.append(position, [1])
@@ -213,14 +277,20 @@ def position_to_pixels(
     if flip_y:
         projected_y *= -1
     
-    if isinstance(projected_x, numpy.ndarray):
-        x = numpy.round((projected_x + 1.) * 0.5 * screen_resolution[1])
-    else:
-        x = int(round((projected_x + 1.) * 0.5 * screen_resolution[1]))
+    if round_output:
+        if isinstance(projected_x, numpy.ndarray):
+            x = numpy.round((projected_x + 1.) * 0.5 * screen_resolution[1])
+        else:
+            x = int(round((projected_x + 1.) * 0.5 * screen_resolution[1]))
+        
+        if isinstance(projected_y, numpy.ndarray):
+            y = numpy.round((projected_y + 1.) * 0.5 * screen_resolution[0])
+        else:
+            y = int(round((projected_y + 1.) * 0.5 * screen_resolution[0]))
     
-    if isinstance(projected_y, numpy.ndarray):
-        y = numpy.round((projected_y + 1.) * 0.5 * screen_resolution[0])
     else:
-        y = int(round((projected_y + 1.) * 0.5 * screen_resolution[0]))
+        x = projected_x * screen_resolution[1]
+        y = projected_y * screen_resolution[0]
     
     return x, y
+
