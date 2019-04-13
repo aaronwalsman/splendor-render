@@ -19,9 +19,11 @@ from OpenGL.arrays import vbo
 from OpenGL.GL import shaders
 from OpenGL.arrays import vbo
 
-# scipy/numpy
+# numpy
 import numpy
-import scipy.misc
+
+# PIL
+import PIL.Image as Image
 
 # local
 import renderpy.camera as camera
@@ -30,10 +32,12 @@ import renderpy.obj_mesh as obj_mesh
 import renderpy.primitives as primitives
 
 max_num_lights = 8
-default_camera_pose = camera.turntable_pose(.5, 0, math.radians(-10.), 0, .25)
+#default_camera_pose = camera.turntable_pose(.5, 0, math.radians(-10.), 0, .25)
+default_camera_pose = numpy.eye(4)
 default_camera_projection = camera.projection_matrix(math.radians(60.), 1.0)
-default_shadow_light_pose = camera.turntable_pose(
-        .5, 1.0, math.radians(-20.), 0, .25)
+#default_shadow_light_pose = camera.turntable_pose(
+#        .5, 1.0, math.radians(-20.), 0, .25)
+default_shadow_light_pose = numpy.eye(4)
 default_shadow_light_projection = camera.projection_matrix(
         math.radians(60.), 1.0)
 
@@ -414,8 +418,11 @@ class Renderpy:
             reflection_mipmaps = None,
             blur = 0.0,
             diffuse_contrast = 1.,
-            diffuse_lo_rescale = 1.,
-            diffuse_hi_rescale = 1.,
+            #diffuse_lo_rescale = 1.,
+            #diffuse_hi_rescale = 1.,
+            rescale_diffuse_intensity = False,
+            diffuse_intensity_target_lo = 0.,
+            diffuse_intensity_target_hi = 1.,
             diffuse_tint_lo = (0,0,0),
             diffuse_tint_hi = (0,0,0),
             reflect_tint = (0,0,0),
@@ -457,8 +464,14 @@ class Renderpy:
         image_light_data['blur'] = blur
         image_light_data['render_background'] = render_background
         image_light_data['diffuse_contrast'] = diffuse_contrast
-        image_light_data['diffuse_lo_rescale'] = diffuse_lo_rescale
-        image_light_data['diffuse_hi_rescale'] = diffuse_hi_rescale
+        #image_light_data['diffuse_lo_rescale'] = diffuse_lo_rescale
+        #image_light_data['diffuse_hi_rescale'] = diffuse_hi_rescale
+        image_light_data['rescale_diffuse_intensity'] = (
+                rescale_diffuse_intensity)
+        image_light_data['diffuse_intensity_target_lo'] = (
+                diffuse_intensity_target_lo)
+        image_light_data['diffuse_intensity_target_hi'] = (
+                diffuse_intensity_target_hi)
         image_light_data['diffuse_tint_lo'] = diffuse_tint_lo
         image_light_data['diffuse_tint_hi'] = diffuse_tint_hi
         image_light_data['reflect_tint'] = reflect_tint
@@ -520,7 +533,9 @@ class Renderpy:
         
         if isinstance(diffuse_textures[0], str):
             light_description['diffuse_textures'] = diffuse_textures
-            diffuse_images = [scipy.misc.imread(diffuse_texture)[:,:,:3]
+            #diffuse_images = [scipy.misc.imread(diffuse_texture)[:,:,:3]
+            diffuse_images = [
+                    numpy.array(Image.open(diffuse_texture).convert('RGB'))
                     for diffuse_texture in diffuse_textures]
         else:
             light_description['diffuse_textures'] = -1
@@ -528,7 +543,9 @@ class Renderpy:
         
         if isinstance(reflection_textures[0], str):
             light_description['reflection_textures'] = reflection_textures
-            reflection_images = [scipy.misc.imread(reflection_texture)[:,:,:3]
+            #reflection_images = [scipy.misc.imread(reflection_texture)[:,:,:3]
+            reflection_images = [
+                    numpy.array(Image.open(reflection_texture).convert('RGB'))
                     for reflection_texture in reflection_textures]
         else:
             light_description['reflection_textures'] = -1
@@ -538,7 +555,8 @@ class Renderpy:
             if isinstance(reflection_mipmaps[0][0], str):
                 light_description['reflection_mipmaps'] = reflection_mipmaps
                 reflection_mipmaps = [
-                        [scipy.misc.imread(mipmap)[:,:,:3]
+                        #[scipy.misc.imread(mipmap)[:,:,:3]
+                        [numpy.array(Image.open(mipmap).convert('RGB'))
                          for mipmap in mipmaps]
                         for mipmaps in reflection_mipmaps]
             else:
@@ -658,9 +676,9 @@ class Renderpy:
             kd = 1.0,
             ks = 0.5,
             shine = 4.0,
-            image_light_kd = 0.7,
-            image_light_ks = 0.3,
-            image_light_blur_reflection = 0.0,
+            image_light_kd = 0.85,
+            image_light_ks = 0.15,
+            image_light_blur_reflection = 2.0,
             crop = None):
         
         if texture is not None:
@@ -696,7 +714,8 @@ class Renderpy:
         
         if isinstance(texture, str):
             self.scene_description['materials'][name]['texture'] = texture
-            image = scipy.misc.imread(texture)[:,:,:3]
+            #image = scipy.misc.imread(texture)[:,:,:3]
+            image = numpy.array(Image.open(texture).convert('RGB'))
         else:
             self.scene_description['materials'][name]['texture'] = -1
             image = texture
@@ -967,10 +986,22 @@ class Renderpy:
                             [image_light_data['diffuse_min'],
                              image_light_data['diffuse_max']],
                             dtype=numpy.float32)
+                    if image_light_data['rescale_diffuse_intensity']:
+                        diffuse_intensity_target_lo = (
+                                image_light_data['diffuse_intensity_target_lo'])
+                        diffuse_intensity_target_hi = (
+                                image_light_data['diffuse_intensity_target_hi'])
+                    else:
+                        diffuse_intensity_target_lo = (
+                                image_light_data['diffuse_min'])
+                        diffuse_intensity_target_hi = (
+                                image_light_data['diffuse_max'])
                     diffuse_rescale = numpy.array(
                             [image_light_data['diffuse_contrast'],
-                             image_light_data['diffuse_lo_rescale'],
-                             image_light_data['diffuse_hi_rescale']],
+                             diffuse_intensity_target_lo,
+                             diffuse_intensity_target_hi],
+                             #image_light_data['diffuse_lo_rescale'],
+                             #image_light_data['diffuse_hi_rescale']],
                             dtype=numpy.float32)
                     diffuse_tint_lo = numpy.array(
                             image_light_data['diffuse_tint_lo'],

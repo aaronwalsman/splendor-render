@@ -108,7 +108,8 @@ def change_projection_aspect_ratio(
     
     return scaled_projection_matrix
 
-
+'''
+# moved to camera_utils.py in detection_utils
 def turntable_pose(
         distance, orientation, elevation, spin, lift=0):
     
@@ -152,6 +153,44 @@ def turntable_pose(
             numpy.dot(l, numpy.dot(o, numpy.dot(e, numpy.dot(d,s)))))
 
 
+def get_framing_distance_for_mesh(
+        mesh,
+        mesh_transform,
+        projection_matrix):
+    
+    v_min = numpy.min(mesh['vertices'], axis=0)
+    v_max = numpy.max(mesh['vertices'], axis=0)
+    v_offset = v_max - v_min
+    v_centroid = v_offset * 0.5 + v_min
+    v_centroid = numpy.dot(mesh_transform, numpy.append(v_centroid, 1.0))[:3]
+    radius_3d = numpy.linalg.norm(v_offset) * 0.5
+
+    size_based_distance = projection_matrix[0,0] * radius_3d
+    
+    return size_based_distance, v_centroid
+
+
+def sample_uniform_mesh_viewing_angles(
+        mesh,
+        mesh_transform,
+        projection_matrix,
+        num_poses,
+        distance_scale_extents):
+    
+    size_based_distance, v_centroid = get_framing_distance_for_mesh(
+            mesh, mesh_transform, projection_matrix)
+    
+    distance_extents = (
+            size_based_distance * distance_scale_extents[0],
+            size_based_distance * distance_scale_extents[1])
+    
+    centroid_offset_a = numpy.eye(4)
+    centroid_offset_a[:3,3] -= v_centroid
+    
+    centroid_offset_b = numpy.eye(4)
+    centroid_offset_b[:3,3] += v_centroid
+
+
 def sample_mesh_turntable(
         mesh,
         mesh_transform,
@@ -164,14 +203,9 @@ def sample_mesh_turntable(
         spin_extents,
         lift_extents):
     
-    v_min = numpy.min(mesh['vertices'], axis=0)
-    v_max = numpy.max(mesh['vertices'], axis=0)
-    v_offset = v_max - v_min
-    v_centroid = v_offset * 0.5 + v_min
-    v_centroid = numpy.dot(mesh_transform, numpy.append(v_centroid, 1.0))[:3]
-    radius_3d = numpy.linalg.norm(v_offset) * 0.5
-
-    size_based_distance = projection_matrix[0,0] * radius_3d
+    size_based_distance, v_centroid = get_framing_distance_for_mesh(
+            mesh, mesh_transform, projection_matrix)
+    
     distance_extents = (
             size_based_distance * distance_scale_extents[0],
             size_based_distance * distance_scale_extents[1])
@@ -230,9 +264,9 @@ def sample_turntable(
         poses.append(turntable_pose(distance, theta, elevation, spin, lift))
     
     return poses
+'''
 
-
-def crop_projection_matrix(box, resolution, projection):
+def crop_projection_matrix(box, resolution, projection, batch=False):
     box_width = box[3] - box[1]
     box_height = box[2] - box[0]
     try:
@@ -241,8 +275,12 @@ def crop_projection_matrix(box, resolution, projection):
         cropped_projection = projection.copy()
     x_scale = resolution[1] / box_width
     y_scale = resolution[0] / box_height
-    cropped_projection[0,0] *= x_scale
-    cropped_projection[1,1] *= y_scale
+    if batch:
+        cropped_projection[:,0,0] *= x_scale
+        cropped_projection[:,1,1] *= y_scale
+    else:
+        cropped_projection[0,0] *= x_scale
+        cropped_projection[1,1] *= y_scale
     
     box_center_x = box_width * 0.5 + box[1]
     box_center_y = box_height * 0.5 + box[0]
@@ -251,10 +289,16 @@ def crop_projection_matrix(box, resolution, projection):
     # and normalized device coordinates
     y_offset = -(box_center_y - resolution[0]/2.) * 2 / box_height
     
-    cropped_projection[0,2] = (
-            cropped_projection[0,2] * x_scale + x_offset)
-    cropped_projection[1,2] = (
-            cropped_projection[1,2] * y_scale + y_offset)
+    if batch:
+        cropped_projection[:,0,2] = (
+                cropped_projection[:,0,2] * x_scale + x_offset)
+        cropped_projection[:,1,2] = (
+                cropped_projection[:,1,2] * y_scale + y_offset)
+    else:
+        cropped_projection[0,2] = (
+                cropped_projection[0,2] * x_scale + x_offset)
+        cropped_projection[1,2] = (
+                cropped_projection[1,2] * y_scale + y_offset)
     
     return cropped_projection
 

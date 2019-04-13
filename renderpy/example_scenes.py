@@ -468,8 +468,8 @@ def fourth_test():
       "blur":2,
       "render_background":1,
       "diffuse_contrast":5,
-      "diffuse_lo_rescale":0.0,
-      "diffuse_hi_rescale":1.0,
+      #"diffuse_lo_rescale":0.0,
+      #"diffuse_hi_rescale":1.0,
       "diffuse_tint_lo":(0.0,0.0,0.0),
       "diffuse_tint_hi":(0.0,0.0,0.0),
       "reflect_tint":(0.0,0.0,0.0)
@@ -488,6 +488,10 @@ def fourth_test():
       #"mesh_path" : "/home/awalsman/Development/renderpy/renderpy/from_xuan/mesh0.obj",
         #"/home/awalsman/Downloads/from_adam/model_normalized.obj",
       "scale":40.0
+    },
+    "test_cracker": {
+      "mesh_path" : "/home/awalsman/Development/cracker/meshes/003_cracker_box.obj",
+      "scale":20.0
     }
   },
   "materials": {
@@ -517,15 +521,25 @@ def fourth_test():
       "kd": 0.5,
       "ks": 0.5,
       "shine": 4.0,
-      "image_light_kd": 0.2,
-      "image_light_ks": 0.8,
+      "image_light_kd": 1.0,
+      "image_light_ks": 0.0,
       "image_light_blur_reflection": 0.3,
-    }
+    },
+    "cracker_mat": {
+      "texture": "/home/awalsman/Development/cracker/meshes/003_cracker_box.png",
+      "ka":1.0,
+      "kd":0.5,
+      "ks":0.5,
+      "shine":4.0,
+      "image_light_kd": 0.9,
+      "image_light_ks": 0.1,
+      "image_light_blur_reflection": 4.0,
+    },
   },
   "instances": {
     "sphere2": {
-      "mesh_name": "test_ape",
-      "material_name": "candy_color",
+      "mesh_name": "test_cracker",
+      "material_name": "cracker_mat",
       "transform": [
         [
           0.707,

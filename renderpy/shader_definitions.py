@@ -35,7 +35,15 @@ float softish_step(float t, float alpha){
 }
 '''
 
-image_light_diffuse_fn = softish_step_fn + '''
+
+intensity_fn = '''
+float intensity(vec3 c){
+    return c.x * 0.2990 + c.y * 0.5870 + c.z * 0.1140;
+}
+'''
+
+
+image_light_diffuse_fn = softish_step_fn + intensity_fn + '''
 vec3 image_light_diffuse(
         float diffuse_contribution,
         vec3 fragment_normal,
@@ -47,16 +55,20 @@ vec3 image_light_diffuse(
         vec3 tint_lo,
         vec3 tint_hi){
     
+    //==========================================================================
+    // sample the raw diffuse light color from the diffuse sampler
+    //==========================================================================
     vec3 diffuse_color = vec3(texture(
             diffuse_sampler, fragment_normal));
-    float diffuse_intensity =
-            diffuse_color.x * 0.2989 +
-            diffuse_color.y * 0.5870 +
-            diffuse_color.z * 0.1140;
+    float diffuse_intensity = intensity(diffuse_color);
     
+    //==========================================================================
+    // rescale the intensity
+    //==========================================================================
     float diffuse_range = diffuse_max - diffuse_min;
-    float diffuse_midpoint = diffuse_range * 0.5 + diffuse_min;
     
+    /*
+    float diffuse_midpoint = diffuse_range * 0.5 + diffuse_min;
     float soft_normalized_diffuse_intensity = 1.0;
     float diffuse_lo = 0.;
     float diffuse_hi = 1.;
@@ -77,23 +89,33 @@ vec3 image_light_diffuse(
                 (2. - intensity_target_hi) + diffuse_midpoint;
     }
     float diffuse_retarget_range = diffuse_hi - diffuse_lo;
+    */
     
+    float diffuse_retarget_range = intensity_target_hi - intensity_target_lo;
+    
+    float soft_normalized_diffuse_intensity = 0.;
     if(diffuse_range > 0.){
         float normalized_diffuse_intensity =
                 (diffuse_intensity - diffuse_min) / diffuse_range;
         soft_normalized_diffuse_intensity = softish_step(
             normalized_diffuse_intensity, intensity_contrast);
         float soft_diffuse_intensity = (
-                soft_normalized_diffuse_intensity*diffuse_retarget_range) +
-                diffuse_lo;
+                soft_normalized_diffuse_intensity * diffuse_retarget_range) +
+                intensity_target_lo;
+                //diffuse_lo;
         if(diffuse_intensity > 0.){
             diffuse_color *= soft_diffuse_intensity / diffuse_intensity;
         }
     }
     
-    vec3 diffuse_tint_color = 
-            soft_normalized_diffuse_intensity * tint_hi +
-            (1. - soft_normalized_diffuse_intensity) * tint_lo;
+    //==========================================================================
+    // add the tint offset
+    //==========================================================================
+    //vec3 diffuse_tint_color = 
+    //        soft_normalized_diffuse_intensity * tint_hi +
+    //        (1. - soft_normalized_diffuse_intensity) * tint_lo;
+    vec3 diffuse_tint_color = mix(
+            tint_lo, tint_hi, soft_normalized_diffuse_intensity);
     return diffuse_contribution * diffuse_color + diffuse_tint_color;
 }
 '''
@@ -271,7 +293,21 @@ void main(){
         specular_contribution += light_color * light_phong.y;
     }
     
+    
     vec3 texture_color = texture(texture_sampler, fragment_uv).rgb;
+    
+    //==========================================================================
+    // THIS SECTION IS EXPERIMENTAL
+    float diffuse_intensity = intensity(image_light_diffuse_color);
+    
+    // if diffuse contribution is greater than one
+    // interpolate to the light color
+    if(diffuse_intensity > 1.0){
+        texture_color = mix(texture_color, vec3(1.0,1.0,1.0), //image_light_diffuse_color,
+                diffuse_intensity - 1.0);
+    }
+    // END EXPERIMENTAL SECTION
+    //==========================================================================
     
     color = vec3(
             ambient_color * texture_color * ka +

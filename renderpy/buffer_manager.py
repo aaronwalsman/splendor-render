@@ -12,7 +12,8 @@ from OpenGL.GLU import *
 from OpenGL.GLUT import *
 
 # numpy/scipy
-import scipy.misc
+#import scipy.misc
+import PIL.Image as Image
 import numpy
 
 # local
@@ -229,6 +230,7 @@ if __name__ == '__main__':
     
     buffer_manager = initialize_shared_buffer_manager(width)
     buffer_manager.add_frame('A', width, height)
+    buffer_manager.enable_frame('A')
     #buffer_manager.add_frame('B', width*2, height*2)
     
     #glutSetOption(GLUT_MULTISAMPLE, 4)
@@ -264,7 +266,14 @@ if __name__ == '__main__':
     
     '''
     rendererA.load_image_light('nice_image_light',
-            texture_directory = '/home/awalsman/Development/matterport_environments/fffe7407b0324ceca095d418d02e2ea3')
+            texture_directory = '/home/awalsman/Development/matterport_environments/fffe7407b0324ceca095d418d02e2ea3',
+            diffuse_tint_lo=(0,0,0),#(-0.25,-0.25,-0.25),
+            diffuse_tint_hi=(0,0,0),#(0.5,0.5,0.5),
+            rescale_diffuse_intensity=True,
+            diffuse_intensity_target_lo = 0.4,
+            diffuse_intensity_target_hi = 1.6,
+            diffuse_contrast=1.0,
+            render_background=True)
     
     
     '''
@@ -292,11 +301,16 @@ if __name__ == '__main__':
     t0 = time.time()
     rendered_frames = 0
     while True:
+        tmp_r = math.pi * 1.5
         rotate = numpy.array([
-                [math.cos(theta[0]), 0, -math.sin(theta[0]), 0],
+                [math.cos(tmp_r), 0, -math.sin(tmp_r), 0],
                 [0, 1, 0, 0],
-                [math.sin(theta[0]), 0,  math.cos(theta[0]), 0],
+                [math.sin(tmp_r), 0, math.cos(tmp_r), 0],
                 [0, 0, 0, 1]])
+                #[math.cos(theta[0]), 0, -math.sin(theta[0]), 0],
+                #[0, 1, 0, 0],
+                #[math.sin(theta[0]), 0,  math.cos(theta[0]), 0],
+                #[0, 0, 0, 1]])
     
         c = numpy.linalg.inv(
                 numpy.dot(rotate, numpy.dot(elevate, translate)))
@@ -320,11 +334,24 @@ if __name__ == '__main__':
         #theta[0] += 0.00025
         theta[0] += math.pi * 2 / 5000.
         
-        #buffer_manager.enable_frame('A')
+        
+        # THIS IS THE NORMAL THING
         buffer_manager.show_window()
         buffer_manager.enable_window()
         rendererA.color_render(flip_y=False)
+        
+        r2 = numpy.array([
+                [math.cos(-theta[0]*2), 0, -math.sin(-theta[0]*2), 0],
+                [0, 1, 0, 0],
+                [math.sin(-theta[0]*2), 0, math.cos(-theta[0]*2), -4],
+                [0, 0, 0, 1]])
+        rendererA.set_instance_transform('sphere2', r2)
+        
+        #buffer_manager.enable_frame('A')
+        #rendererA.color_render()
         #imgA = buffer_manager.read_pixels('A')
+        #imgA = Image.fromarray(imgA)
+        #imgA.save('tmp_%02i.png'%(rendered_frames%100))
         
         #buffer_manager.enable_frame('B')
         #rendererB.color_render()
