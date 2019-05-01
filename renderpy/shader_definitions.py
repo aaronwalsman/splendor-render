@@ -35,13 +35,11 @@ float softish_step(float t, float alpha){
 }
 '''
 
-
 intensity_fn = '''
 float intensity(vec3 c){
     return c.x * 0.2990 + c.y * 0.5870 + c.z * 0.1140;
 }
 '''
-
 
 image_light_diffuse_fn = softish_step_fn + intensity_fn + '''
 vec3 image_light_diffuse(
@@ -66,31 +64,6 @@ vec3 image_light_diffuse(
     // rescale the intensity
     //==========================================================================
     float diffuse_range = diffuse_max - diffuse_min;
-    
-    /*
-    float diffuse_midpoint = diffuse_range * 0.5 + diffuse_min;
-    float soft_normalized_diffuse_intensity = 1.0;
-    float diffuse_lo = 0.;
-    float diffuse_hi = 1.;
-    if(intensity_target_lo < 1.0){
-        diffuse_lo = intensity_target_lo * diffuse_min;
-    }
-    else{
-        diffuse_lo =
-                (diffuse_midpoint - diffuse_min) *
-                (intensity_target_lo - 1.) + diffuse_min;
-    }
-    if(intensity_target_hi < 1.0){
-        diffuse_hi = 1. - intensity_target_hi * (1. - diffuse_max);
-    }
-    else{
-        diffuse_hi =
-                (diffuse_max - diffuse_midpoint) *
-                (2. - intensity_target_hi) + diffuse_midpoint;
-    }
-    float diffuse_retarget_range = diffuse_hi - diffuse_lo;
-    */
-    
     float diffuse_retarget_range = intensity_target_hi - intensity_target_lo;
     
     float soft_normalized_diffuse_intensity = 0.;
@@ -102,7 +75,6 @@ vec3 image_light_diffuse(
         float soft_diffuse_intensity = (
                 soft_normalized_diffuse_intensity * diffuse_retarget_range) +
                 intensity_target_lo;
-                //diffuse_lo;
         if(diffuse_intensity > 0.){
             diffuse_color *= soft_diffuse_intensity / diffuse_intensity;
         }
@@ -111,16 +83,13 @@ vec3 image_light_diffuse(
     //==========================================================================
     // add the tint offset
     //==========================================================================
-    //vec3 diffuse_tint_color = 
-    //        soft_normalized_diffuse_intensity * tint_hi +
-    //        (1. - soft_normalized_diffuse_intensity) * tint_lo;
     vec3 diffuse_tint_color = mix(
             tint_lo, tint_hi, soft_normalized_diffuse_intensity);
     return diffuse_contribution * diffuse_color + diffuse_tint_color;
 }
 '''
 
-color_vertex_shader = '''#version 330 core
+textured_vertex_shader = '''#version 330 core
 
 layout(location=0) in vec3 vertex_position;
 layout(location=1) in vec3 vertex_normal;
@@ -129,12 +98,12 @@ layout(location=2) in vec2 vertex_uv;
 out vec4 fragment_position;
 out vec4 fragment_normal;
 out vec2 fragment_uv;
-out vec4 fragment_shadow_position;
-out vec4 fragment_shadow_normal;
-out vec4 fragment_shadow_projection;
+//out vec4 fragment_shadow_position;
+//out vec4 fragment_shadow_normal;
+//out vec4 fragment_shadow_projection;
 
-uniform mat4 shadow_light_pose;
-uniform mat4 shadow_light_projection;
+//uniform mat4 shadow_light_pose;
+//uniform mat4 shadow_light_projection;
 
 uniform mat4 projection_matrix;
 uniform mat4 model_pose;
@@ -145,7 +114,7 @@ void main(){
     mat4 vm = camera_pose * model_pose;
     mat4 pvm = projection_matrix * vm;
     
-    mat4 lm = shadow_light_pose * model_pose;
+    //mat4 lm = shadow_light_pose * model_pose;
     
     gl_Position = pvm * vec4(vertex_position,1);
     
@@ -155,23 +124,23 @@ void main(){
     fragment_uv.x = vertex_uv.x;
     fragment_uv.y =-vertex_uv.y;
     
-    fragment_shadow_position = lm * vec4(vertex_position,1);
-    fragment_shadow_projection =
-            shadow_light_projection * fragment_shadow_position;
-    fragment_shadow_normal = lm * vec4(vertex_normal,0);
+    //fragment_shadow_position = lm * vec4(vertex_position,1);
+    //fragment_shadow_projection =
+    //        shadow_light_projection * fragment_shadow_position;
+    //fragment_shadow_normal = lm * vec4(vertex_normal,0);
 }
 '''
 
-color_fragment_shader = '''#version 330 core
+textured_fragment_shader = '''#version 330 core
 
 const int MAX_NUM_LIGHTS = 8;
 
 in vec4 fragment_position;
 in vec4 fragment_normal;
 in vec2 fragment_uv;
-in vec4 fragment_shadow_position;
-in vec4 fragment_shadow_projection;
-in vec4 fragment_shadow_normal;
+//in vec4 fragment_shadow_position;
+//in vec4 fragment_shadow_projection;
+//in vec4 fragment_shadow_normal;
 
 out vec3 color;
 
@@ -180,8 +149,8 @@ uniform vec4 material_properties;
 uniform vec3 ambient_color;
 uniform int num_point_lights;
 uniform int num_direction_lights;
-uniform int enable_shadow_light;
-uniform vec3 shadow_light_color;
+//uniform int enable_shadow_light;
+//uniform vec3 shadow_light_color;
 //uniform mat4 shadow_light_pose;
 //uniform mat4 shadow_light_projection;
 uniform vec2 image_light_diffuse_minmax;
@@ -196,7 +165,7 @@ uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 uniform mat4 camera_pose;
 
 uniform sampler2D texture_sampler;
-uniform sampler2D shadow_sampler;
+//uniform sampler2D shadow_sampler;
 uniform samplerCube diffuse_sampler;
 uniform samplerCube reflect_sampler;
 ''' + phong_fn + image_light_diffuse_fn + '''
@@ -224,14 +193,14 @@ void main(){
     
     vec3 fragment_normal_n = normalize(vec3(fragment_normal));
     
-    /*
-    if(enable_shadow_light){
-        vec2 shadow_phong = phong(
-                ...);
-        diffuse_contribution += shadow_light_color * shadow_phong.x;
-        specular_contribution += shadow_light_color * shadow_phong.y;
-    }
-    */
+    
+    //if(enable_shadow_light){
+    //    vec2 shadow_phong = phong(
+    //            ...);
+    //    diffuse_contribution += shadow_light_color * shadow_phong.x;
+    //    specular_contribution += shadow_light_color * shadow_phong.y;
+    //}
+    
     
     // image light
     vec3 camera_fragment_normal =
@@ -293,7 +262,6 @@ void main(){
         specular_contribution += light_color * light_phong.y;
     }
     
-    
     vec3 texture_color = texture(texture_sampler, fragment_uv).rgb;
     
     //==========================================================================
@@ -301,9 +269,11 @@ void main(){
     float diffuse_intensity = intensity(image_light_diffuse_color);
     
     // if diffuse contribution is greater than one
-    // interpolate to the light color
+    // interpolate the texture color to white
+    // this is designed to simulate blow-out or over-exposure
     if(diffuse_intensity > 1.0){
-        texture_color = mix(texture_color, vec3(1.0,1.0,1.0), //image_light_diffuse_color,
+        texture_color = mix(texture_color, vec3(1.0,1.0,1.0),
+                //image_light_diffuse_color,
                 diffuse_intensity - 1.0);
     }
     // END EXPERIMENTAL SECTION
@@ -345,7 +315,6 @@ void main(){
 '''
 
 vertex_color_fragment_shader = '''#version 330 core
-#pragma optimize (off)
 
 const int MAX_NUM_LIGHTS = 8;
 
@@ -360,8 +329,10 @@ uniform vec4 material_properties;
 uniform vec3 ambient_color;
 uniform int num_point_lights;
 uniform int num_direction_lights;
-uniform int enable_shadow_light;
-uniform vec3 shadow_light_color;
+//uniform int enable_shadow_light;
+//uniform vec3 shadow_light_color;
+//uniform mat4 shadow_light_pose;
+//uniform mat4 shadow_light_projection;
 uniform vec2 image_light_diffuse_minmax;
 uniform vec3 image_light_diffuse_rescale;
 uniform vec3 image_light_diffuse_tint_lo;
@@ -373,9 +344,9 @@ uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
 uniform mat4 camera_pose;
 
+//uniform sampler2D shadow_sampler;
 uniform samplerCube diffuse_sampler;
 uniform samplerCube reflect_sampler;
-
 ''' + phong_fn + image_light_diffuse_fn + '''
 
 void main(){
@@ -418,13 +389,13 @@ void main(){
     vec3 reflected_direction = vec3(
             inverse(camera_pose) *
             vec4(reflect(-eye_direction, fragment_normal_n),0));
-    
     vec3 reflected_color = vec3(texture(
             reflect_sampler,
             reflected_direction,
             k_image_light_reflect_blur)) + image_light_reflect_tint;
     vec3 image_light_reflection = k_image_light_reflect * reflected_color;
     
+    // point lights
     for(int i = 0; i < num_point_lights; ++i){
         
         vec3 light_color = vec3(point_light_data[2*i]);
@@ -444,6 +415,7 @@ void main(){
         specular_contribution += light_color * light_phong.y;
     }
     
+    // direction lights
     for(int i = 0; i < num_direction_lights; ++i){
         
         vec3 light_color = vec3(direction_light_data[2*i]);
@@ -460,11 +432,28 @@ void main(){
         specular_contribution += light_color * light_phong.y;
     }
     
+    vec3 texture_color = fragment_color;
+    
+    //==========================================================================
+    // THIS SECTION IS EXPERIMENTAL
+    float diffuse_intensity = intensity(image_light_diffuse_color);
+    
+    // if diffuse contribution is greater than one
+    // interpolate the texture color to white
+    // this is designed to simulate blow-out or over-exposure
+    if(diffuse_intensity > 1.0){
+        texture_color = mix(texture_color, vec3(1.0,1.0,1.0),
+                //image_light_diffuse_color,
+                diffuse_intensity - 1.0);
+    }
+    // END EXPERIMENTAL SECTION
+    //==========================================================================
+    
     color = vec3(
-            ambient_color * fragment_color * ka +
-            diffuse_contribution * fragment_color * kd +
+            ambient_color * texture_color * ka +
+            diffuse_contribution * texture_color * kd +
             specular_contribution * ks +
-            image_light_diffuse_color * fragment_color +
+            image_light_diffuse_color * texture_color +
             image_light_reflection);
 }
 '''

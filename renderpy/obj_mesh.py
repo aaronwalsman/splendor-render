@@ -11,6 +11,11 @@ def copy_rename_obj(
         destination,
         new_name):
     
+    '''
+    Copies an obj file from one location to another along with it's mtl
+    and texture file, and changes internal paths appropriately.
+    '''
+    
     mtl_file_name = os.path.basename(mtl_path)
     tex_file_name = os.path.basename(tex_path)
     tex_file_extension = tex_file_name.split('.')[-1]
@@ -37,6 +42,11 @@ def copy_rename_obj(
 
 def load_mesh(mesh_path, strict=False, scale=1.0):
     
+    '''
+    Loads an obj file to a mesh dictionary.  This does not support all obj
+    features, but supports the ones necessary for renderpy.
+    '''
+    
     try:
         obj_vertices = []
         obj_normals = []
@@ -51,8 +61,6 @@ def load_mesh(mesh_path, strict=False, scale=1.0):
             'vertex_colors':[],
             'faces':[]}
         
-        #vertex_uv_mapping = {}
-        #vertex_normal_mapping = {}
         vertex_face_mapping = {}
         
         with open(mesh_path) as f:
@@ -111,11 +119,6 @@ def load_mesh(mesh_path, strict=False, scale=1.0):
                         vertex_face_mapping.setdefault(vertex, [])
                         vertex_face_mapping[vertex].append((face_id,i))
                     obj_faces.append(face)
-                    
-                    #vertex_uv_mapping.setdefault(vertex, [])
-                    #vertex_normal_mapping.setdefault(vertex, [])
-                    #vertex_uv_mapping[vertex].append(uv)
-                    #vertex_normal_mapping[vertex].append(normal)
         
         # break up the mesh so that all vertices have the same uv and normal
         for vertex_id, vertex in enumerate(obj_vertices):
@@ -159,6 +162,11 @@ def load_mesh(mesh_path, strict=False, scale=1.0):
     return mesh
 
 def write_obj(mesh, obj_path, texture_name=None):
+    
+    '''
+    Write a mesh dictionary to an obj file.
+    '''
+    
     v = mesh['vertices']
     n = mesh['normals']
     u = mesh['uvs']

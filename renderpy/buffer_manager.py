@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # system
 import os
 import math
@@ -24,9 +22,6 @@ default_window_size = 128
 
 shared_buffer_manager = []
 
-os.environ['XAUTHORITY'] = "/home/awalsman/.Xauthority"
-os.environ['DISPLAY'] = ':0'
-
 def initialize_shared_buffer_manager(*args, **kwargs):
     if len(shared_buffer_manager):
         return shared_buffer_manager[0]
@@ -40,7 +35,13 @@ class FrameExistsError(Exception):
 class BufferManager:
     def __init__(self,
             window_size = default_window_size,
-            anti_aliasing = True):
+            anti_aliasing = True,
+            x_authority = None,
+            display = None):
+        
+        if x_authority is not None:
+            os.environ['XAUTHORITY'] = x_authority
+            os.environ['DISPLAY'] = display
         
         glutInit([])
         # GLUT_DOUBLE maxes out at 60fps
@@ -222,154 +223,3 @@ class BufferManager:
         glutPostRedisplay()
         glutSwapBuffers()
         glutLeaveMainLoop()
-    
-
-if __name__ == '__main__':
-    width = 512
-    height = 512
-    
-    buffer_manager = initialize_shared_buffer_manager(width)
-    buffer_manager.add_frame('A', width, height)
-    buffer_manager.enable_frame('A')
-    #buffer_manager.add_frame('B', width*2, height*2)
-    
-    #glutSetOption(GLUT_MULTISAMPLE, 4)
-    
-    
-    rendererA = core.Renderpy()
-    rendererA.load_scene(example_scenes.fourth_test())
-    
-    
-    import meshmaker.primitives as primitives
-    nice_cube = primitives.Cube(bezel=0.05)
-    nice_cube.write_obj('./tmp.obj')
-    nice_mesh = nice_cube.build_mesh()
-    rendererA.load_mesh('nice_cube', mesh_data = nice_mesh)
-    rendererA.add_instance(
-            'nice_instance',
-            mesh_name = 'nice_cube',
-            material_name = 'cliff')
-    
-    
-    '''
-    rendererA.load_mesh('from_adam', '/home/awalsman/Downloads/from_adam/model_normalized.obj')
-    rendererA.load_material(
-            'from_adam_mat',
-            '/home/awalsman/Downloads/from_adam/texture0.jpg',
-            image_light_kd=0.0,
-            image_light_ks=1.0,
-            image_light_blur_reflection=2)
-    rendererA.add_instance(
-            'nice_instance',
-            mesh_name = 'from_adam',
-            material_name = 'from_adam_mat')
-    
-    '''
-    rendererA.load_image_light('nice_image_light',
-            texture_directory = '/home/awalsman/Development/matterport_environments/fffe7407b0324ceca095d418d02e2ea3',
-            diffuse_tint_lo=(0,0,0),#(-0.25,-0.25,-0.25),
-            diffuse_tint_hi=(0,0,0),#(0.5,0.5,0.5),
-            rescale_diffuse_intensity=True,
-            diffuse_intensity_target_lo = 0.4,
-            diffuse_intensity_target_hi = 1.6,
-            diffuse_contrast=1.0,
-            render_background=True)
-    
-    
-    '''
-    rendererA.add_direction_light(
-            name = 'light_main',
-            direction = numpy.array([0.5,0,-0.866]),
-            color = numpy.array([1,1,1]))
-    
-    rendererA.set_ambient_color(numpy.array([0.2, 0.2, 0.2]))
-    '''
-    #rendererB = core.Renderpy()
-    #rendererB.load_scene(example_scenes.second_test())
-    #rendererB.set_instance_material('cube1', 'candy_color')
-    
-    theta = [0.0]
-    translate = numpy.array([[1,0,0,0],[0,1,0,0],[0,0,1,10],[0,0,0,1]])
-    e = math.radians(-30)
-    elevate = numpy.array([
-            [1, 0, 0, 0],
-            [0, math.cos(e), -math.sin(e), 0],
-            [0, math.sin(e), math.cos(e), 0],
-            [0, 0, 0, 1]])
-    
-    import time
-    t0 = time.time()
-    rendered_frames = 0
-    while True:
-        tmp_r = math.pi * 1.5
-        rotate = numpy.array([
-                [math.cos(tmp_r), 0, -math.sin(tmp_r), 0],
-                [0, 1, 0, 0],
-                [math.sin(tmp_r), 0, math.cos(tmp_r), 0],
-                [0, 0, 0, 1]])
-                #[math.cos(theta[0]), 0, -math.sin(theta[0]), 0],
-                #[0, 1, 0, 0],
-                #[math.sin(theta[0]), 0,  math.cos(theta[0]), 0],
-                #[0, 0, 0, 1]])
-    
-        c = numpy.linalg.inv(
-                numpy.dot(rotate, numpy.dot(elevate, translate)))
-        rendererA.set_camera_pose(c)
-        #rendererB.set_camera_pose(c)
-        
-        blur = (rendered_frames % 10000)/10000. * 8
-        
-        #contrast = (rendered_frames % 3000)/3000. *10 + 1
-        #rendererA.scene_description['image_lights']['background_1'][
-        #        'diffuse_contrast'] = (contrast)
-        
-        '''
-        rendererA.scene_description['image_lights']['background_1']['blur'] = (
-                blur)
-        '''
-        '''
-        rendererA.scene_description['materials']['cliff']['image_light_blur_reflection'] = blur
-        rendererA.scene_description['materials']['white']['image_light_blur_reflection'] = blur
-        '''
-        #theta[0] += 0.00025
-        theta[0] += math.pi * 2 / 5000.
-        
-        
-        # THIS IS THE NORMAL THING
-        buffer_manager.show_window()
-        buffer_manager.enable_window()
-        rendererA.color_render(flip_y=False)
-        
-        r2 = numpy.array([
-                [math.cos(-theta[0]*2), 0, -math.sin(-theta[0]*2), 0],
-                [0, 1, 0, 0],
-                [math.sin(-theta[0]*2), 0, math.cos(-theta[0]*2), -4],
-                [0, 0, 0, 1]])
-        rendererA.set_instance_transform('sphere2', r2)
-        
-        #buffer_manager.enable_frame('A')
-        #rendererA.color_render()
-        #imgA = buffer_manager.read_pixels('A')
-        #imgA = Image.fromarray(imgA)
-        #imgA.save('tmp_%02i.png'%(rendered_frames%100))
-        
-        #buffer_manager.enable_frame('B')
-        #rendererB.color_render()
-        #imgB = buffer_manager.read_pixels('B')
-        
-        #scipy.misc.imsave('./test_img_A_%i.png'%rendered_frames, imgA)
-        #scipy.misc.imsave('./test_img_B_%i.png'%rendered_frames, imgB)
-        
-        rendered_frames +=1
-        if rendered_frames % 100 == 0:
-            print('hz: %.04f'%(rendered_frames / (time.time() - t0)))
-        
-        save_increment = 1000
-        '''
-        if rendered_frames % save_increment == 0 and theta[0] <= math.pi * 2:
-            img = buffer_manager.read_pixels(None)
-            scipy.misc.imsave(
-                    './turntable_%i.png'%(rendered_frames/save_increment),
-                    numpy.flip(img, axis=0))
-        '''
-

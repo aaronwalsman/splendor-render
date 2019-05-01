@@ -1,0 +1,63 @@
+{
+    "image_lights":{
+        "background_1": {
+            "texture_directory": "./example_image_lights/matterport_example_0",
+            "reflection_mipmaps": null,
+            "blur":2,
+            "render_background":1,
+            "diffuse_contrast":1,
+            "rescale_diffuse_intensity":false,
+            "diffuse_intensity_target_lo":0.3,
+            "diffuse_intensity_target_hi":1.0,
+            "diffuse_tint_lo":[0.0,0.0,0.0],
+            "diffuse_tint_hi":[0.0,0.0,0.0],
+            "reflect_tint":[0.0,0.0,0.0]
+        }
+    },
+    "active_image_light" : "background_1",
+    "meshes": {
+        "cracker_box": {
+            "mesh_path": "./example_meshes/003_cracker_box.obj",
+            "scale":20.0
+        }
+    },
+    "materials": {
+        "cracker_mat": {
+            "texture": "./example_meshes/003_cracker_box.png",
+            "ka":1.0,
+            "kd":0.5,
+            "ks":0.5,
+            "shine":4.0,
+            "image_light_kd":0.8,
+            "image_light_ks":0.2,
+            "image_light_blur_reflection":2.0
+        }
+    },
+    "instances": {
+        "cracker_1": {
+            "mesh_name": "cracker_box",
+            "material_name": "cracker_mat",
+            "transform": [
+                [1,0,0,0],
+                [0,1,0,0],
+                [0,0,1,0],
+                [0,0,0,1]],
+            "mask_color": [1,1,1]
+        }
+    },
+    "ambient_color": [0,0,0],
+    "point_lights": {},
+    "direction_lights": {},
+    "camera":{
+        "pose":[
+            [1,0,0,0],
+            [0,1,0,0],
+            [0,0,1,0],
+            [0,0,0,1]],
+        "projection":[
+            [1.3, 0, 0, 0],
+            [0, 1.3, 0, 0],
+            [0, 0,-1, -0.1],
+            [0, 0,-1, 0]]
+    }
+}
