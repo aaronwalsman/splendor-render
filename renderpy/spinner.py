@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
         blur = (rendered_frames % 10000)/10000. * 8
 
-        theta[0] += math.pi * 2 / 5000.
+        theta[0] += math.pi * 2 / 10000.
 
         manager.show_window()
         manager.enable_window()

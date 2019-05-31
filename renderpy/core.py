@@ -670,6 +670,7 @@ class Renderpy:
     def clear_image_lights(self):
         for image_light in list(self.scene_description['image_lights'].keys()):
             self.remove_image_light(image_light)
+        self.set_active_image_light(None)
     
     def load_material(self,
             name,
