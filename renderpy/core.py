@@ -193,13 +193,15 @@ class Renderpy:
             mask_shader_data['locations'][variable] = (
                     glGetUniformLocation(mask_program, variable))
         
-        for variable in 'camera_pose', 'projection_matrix', 'blur':
+        for variable in (
+                'camera_pose', 'projection_matrix', 'offset_matrix', 'blur'):
             background_shader_data['locations'][variable] = (
                     glGetUniformLocation(background_program, variable))
         
         # (material data)
         for variable in (
                 'material_properties',
+                'image_light_offset_matrix',
                 'image_light_diffuse_minmax',
                 'image_light_diffuse_rescale',
                 'image_light_diffuse_tint_lo',
@@ -419,6 +421,7 @@ class Renderpy:
             example_reflection_textures = None,
             texture_directory = None,
             reflection_mipmaps = None,
+            offset_matrix = numpy.eye(4),
             blur = 0.0,
             diffuse_contrast = 1.,
             #diffuse_lo_rescale = 1.,
@@ -464,6 +467,7 @@ class Renderpy:
         self.gl_data['light_buffers'][name] = light_buffers
         
         image_light_data = {}
+        image_light_data['offset_matrix'] = numpy.array(offset_matrix)
         image_light_data['blur'] = blur
         image_light_data['render_background'] = render_background
         image_light_data['diffuse_contrast'] = diffuse_contrast
@@ -986,6 +990,11 @@ class Renderpy:
                     image_light_data = (
                             self.scene_description['image_lights'][
                                 image_light_name])
+                    offset_matrix = image_light_data['offset_matrix']
+                    glUniformMatrix4fv(
+                            location_data['image_light_offset_matrix'],
+                            1, GL_TRUE,
+                            offset_matrix.astype(numpy.float32))
                     diffuse_minmax = numpy.array(
                             [image_light_data['diffuse_min'],
                              image_light_data['diffuse_max']],
@@ -1170,8 +1179,17 @@ class Renderpy:
                 1, GL_TRUE,
                 projection_matrix.astype(numpy.float32))
         
+        light_data = self.scene_description['image_lights'][image_light_name]
+        
+        # set the offset matrix
+        offset_matrix = light_data['offset_matrix']
+        glUniformMatrix4fv(
+                location_data['offset_matrix'],
+                1, GL_TRUE,
+                offset_matrix.astype(numpy.float32))
+        
         # set the blur
-        blur = self.scene_description['image_lights'][image_light_name]['blur']
+        blur = light_data['blur']
         glUniform1f(location_data['blur'], blur)
         #glUniform1f(location_data['blur'], 0)
         

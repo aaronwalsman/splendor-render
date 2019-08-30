@@ -45,6 +45,7 @@ image_light_diffuse_fn = softish_step_fn + intensity_fn + '''
 vec3 image_light_diffuse(
         float diffuse_contribution,
         vec3 fragment_normal,
+        mat4 image_light_offset_matrix,
         float diffuse_min,
         float diffuse_max,
         float intensity_contrast,
@@ -56,8 +57,10 @@ vec3 image_light_diffuse(
     //==========================================================================
     // sample the raw diffuse light color from the diffuse sampler
     //==========================================================================
+    vec4 offset_fragment_normal = image_light_offset_matrix * vec4(
+            fragment_normal, 0.0);
     vec3 diffuse_color = vec3(texture(
-            diffuse_sampler, fragment_normal));
+            diffuse_sampler, vec3(offset_fragment_normal)));
     float diffuse_intensity = intensity(diffuse_color);
     
     //==========================================================================
@@ -153,6 +156,7 @@ uniform int num_direction_lights;
 //uniform vec3 shadow_light_color;
 //uniform mat4 shadow_light_pose;
 //uniform mat4 shadow_light_projection;
+uniform mat4 image_light_offset_matrix;
 uniform vec2 image_light_diffuse_minmax;
 uniform vec3 image_light_diffuse_rescale;
 uniform vec3 image_light_diffuse_tint_lo;
@@ -208,6 +212,7 @@ void main(){
     vec3 image_light_diffuse_color = image_light_diffuse(
             k_image_light_diffuse,
             camera_fragment_normal,
+            image_light_offset_matrix,
             image_light_diffuse_minmax.x,
             image_light_diffuse_minmax.y,
             k_image_light_contrast,
@@ -219,9 +224,11 @@ void main(){
     vec3 reflected_direction = vec3(
             inverse(camera_pose) *
             vec4(reflect(-eye_direction, fragment_normal_n),0));
+    vec4 offset_reflected_direction = image_light_offset_matrix *
+            vec4(reflected_direction, 0.);
     vec3 reflected_color = vec3(texture(
             reflect_sampler,
-            reflected_direction,
+            vec3(offset_reflected_direction),
             k_image_light_reflect_blur)) + image_light_reflect_tint;
     vec3 image_light_reflection = k_image_light_reflect * reflected_color;
     
@@ -333,6 +340,7 @@ uniform int num_direction_lights;
 //uniform vec3 shadow_light_color;
 //uniform mat4 shadow_light_pose;
 //uniform mat4 shadow_light_projection;
+uniform mat4 image_light_offset_matrix;
 uniform vec2 image_light_diffuse_minmax;
 uniform vec3 image_light_diffuse_rescale;
 uniform vec3 image_light_diffuse_tint_lo;
@@ -378,6 +386,7 @@ void main(){
     vec3 image_light_diffuse_color = image_light_diffuse(
             k_image_light_diffuse,
             camera_fragment_normal,
+            image_light_offset_matrix,
             image_light_diffuse_minmax.x,
             image_light_diffuse_minmax.y,
             k_image_light_contrast,
@@ -389,9 +398,11 @@ void main(){
     vec3 reflected_direction = vec3(
             inverse(camera_pose) *
             vec4(reflect(-eye_direction, fragment_normal_n),0));
+    vec4 offset_reflected_direction = image_light_offset_matrix *
+            vec4(reflected_direction, 0.);
     vec3 reflected_color = vec3(texture(
             reflect_sampler,
-            reflected_direction,
+            vec3(offset_reflected_direction),
             k_image_light_reflect_blur)) + image_light_reflect_tint;
     vec3 image_light_reflection = k_image_light_reflect * reflected_color;
     
@@ -511,9 +522,12 @@ out vec3 color;
 
 uniform float blur;
 uniform samplerCube cubemap_sampler;
+uniform mat4 offset_matrix;
 
 void main(){
-    color = vec3(textureLod(cubemap_sampler, fragment_direction, blur));
+    vec4 offset_direction = offset_matrix *
+            vec4(fragment_direction, 0.);
+    color = vec3(textureLod(cubemap_sampler, vec3(offset_direction), blur));
 }
 '''
 

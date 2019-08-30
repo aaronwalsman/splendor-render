@@ -3,12 +3,12 @@
         "background_1": {
             "texture_directory": "./example_image_lights/matterport_example_0",
             "reflection_mipmaps": null,
-            "blur":2,
+            "blur":0,
             "render_background":1,
             "diffuse_contrast":1,
             "rescale_diffuse_intensity":false,
-            "diffuse_intensity_target_lo":0.3,
-            "diffuse_intensity_target_hi":1.0,
+            "diffuse_intensity_target_lo":-1.0,
+            "diffuse_intensity_target_hi":2.0,
             "diffuse_tint_lo":[0.0,0.0,0.0],
             "diffuse_tint_hi":[0.0,0.0,0.0],
             "reflect_tint":[0.0,0.0,0.0]
