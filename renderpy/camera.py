@@ -18,7 +18,6 @@ def projection_matrix(
                 -2 * far_clip * near_clip / (far_clip - near_clip)],
             [0, 0, -1, 0]])
 
-
 def projection_matrix_from_intrinsics(
         intrinsics,
         image_resolution,   
