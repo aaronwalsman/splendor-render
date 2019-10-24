@@ -230,6 +230,7 @@ void main(){
             reflect_sampler,
             vec3(offset_reflected_direction),
             k_image_light_reflect_blur)) + image_light_reflect_tint;
+    reflected_color = pow(reflected_color, vec3(shine, shine, shine));
     vec3 image_light_reflection = k_image_light_reflect * reflected_color;
     
     // point lights
