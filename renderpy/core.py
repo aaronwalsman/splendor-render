@@ -67,7 +67,8 @@ class Renderpy:
                 'direction_lights':{},
                 'camera':{
                     'pose':default_camera_pose,
-                    'projection':default_camera_projection
+                    'projection':default_camera_projection,
+                    'pose_delta':False
                 },
                 'image_lights':{},
                 'active_image_light':None
@@ -312,6 +313,8 @@ class Renderpy:
                 self.set_camera_pose(scene['camera']['pose'])
             if 'projection' in scene['camera']:
                 self.set_projection(scene['camera']['projection'])
+            if 'pose_delta' in scene['camera']:
+                self.set_camera_pose_delta(scene['camera']['pose_delta'])
     
     def clear_scene(self):
         self.clear_meshes()
@@ -628,8 +631,6 @@ class Renderpy:
                                 j+1, GL_RGB,
                                 mipmap.shape[1], mipmap.shape[0],
                                 0, GL_RGB, GL_UNSIGNED_BYTE, mipmap)
-                        #print(mipmap.shape, j)
-                        #lkjlkjl
             
             glTexParameteri(
                     GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
@@ -683,7 +684,7 @@ class Renderpy:
             ka = 1.0,
             kd = 1.0,
             ks = 0.5,
-            shine = 4.0,
+            shine = 1.0,
             image_light_kd = 0.85,
             image_light_ks = 0.15,
             image_light_blur_reflection = 2.0,
@@ -865,11 +866,22 @@ class Renderpy:
         return self.scene_description['camera']['projection']
     
     def set_camera_pose(self, camera_pose):
+        camera_pose = camera.camera_pose_to_matrix(camera_pose)
         self.scene_description['camera']['pose'] = numpy.array(
                 camera_pose)
     
     def get_camera_pose(self):
         return self.scene_description['camera']['pose']
+    
+    def set_camera_pose_delta(self, camera_pose_delta):
+        if camera_pose_delta is None:
+            self.scene_description['camera']['pose_delta'] = camera_pose_delta
+        else:
+            camera_pose_delta = camera.camera_pose_to_matrix(camera_pose_delta)
+            self.scene_description['camera']['pose_delta'] = camera_pose_delta
+    
+    def get_camera_pose_delta(self):
+        return self.scene_description['camera']['pose_delta']
     
     def clear_frame(self):
         glClearColor(*self.scene_description['background_color'])

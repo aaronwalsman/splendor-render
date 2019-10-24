@@ -1,7 +1,10 @@
 import math
-import random
 import numpy
+import pose_utils
 
+#===============================================================================
+# projection
+#===============================================================================
 def projection_matrix(
         horizontal_field_of_view,
         aspect_ratio,
@@ -52,49 +55,6 @@ def projection_matrix_from_intrinsics(
     
     return P
 
-
-def projection_matrix_from_intrinsics_old(
-        intrinsics,
-        image_resolution,
-        near_clip = 0.05,
-        far_clip = 50,
-        offset_x = 0,
-        offset_y = 0):
-    
-    '''
-    OpenGlMatrixSpec ProjectionMatrixRDF_TopLeft(
-            int w, int h,
-            GLprecision fu, GLprecision fv, GLprecision u0, GLprecision v0,
-            GLprecision zNear, GLprecision zFar )
-    '''
-    
-    fu = intrinsics[0,0]
-    fv = intrinsics[1,1]
-    u0 = intrinsics[0,2] + offset_x
-    v0 = intrinsics[1,2] + offset_y
-    w = image_resolution[1]
-    h = image_resolution[0]
-    
-    L = -(u0) * near_clip / fu
-    R = +(w-u0) * near_clip / fu
-    T = -(v0) * near_clip / fv
-    B = +(h-v0) * near_clip / fv
-    
-    P = numpy.zeros((4,4))
-    
-    P[0,0] = 2 * near_clip / (R-L)
-    P[1,1] = 2 * near_clip / (T-B) #* -1 #### hack
-    
-    P[0,2] = (R+L)/(L-R)
-    P[1,2] = (T+B)/(B-T)
-    P[2,2] = (far_clip + near_clip) / (far_clip - near_clip) #* -1 #### hack
-    P[3,2] = 1.0 #* -1 #### hack
-    
-    P[2,3] = (2 * far_clip * near_clip)/(near_clip - far_clip)
-    
-    return P
-
-
 def change_projection_aspect_ratio(
         projection_matrix,
         old_resolution,
@@ -106,6 +66,45 @@ def change_projection_aspect_ratio(
     scaled_projection_matrix[1] *= y_scale
     
     return scaled_projection_matrix
+
+#===============================================================================
+# camera pose
+#===============================================================================
+def camera_pose_to_matrix(pose):
+    
+    # matrix input
+    if len(pose) == 4 and len(pose[0]) == 4:
+        return numpy.array(pose)
+    
+    # azimuth, elevation, spin, distance, x, y
+    elif len(pose) == 6:
+        return azimuthal_pose_to_matrix(pose)
+    
+    # unknown
+    else:
+        raise ValueError('camera pose should be a 4x4 matrix or 6 elements '
+                '[azimuth, elevation, tilt, distance, shift_x, shift_y]')
+        
+def azimuthal_pose_to_matrix(pose):
+    azimuth = pose[0]
+    elevation = pose[1]
+    tilt = pose[2]
+    distance = pose[3]
+    shift_x = pose[4]
+    shift_y = pose[5]
+    
+    a = pose_utils.euler_y_matrix(azimuth)
+    e = pose_utils.euler_x_matrix(elevation)
+    t = pose_utils.euler_z_matrix(tilt)
+    
+    translate = pose_utils.translate_matrix([shift_x, shift_y, distance])
+    
+    m = numpy.linalg.inv(
+            numpy.dot(a,
+            numpy.dot(e,
+            numpy.dot(t, translate))))
+    
+    return m
 
 '''
 # moved to camera_utils.py in detection_utils
