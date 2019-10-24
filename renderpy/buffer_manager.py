@@ -37,10 +37,15 @@ class FrameExistsError(Exception):
 
 class BufferManager:
     def __init__(self,
-            window_size = default_window_size,
+            #window_size = default_window_size,
+            width = default_window_size,
+            height = None,
             anti_aliasing = True,
             x_authority = None,
             display = None):
+        
+        if height is None:
+            height = width
         
         if x_authority is not None:
             os.environ['XAUTHORITY'] = x_authority
@@ -54,11 +59,11 @@ class BufferManager:
             glEnable(GL_MULTISAMPLE)
         else:
             glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH)
-        glutInitWindowSize(window_size, window_size)
+        glutInitWindowSize(width, height)
         self.window_id = glutCreateWindow('RENDERPY')
         self.set_active()
-        self.window_width = window_size
-        self.window_height = window_size
+        self.window_width = width
+        self.window_height = height
         self.anti_aliasing = anti_aliasing
         # does not work b/c glut
         #self.resize_window(window_size, window_size)
@@ -212,7 +217,7 @@ class BufferManager:
                 height, width, 3)
         
         # re-enable the multibuffer for future drawing
-        if self.anti_aliasing:
+        if self.anti_aliasing and frame is not None:
             glBindFramebuffer(
                     GL_FRAMEBUFFER,
                     self.framebuffer_data[frame]['framebuffermulti'])
