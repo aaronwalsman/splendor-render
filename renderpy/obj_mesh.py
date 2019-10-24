@@ -182,11 +182,12 @@ def write_obj(mesh, obj_path, texture_name=None):
     with open(obj_path, 'w') as obj:
         obj.write('mtllib %s\n'%mtl_name)
         for i in range(v.shape[0]):
+            obj.write('vn %f %f %f\n'%(n[i,0], n[i,1], n[i,2]))
             obj.write('v %f %f %f\n'%(v[i,0], v[i,1], v[i,2]))
         for i in range(u.shape[0]):
             obj.write('vt %f %f\n'%(u[i,0], u[i,1]))
-        for i in range(n.shape[0]):
-            obj.write('vn %f %f %f\n'%(n[i,0], n[i,1], n[i,2]))
+        #for i in range(n.shape[0]):
+        #    obj.write('vn %f %f %f\n'%(n[i,0], n[i,1], n[i,2]))
         for i in range(f.shape[0]):
             obj.write('f %i/%i/%i %i/%i/%i %i/%i/%i\n'%(
                     f[i,0]+1, f[i,0]+1, f[i,0]+1,
