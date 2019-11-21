@@ -1,7 +1,7 @@
 {
     "image_lights":{
         "background_1": {
-            "texture_directory": "./example_image_lights/matterport_example_0",
+            "texture_directory": "./example_image_lights/matterport_example_1",
             "reflection_mipmaps": null,
             "blur":0,
             "render_background":1,
@@ -27,10 +27,10 @@
             "ka":1.0,
             "kd":0.5,
             "ks":0.5,
-            "shine":4.0,
-            "image_light_kd":0.8,
-            "image_light_ks":0.2,
-            "image_light_blur_reflection":2.0
+            "shine":1.0,
+            "image_light_kd":0.65,
+            "image_light_ks":0.35,
+            "image_light_blur_reflection":1.0
         }
     },
     "instances": {
@@ -39,8 +39,8 @@
             "material_name": "cracker_mat",
             "transform": [
                 [1,0,0,0],
-                [0,1,0,0],
                 [0,0,1,0],
+                [0,-1,0,0],
                 [0,0,0,1]],
             "mask_color": [1,1,1]
         }
@@ -49,15 +49,12 @@
     "point_lights": {},
     "direction_lights": {},
     "camera":{
-        "pose":[
-            [1,0,0,0],
-            [0,1,0,0],
-            [0,0,1,0],
-            [0,0,0,1]],
+        "pose":[0.0, -0.6, 0, 5, 0, 0],
         "projection":[
             [1.3, 0, 0, 0],
             [0, 1.3, 0, 0],
             [0, 0,-1, -0.1],
-            [0, 0,-1, 0]]
+            [0, 0,-1, 0]],
+        "pose_delta":[0.0002,0,0,0,0,0]
     }
 }
