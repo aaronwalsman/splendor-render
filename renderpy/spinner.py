@@ -1,74 +1,87 @@
 #!/usr/bin/env python
 import time
-import math
-import argparse
-
+import sys
+import os
 import numpy
+import buffer_manager
+import core
+import IPython
 
-import renderpy.buffer_manager as buffer_manager
-import renderpy.core as core
-import renderpy.example_scenes as example_scenes
-
+def spin(
+    scene_file,
+    width = 512,
+    height = 512,
+    poll_frequency = 1024):
+    
+    manager = buffer_manager.initialize_shared_buffer_manager(width, height)
+    manager.add_frame('viewer', width, height)
+    
+    renderer = core.Renderpy()
+    
+    manager.show_window()
+    manager.enable_window()
+    
+    render_state = {
+        'static_camera_pose' : numpy.eye(4),
+        'camera_pose_delta' : None,
+        'integrated_camera_pose_delta' : numpy.eye(4),
+        'recent_change_time' : -1
+    }
+    
+    def reload_scene():
+        while True:
+            try:
+                change_time = os.stat(scene_file).st_mtime
+                if change_time != render_state['recent_change_time']:
+                    renderer.load_scene(scene_file)
+                    render_state['recent_change_time'] = change_time
+                    render_state['static_camera_pose'] = numpy.linalg.inv(
+                            renderer.get_camera_pose())
+                    render_state['camera_pose_delta'] = (
+                            renderer.get_camera_pose_delta())
+                    if render_state['camera_pose_delta'] is None:
+                        render_state['integrated_camera_pose_delta'] = (
+                                numpy.eye(4))
+                    print('Loaded: %s'%scene_file)
+            except FileNotFoundError:
+                print('Missing files when loading: %s'%scene_file)
+                time.sleep(1)
+                print('Retrying...')
+            else:
+                break
+    
+    def render():
+        renderer.color_render(flip_y = False)
+    
+    steps = 0
+    pose_delta = numpy.eye(4)
+    integrated_pose_delta = numpy.eye(4)
+    while True:
+        if steps % poll_frequency == 0:
+            # reload the scene if necessary
+            reload_scene()
+        steps += 1
+        
+        if render_state['camera_pose_delta'] is not None:
+            render_state['integrated_camera_pose_delta'] = numpy.dot(
+                    render_state['integrated_camera_pose_delta'],
+                    render_state['camera_pose_delta'])
+        camera_pose = numpy.dot(
+                render_state['integrated_camera_pose_delta'],
+                render_state['static_camera_pose'])
+        renderer.set_camera_pose(numpy.linalg.inv(camera_pose))
+        
+        render()
 
 if __name__ == '__main__':
+    width = 512
+    height = 512
     
-    # args
-    parser = argparse.ArgumentParser(description='Render while spinning.')
-    parser.add_argument(
-            '--scene', type=str,
-            help='An image light directory')
-    parser.add_argument(
-            '--width', type=int, help = 'window width', default=512)
-    parser.add_argument(
-            '--height', type=int, help = 'window height', default=512)
+    if len(sys.argv) < 2:
+        raise Exception('Please specify one scene file')
     
-    args = parser.parse_args()
+    scene_file = sys.argv[1]
     
-    # initialization
-    width = args.width
-    height = args.height
-
-    manager = buffer_manager.initialize_shared_buffer_manager(width)
-    manager.add_frame('A', width, height)
-    manager.enable_frame('A')
-
-    rendererA = core.Renderpy()
-    rendererA.load_scene(args.scene)
-
-    theta = [0.0]
-    translate = numpy.array([[1,0,0,0],[0,1,0,0],[0,0,1,10],[0,0,0,1]])
-    e = math.radians(-30)
-    elevate = numpy.array([
-            [1, 0, 0, 0],
-            [0, math.cos(e), -math.sin(e), 0],
-            [0, math.sin(e), math.cos(e), 0],
-            [0, 0, 0, 1]])
-
-    t0 = time.time()
-    rendered_frames = 0
-    while True:
-        tmp_r = math.pi * 1.5
-        rotate = numpy.array([
-                [math.cos(theta[0]), 0, -math.sin(theta[0]), 0],
-                [0, 1, 0, 0],
-                [math.sin(theta[0]), 0,  math.cos(theta[0]), 0],
-                [0, 0, 0, 1]])
-
-        c = numpy.linalg.inv(
-                numpy.dot(rotate, numpy.dot(elevate, translate)))
-        rendererA.set_camera_pose(c)
-
-        blur = (rendered_frames % 10000)/10000. * 8
-
-        theta[0] += math.pi * 2 / 10000.
-
-        manager.show_window()
-        manager.enable_window()
-        rendererA.color_render(flip_y=False)
-        
-        rendered_frames +=1
-        if rendered_frames % 100 == 0:
-            print('hz: %.04f'%(rendered_frames / (time.time() - t0)))
-
-        save_increment = 1000
-
+    spin(   scene_file,
+            width=width,
+            height=height)
