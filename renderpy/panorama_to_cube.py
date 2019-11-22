@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # system
+import os
 import sys
 import math
 
@@ -142,8 +143,9 @@ def panorama_to_cube(panorama_image, cube_width, filter_panorama=True):
 if __name__ == '__main__':
     assert len(sys.argv) >= 3
     panorama_image = imageio.imread(sys.argv[1])
-    print(panorama_image.shape)
     output_dir = sys.argv[2]
     out_images = panorama_to_cube(panorama_image, 512)
     for cube_face in out_images:
-        imageio.imsave('./%s.png'%cube_face, out_images[cube_face])
+        imageio.imsave(
+                os.path.join(output_dir, '%s_ref.png'%cube_face),
+                out_images[cube_face])
