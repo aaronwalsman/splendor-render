@@ -29,7 +29,7 @@ import PIL.Image as Image
 import renderpy.camera as camera
 import renderpy.shader_definitions as shader_definitions
 import renderpy.obj_mesh as obj_mesh
-import renderpy.primitives as primitives
+#import renderpy.primitives as primitives
 
 max_num_lights = 8
 default_camera_pose = numpy.eye(4)
@@ -335,7 +335,7 @@ class Renderpy:
     def load_mesh(self,
             name,
             mesh_path = None,
-            primitive = None,
+            #primitive = None,
             mesh_data = None,
             scale = 1.0):
         
@@ -344,11 +344,11 @@ class Renderpy:
             mesh = obj_mesh.load_mesh(mesh_path, scale=scale)
             self.scene_description['meshes'][name] = {'mesh_path':mesh_path}
         
-        # if a primitive was specified, load that
-        elif primitive is not None:
-            mesh_path = primitives.primitive_paths[primitive]
-            mesh = obj_mesh.load_mesh(mesh_path)
-            self.scene_description['meshes'][name] = {'primitive':primitive}
+        ## if a primitive was specified, load that
+        #elif primitive is not None:
+        #    mesh_path = primitives.primitive_paths[primitive]
+        #    mesh = obj_mesh.load_mesh(mesh_path)
+        #    self.scene_description['meshes'][name] = {'primitive':primitive}
         
         # if mesh data was provided, load that
         elif mesh_data is not None:
@@ -356,8 +356,10 @@ class Renderpy:
             mesh = mesh_data
         
         else:
-            raise Exception('Must supply a "mesh_path", "primitive" or '
-                    '"mesh_data" when loading a mesh')
+            #raise Exception('Must supply a "mesh_path", "primitive" or '
+            #        '"mesh_data" when loading a mesh')
+            raise Exception('Must supply a "mesh_path" or a "mesh_data" '
+                    'argument when loading a mesh')
         
         # create mesh buffers and load the mesh data
         mesh_buffers = {}

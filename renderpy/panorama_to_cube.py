@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # system
+import sys
 import math
 
 # opengl
@@ -139,8 +140,10 @@ def panorama_to_cube(panorama_image, cube_width, filter_panorama=True):
     return output_images
 
 if __name__ == '__main__':
-    panorama_image = numpy.array(imageio.imread(
-            '/home/awalsman/Development/panoramas/unit.jpg'))
+    assert len(sys.argv) >= 3
+    panorama_image = imageio.imread(sys.argv[1])
+    print(panorama_image.shape)
+    output_dir = sys.argv[2]
     out_images = panorama_to_cube(panorama_image, 512)
     for cube_face in out_images:
         imageio.imsave('./%s.png'%cube_face, out_images[cube_face])
