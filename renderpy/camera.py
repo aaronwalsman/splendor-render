@@ -1,6 +1,6 @@
 import math
 import numpy
-import pose_utils
+import renderpy.pose_utils as pose_utils
 
 #===============================================================================
 # projection
