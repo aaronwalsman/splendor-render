@@ -97,28 +97,38 @@ def load_mesh(mesh_path, strict=False, scale=1.0):
                 
                 if tokens[0] == 'f':
                     # add a face
-                    if len(tokens) != 4:
+                    #if len(tokens) != 4:
+                    #    raise MeshError(
+                    #            'Only triangle meshes are supported')
+                    part_groups = tokens[1:]
+                    if len(part_groups) < 3:
                         raise MeshError(
-                                'Only triangle meshes are supported')
-                    face = []
-                    face_id = len(obj_faces)
-                    for i, part_group in enumerate(tokens[1:]):
-                        face_parts = part_group.split('/')
-                        if len(face_parts) == 1:
-                            face_parts = face_parts * 3
-                        if len(face_parts) != 3:
-                            raise MeshError(
-                                    'Each face must contain an vertex, '
-                                    'uv and normal')
-                        if face_parts[1] == '':
-                            face_parts[1] = 0
-                        face_parts = [int(part)-1 for part in face_parts]
-                        face.append(face_parts)
-                        
-                        vertex, uv, normal = face_parts
-                        vertex_face_mapping.setdefault(vertex, [])
-                        vertex_face_mapping[vertex].append((face_id,i))
-                    obj_faces.append(face)
+                                'A face must contain at least three vertices')
+                    # triangulate
+                    for i in range(len(part_groups)-2):
+                        face = []
+                        face_id = len(obj_faces)
+                        triangle_part_groups = (
+                            part_groups[0],
+                            part_groups[i+1],
+                            part_groups[i+2])
+                        for j, part_group in enumerate(triangle_part_groups):
+                            face_parts = part_group.split('/')
+                            if len(face_parts) == 1:
+                                face_parts = face_parts * 3
+                            if len(face_parts) != 3:
+                                raise MeshError(
+                                        'Each face must contain an vertex, '
+                                        'uv and normal')
+                            if face_parts[1] == '':
+                                face_parts[1] = 0
+                            face_parts = [int(part)-1 for part in face_parts]
+                            face.append(face_parts)
+                            
+                            vertex, uv, normal = face_parts
+                            vertex_face_mapping.setdefault(vertex, [])
+                            vertex_face_mapping[vertex].append((face_id,j))
+                        obj_faces.append(face)
         
         # break up the mesh so that all vertices have the same uv and normal
         for vertex_id, vertex in enumerate(obj_vertices):
