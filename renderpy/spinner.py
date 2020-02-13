@@ -33,7 +33,7 @@ def spin(
             try:
                 change_time = os.stat(scene_file).st_mtime
                 if change_time != render_state['recent_change_time']:
-                    renderer.load_scene(scene_file)
+                    renderer.load_scene(scene_file, clear_existing=True)
                     render_state['recent_change_time'] = change_time
                     render_state['static_camera_pose'] = numpy.linalg.inv(
                             renderer.get_camera_pose())
