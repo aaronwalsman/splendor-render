@@ -31,8 +31,8 @@ def projection_matrix_from_intrinsics(
     
     fu = intrinsics[0,0]
     fv = intrinsics[1,1]
-    u0 = intrinsics[0,2] + offset_x
-    v0 = intrinsics[1,2] + offset_y
+    u0 = image_resolution[1] - intrinsics[0,2] + offset_x
+    v0 = image_resolution[0] - intrinsics[1,2] + offset_y
     w = image_resolution[1]
     h = image_resolution[0]
     
