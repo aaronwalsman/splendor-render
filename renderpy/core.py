@@ -1380,12 +1380,29 @@ class Renderpy:
     def list_image_lights(self):
         return list(self.scene_description['image_lights'].keys())
     
+    def image_light_exists(self, image_light):
+        return image_light in self.scene_description['image_lights']
+    
     def list_meshes(self):
         return list(self.scene_description['meshes'].keys())
+    
+    def mesh_exists(self, mesh):
+        return mesh in self.scene_description['meshes']
     
     def list_materials(self):
         return list(self.scene_description['materials'].keys())
     
+    def material_exists(self, material):
+        return material in self.scene_description['materials']
+    
+    def get_material(self, material_name):
+        return self.scene_description['materials'][material_name]
+    
+    def get_texture(self, texture_name):
+        return self.loaded_data['textures'][texture_name]
+    
     def list_instances(self):
         return list(self.scene_description['instances'].keys())
     
+    def instance_exists(self, instance):
+        return instance in self.scene_description['instances']
