@@ -41,7 +41,25 @@ float intensity(vec3 c){
 }
 '''
 
-image_light_diffuse_fn = softish_step_fn + intensity_fn + '''
+skybox_fn = '''
+vec4 skybox_texture(samplerCube sampler, vec3 v){
+    return texture(sampler, vec3(-v.x, v.y, v.z));
+}
+
+vec4 skybox_texture(samplerCube sampler, vec4 v){
+    return texture(sampler, vec3(-v.x, v.y, v.z));
+}
+
+vec4 skybox_texture(samplerCube sampler, vec3 v, float level){
+    return texture(sampler, vec3(-v.x, v.y, v.z), level);
+}
+
+vec4 skybox_texture(samplerCube sampler, vec4 v, float level){
+    return texture(sampler, vec3(-v.x, v.y, v.z), level);
+}
+'''
+
+image_light_diffuse_fn = softish_step_fn + intensity_fn + skybox_fn + '''
 vec3 image_light_diffuse(
         float diffuse_contribution,
         vec3 fragment_normal,
@@ -59,8 +77,8 @@ vec3 image_light_diffuse(
     //==========================================================================
     vec4 offset_fragment_normal = image_light_offset_matrix * vec4(
             fragment_normal, 0.0);
-    vec3 diffuse_color = vec3(texture(
-            diffuse_sampler, vec3(offset_fragment_normal)));
+    vec3 diffuse_color = vec3(skybox_texture(
+            diffuse_sampler, offset_fragment_normal));
     float diffuse_intensity = intensity(diffuse_color);
     
     //==========================================================================
@@ -226,10 +244,11 @@ void main(){
             vec4(reflect(-eye_direction, fragment_normal_n),0));
     vec4 offset_reflected_direction = image_light_offset_matrix *
             vec4(reflected_direction, 0.);
-    vec3 reflected_color = vec3(texture(
+    vec3 reflected_color = vec3(skybox_texture(
             reflect_sampler,
             vec3(offset_reflected_direction),
             k_image_light_reflect_blur)) + image_light_reflect_tint;
+            
     reflected_color = pow(reflected_color, vec3(shine, shine, shine));
     vec3 image_light_reflection = k_image_light_reflect * reflected_color;
     
@@ -401,9 +420,13 @@ void main(){
             vec4(reflect(-eye_direction, fragment_normal_n),0));
     vec4 offset_reflected_direction = image_light_offset_matrix *
             vec4(reflected_direction, 0.);
-    vec3 reflected_color = vec3(texture(
+    //vec3 reflected_color = vec3(texture(
+    //        reflect_sampler,
+    //        vec3(offset_reflected_direction),
+    //        k_image_light_reflect_blur)) + image_light_reflect_tint;
+    vec3 reflected_color = vec3(skybox_texture(
             reflect_sampler,
-            vec3(offset_reflected_direction),
+            offset_reflected_direction,
             k_image_light_reflect_blur)) + image_light_reflect_tint;
     vec3 image_light_reflection = k_image_light_reflect * reflected_color;
     
@@ -524,11 +547,12 @@ out vec3 color;
 uniform float blur;
 uniform samplerCube cubemap_sampler;
 uniform mat4 offset_matrix;
-
+''' + skybox_fn + '''
 void main(){
     vec4 offset_direction = offset_matrix *
             vec4(fragment_direction, 0.);
-    color = vec3(textureLod(cubemap_sampler, vec3(offset_direction), blur));
+    //color = vec3(textureLod(cubemap_sampler, vec3(offset_direction), blur));
+    color = vec3(skybox_texture(cubemap_sampler, offset_direction, blur));
 }
 '''
 

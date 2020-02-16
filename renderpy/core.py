@@ -68,7 +68,7 @@ class Renderpy:
                 'camera':{
                     'pose':default_camera_pose,
                     'projection':default_camera_projection,
-                    'pose_delta':False
+                    'pose_delta':None
                 },
                 'image_lights':{},
                 'active_image_light':None
@@ -330,7 +330,8 @@ class Renderpy:
     def reset_camera(self):
         self.scene_description['camera'] = {
                 'pose':default_camera_pose,
-                'projection':default_camera_projection}
+                'projection':default_camera_projection,
+                'pose_delta':None}
     
     def load_mesh(self,
             name,
@@ -543,6 +544,28 @@ class Renderpy:
         
         light_description = self.scene_description['image_lights'][name]
         
+        try:
+            diffuse_textures = [
+                    diffuse_textures['px'],
+                    diffuse_textures['nx'],
+                    diffuse_textures['py'],
+                    diffuse_textures['ny'],
+                    diffuse_textures['pz'],
+                    diffuse_textures['nz']]
+        except TypeError:
+            pass
+        
+        try:
+            reflection_textures = [
+                    reflection_textures['px'],
+                    reflection_textures['nx'],
+                    reflection_textures['py'],
+                    reflection_textures['ny'],
+                    reflection_textures['pz'],
+                    reflection_textures['nz']]
+        except TypeError:
+            pass
+        
         if isinstance(diffuse_textures[0], str):
             light_description['diffuse_textures'] = diffuse_textures
             #diffuse_images = [scipy.misc.imread(diffuse_texture)[:,:,:3]
@@ -582,6 +605,7 @@ class Renderpy:
             diffuse_min = float('inf')
             diffuse_max = -float('inf')
             for i, diffuse_image in enumerate(diffuse_images):
+                diffuse_image = numpy.array(diffuse_image)
                 self.validate_texture(diffuse_image)
                 glTexImage2D(
                         GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
@@ -619,6 +643,7 @@ class Renderpy:
                 GL_TEXTURE_CUBE_MAP, light_buffers['reflection_texture'])
         try:
             for i, reflection_image in enumerate(reflection_images):
+                reflection_image = numpy.array(reflection_image)
                 self.validate_texture(reflection_image)
                 glTexImage2D(
                         GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
@@ -627,6 +652,7 @@ class Renderpy:
                         0, GL_RGB, GL_UNSIGNED_BYTE, reflection_image)
                 if reflection_mipmaps is not None:
                     for j, mipmap in enumerate(reflection_mipmaps[i]):
+                        mipmap = numpy.array(mipmap)
                         self.validate_texture(mipmap)
                         glTexImage2D(
                                 GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
@@ -682,7 +708,6 @@ class Renderpy:
     def load_material(self,
             name,
             texture = None,
-            example_texture = None,
             ka = 1.0,
             kd = 1.0,
             ks = 0.5,
@@ -691,16 +716,6 @@ class Renderpy:
             image_light_ks = 0.15,
             image_light_blur_reflection = 2.0,
             crop = None):
-        
-        if texture is not None:
-            pass
-        
-        elif example_texture is not None:
-            texture = primitives.example_texture_paths[example_texture]
-        
-        #else:
-        #    raise Exception('Must specify either a texture or example_texture '
-        #            'when loading a material')
         
         self.scene_description['materials'][name] = {
                 'ka' : ka,
@@ -725,15 +740,15 @@ class Renderpy:
         
         if isinstance(texture, str):
             self.scene_description['materials'][name]['texture'] = texture
-            #image = scipy.misc.imread(texture)[:,:,:3]
             image = numpy.array(Image.open(texture).convert('RGB'))
         else:
             self.scene_description['materials'][name]['texture'] = -1
-            image = texture
+            image = numpy.array(texture)
         
         if crop is not None:
             image = image[crop[0]:crop[2], crop[1]:crop[3]]
         
+        image = numpy.array(image)
         self.validate_texture(image)
         self.loaded_data['textures'][name] = image
         

@@ -5,7 +5,6 @@ import os
 import numpy
 import buffer_manager
 import core
-import IPython
 
 def spin(
     scene_file,
@@ -43,8 +42,8 @@ def spin(
                         render_state['integrated_camera_pose_delta'] = (
                                 numpy.eye(4))
                     print('Loaded: %s'%scene_file)
-            except FileNotFoundError:
-                print('Missing files when loading: %s'%scene_file)
+            except:
+                print('Unable to load file: %s'%scene_file)
                 time.sleep(1)
                 print('Retrying...')
             else:
