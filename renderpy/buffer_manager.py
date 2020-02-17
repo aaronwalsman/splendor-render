@@ -90,7 +90,7 @@ class BufferManager:
             self.window_height = height
             glutReshapeWindow(width, height)
     
-    def add_frame(self, frame_name, width, height):
+    def add_frame(self, frame_name, width, height, anti_aliasing=True):
         
         if frame_name in self.framebuffer_data:
             raise FrameExistsError('The frame %s is already in use'%frame_name)
@@ -126,9 +126,10 @@ class BufferManager:
                 'height':height,
                 'framebuffer':frame_buffer,
                 'renderbuffer':render_buffer,
-                'depthbuffer':depth_buffer}
+                'depthbuffer':depth_buffer,
+                'anti_aliasing':anti_aliasing}
         
-        if self.anti_aliasing:
+        if anti_aliasing:
             # multi-sample frame buffer
             frame_buffer_multi = glGenFramebuffers(1)
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frame_buffer_multi)
@@ -172,18 +173,25 @@ class BufferManager:
     def enable_window(self):
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
         glViewport(0, 0, self.window_width, self.window_height)
+        if self.anti_aliasing:
+            glEnable(GL_MULTISAMPLE)
+        else:
+            glDisable(GL_MULTISAMPLE)
     
     def enable_frame(self, frame):
         width = self.framebuffer_data[frame]['width']
         height = self.framebuffer_data[frame]['height']
-        if self.anti_aliasing:
+        anti_aliasing = self.framebuffer_data[frame]['anti_aliasing']
+        if anti_aliasing:
             glBindFramebuffer(
                     GL_FRAMEBUFFER,
                     self.framebuffer_data[frame]['framebuffermulti'])
+            glEnable(GL_MULTISAMPLE)
         else:
             glBindFramebuffer(
                     GL_FRAMEBUFFER,
                     self.framebuffer_data[frame]['framebuffer'])
+            glDisable(GL_MULTISAMPLE)
         glViewport(0, 0, width, height)
     
     def read_pixels(self, frame):
@@ -194,7 +202,8 @@ class BufferManager:
         else:
             width = self.framebuffer_data[frame]['width']
             height = self.framebuffer_data[frame]['height']
-            if self.anti_aliasing:
+            anti_aliasing = self.framebuffer_data[frame]['anti_aliasing']
+            if anti_aliasing:
                 glBindFramebuffer(
                         GL_READ_FRAMEBUFFER,
                         self.framebuffer_data[frame]['framebuffermulti'])
@@ -217,10 +226,12 @@ class BufferManager:
                 height, width, 3)
         
         # re-enable the multibuffer for future drawing
-        if self.anti_aliasing and frame is not None:
+        if anti_aliasing and frame is not None:
             glBindFramebuffer(
                     GL_FRAMEBUFFER,
                     self.framebuffer_data[frame]['framebuffermulti'])
+            glEnable(GL_MULTISAMPLE)
+        glViewport(0, 0, width, height)
         
         return image
     
