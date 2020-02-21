@@ -7,14 +7,12 @@ import buffer_manager
 import core
 
 def spin(
-    scene_file,
-    width = 512,
-    height = 512,
-    poll_frequency = 1024):
+        scene_file,
+        width = 512,
+        height = 512,
+        poll_frequency = 1024):
     
     manager = buffer_manager.initialize_shared_buffer_manager(width, height)
-    manager.add_frame('viewer', width, height)
-    
     renderer = core.Renderpy()
     
     manager.show_window()
