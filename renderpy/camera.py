@@ -21,6 +21,20 @@ def projection_matrix(
                 -2 * far_clip * near_clip / (far_clip - near_clip)],
             [0, 0, -1, 0]])
 
+def orthographic_matrix(
+        l = -1,
+        r = 1,
+        b = -1,
+        t = 1,
+        n = 0.05,
+        f = 50):
+    
+    return numpy.array([
+            [2./(r-l),        0,        0, -(r+l)/(r-l)],
+            [       0, 2./(t-b),        0, -(t+b)/(t-b)],
+            [       0,        0, -2/(f-n), -(f+n)/(f-n)],
+            [       0,        0,        0,            1]])
+
 def projection_matrix_from_intrinsics(
         intrinsics,
         image_resolution,   
