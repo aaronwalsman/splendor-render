@@ -20,7 +20,10 @@ def reflection_maps_from_scene(
         fake_hdri=True):
     
     manager = buffer_manager.initialize_shared_buffer_manager(width, height)
-    manager.add_frame('reflection', width, height)
+    try:
+        manager.add_frame('reflection', width, height)
+    except buffer_manager.FrameExistsError:
+        pass
     manager.enable_frame('reflection')
     
     renderer = core.Renderpy()
@@ -78,6 +81,7 @@ def reflection_maps_from_scene(
         
         output_images[name] = output_image
     
+    renderer.clear_scene()
     return output_images
 
 if __name__ == '__main__':
