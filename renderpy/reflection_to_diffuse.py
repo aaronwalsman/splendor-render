@@ -14,14 +14,11 @@ from OpenGL.arrays import vbo
 # numpy
 import numpy
 
-# imageio
-#import imageio
-import PIL.Image as Image
-
 # local
 from . import shader_definitions
 from . import buffer_manager
 from . import camera
+from .image import load_image, save_image
 
 NUM_SAMPLES = 512
 
@@ -281,11 +278,13 @@ if __name__ == '__main__':
     cube_images = {}
     for cube_face in 'px', 'nx', 'py', 'ny', 'pz', 'nz':
         try:
-            image = numpy.array(Image.open(
-                    os.path.join(arg_path, '%s_ref.jpg'%cube_face)))
+            #image = numpy.array(Image.open(
+            #        os.path.join(arg_path, '%s_ref.jpg'%cube_face)))
+            image = load_image(os.path.join(arg_path, '%s_ref.jpg'%cube_face))
         except OSError:
-            image = numpy.array(Image.open(
-                    os.path.join(arg_path, '%s_ref.png'%cube_face)))
+            #image = numpy.array(Image.open(
+            #        os.path.join(arg_path, '%s_ref.png'%cube_face)))
+            image = load_image(os.path.join(arg_path, '%s_ref.png'%cube_face))
         cube_images[cube_face] = image[:,:,:3]
     
     out_images = reflection_to_diffuse(
@@ -294,6 +293,8 @@ if __name__ == '__main__':
         #imageio.imsave(
         #        os.path.join(arg_path, '%s_dif.jpg'%cube_face),
         #        out_images[cube_face])
-        image = Image.fromarray(out_images[cube_face])
-        image.save(os.path.join(arg_path, '%s_dif.jpg'%cube_face))
+        #image = Image.fromarray(out_images[cube_face])
+        #image.save(os.path.join(arg_path, '%s_dif.jpg'%cube_face))
+        save_image(out_images[cube_face],
+                os.path.join(arg_path, '%s_dif.jpg'%cube_face))
 

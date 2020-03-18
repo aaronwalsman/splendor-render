@@ -3,11 +3,11 @@ import math
 import sys
 import os
 import numpy
-import PIL.Image as Image
 
 from . import buffer_manager
 from . import core
 from . import camera
+from .image import save_image
 
 def reflection_maps_from_scene(
         scene,
@@ -93,6 +93,5 @@ if __name__ == '__main__':
             256,
             256)
     for name, image in output_images.items():
-        image = Image.fromarray(image)
-        image.save(os.path.join(output_dir, '%s_ref.png'%name))
+        save_image(image, os.path.join(output_dir, '%s_ref.png'%name))
 
