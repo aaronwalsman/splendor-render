@@ -1,22 +1,14 @@
 # system
 import os
-import math
-import os
 
 # opengl
 from OpenGL.GL import *
-from OpenGL.GLX import *
-from OpenGL.GLU import *
+#from OpenGL.GLX import *
+#from OpenGL.GLU import *
 from OpenGL.GLUT import *
 
-# numpy/scipy
-#import scipy.misc
-import PIL.Image as Image
+# numpy
 import numpy
-
-# local
-import renderpy.core as core
-import renderpy.example_scenes as example_scenes
 
 default_window_size = 128
 
@@ -37,7 +29,6 @@ class FrameExistsError(Exception):
 
 class BufferManager:
     def __init__(self,
-            #window_size = default_window_size,
             width = default_window_size,
             height = None,
             anti_aliasing = True,
@@ -65,18 +56,10 @@ class BufferManager:
         self.window_width = width
         self.window_height = height
         self.anti_aliasing = anti_aliasing
-        # does not work b/c glut
-        #self.resize_window(window_size, window_size)
         self.hide_window()
         
-        # I think this is only necessary if I'm using the main loop, but I'm not
-        #glutSetOption(
-        #        GLUT_ACTION_ON_WINDOW_CLOSE,
-        #        GLUT_ACTION_CONTINUE_EXECUTION)
-        
-        # generate off-screen framebuffer/renderbuffer objects
+        # storage for off-screen framebuffer/renderbuffer objects
         self.framebuffer_data = {}
-        
     
     def hide_window(self):
         glutHideWindow(self.window_id)
@@ -89,6 +72,29 @@ class BufferManager:
             self.window_width = width
             self.window_height = height
             glutReshapeWindow(width, height)
+    
+    '''
+    def add_depth_frame(self, frame_name, width, height):
+        
+        if frame_name in self.framebuffer_data:
+            raise FrameExistsError('The frame %s is already in use'%frame_name)
+        
+        # frame buffer
+        frame_buffer = glGenFrameBuffers(1)
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frame_buffer)
+        
+        # depth renderbuffer
+        render_buffer = glGenRenderbuffers(1)
+        glBindFramebuffer(GL_RENDER_BUFFER, render_buffer)
+        glRenderbufferStorage(
+                GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, width, height)
+        glFramebufferRenderBuffer(
+                GL_FRAMEBUFFER,
+                GL_DEPTH_ATTACHMENT,
+                GL_RENDERBUFFER,
+                render_buffer)
+        
+    '''        
     
     def add_frame(self, frame_name, width, height, anti_aliasing=True):
         
@@ -194,11 +200,12 @@ class BufferManager:
             glDisable(GL_MULTISAMPLE)
         glViewport(0, 0, width, height)
     
-    def read_pixels(self, frame):
+    def read_pixels(self, frame, read_depth=False, near=0.05, far=50.0):
         if frame is None:
             self.enable_window()
             width = self.window_width
             height = self.window_height
+            anti_aliasing = self.anti_aliasing
         else:
             width = self.framebuffer_data[frame]['width']
             height = self.framebuffer_data[frame]['height']
@@ -220,10 +227,22 @@ class BufferManager:
             else:
                 self.enable_frame(frame)
         
-        pixels = glReadPixels(
-                0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
-        image = numpy.frombuffer(pixels, dtype=numpy.uint8).reshape(
-                height, width, 3)
+        if read_depth:
+            pixels = glReadPixels(
+                    0, 0, width, height, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT)
+            image = numpy.frombuffer(pixels, dtype=numpy.ushort).reshape(
+                    height, width, 1)
+            image = image.astype(numpy.float) / (2**16-1)
+            image = 2.0 * image - 1.0
+            image = 2.0 * near * far / (far + near - image * (far - near))
+            #image[mask] = -1.
+            print(numpy.min(image))
+            print(numpy.max(image))
+        else:
+            pixels = glReadPixels(
+                    0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
+            image = numpy.frombuffer(pixels, dtype=numpy.uint8).reshape(
+                    height, width, 3)
         
         # re-enable the multibuffer for future drawing
         if anti_aliasing and frame is not None:
@@ -234,7 +253,6 @@ class BufferManager:
         glViewport(0, 0, width, height)
         
         return image
-    
     
     def finish(self):
         glFlush()

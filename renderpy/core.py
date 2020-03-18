@@ -22,13 +22,11 @@ from OpenGL.arrays import vbo
 # numpy
 import numpy
 
-# PIL
-import PIL.Image as Image
-
 # local
 import renderpy.camera as camera
 import renderpy.shader_definitions as shader_definitions
 import renderpy.obj_mesh as obj_mesh
+from renderpy.image import load_image
 #import renderpy.primitives as primitives
 
 max_num_lights = 8
@@ -295,6 +293,9 @@ class Renderpy:
         
         if 'ambient_color' in scene:
             self.set_ambient_color(scene['ambient_color'])
+        
+        if 'background_color' in scene:
+            self.set_background_color(scene['background_color'])
         
         if 'point_lights' in scene:
             for point_light in scene['point_lights']:
@@ -569,8 +570,7 @@ class Renderpy:
         if isinstance(diffuse_textures[0], str):
             light_description['diffuse_textures'] = diffuse_textures
             #diffuse_images = [scipy.misc.imread(diffuse_texture)[:,:,:3]
-            diffuse_images = [
-                    numpy.array(Image.open(diffuse_texture).convert('RGB'))
+            diffuse_images = [load_image(diffuse_texture)
                     for diffuse_texture in diffuse_textures]
         else:
             light_description['diffuse_textures'] = -1
@@ -579,8 +579,7 @@ class Renderpy:
         if isinstance(reflection_textures[0], str):
             light_description['reflection_textures'] = reflection_textures
             #reflection_images = [scipy.misc.imread(reflection_texture)[:,:,:3]
-            reflection_images = [
-                    numpy.array(Image.open(reflection_texture).convert('RGB'))
+            reflection_images = [load_image(reflection_texture)
                     for reflection_texture in reflection_textures]
         else:
             light_description['reflection_textures'] = -1
@@ -590,9 +589,7 @@ class Renderpy:
             if isinstance(reflection_mipmaps[0][0], str):
                 light_description['reflection_mipmaps'] = reflection_mipmaps
                 reflection_mipmaps = [
-                        #[scipy.misc.imread(mipmap)[:,:,:3]
-                        [numpy.array(Image.open(mipmap).convert('RGB'))
-                         for mipmap in mipmaps]
+                        [load_image(mipmap) for mipmap in mipmaps]
                         for mipmaps in reflection_mipmaps]
             else:
                 light_description['reflection_mipmaps'] = -1
@@ -740,7 +737,7 @@ class Renderpy:
         
         if isinstance(texture, str):
             self.scene_description['materials'][name]['texture'] = texture
-            image = numpy.array(Image.open(texture).convert('RGB'))
+            image = load_image(texture)
         else:
             self.scene_description['materials'][name]['texture'] = -1
             image = numpy.array(texture)
@@ -1254,7 +1251,7 @@ class Renderpy:
         # clear
         self.clear_frame()
         
-        # tun on the shader
+        # turn on the shader
         glUseProgram(self.gl_data['mask_shader']['program'])
         
         try:
