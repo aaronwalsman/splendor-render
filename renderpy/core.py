@@ -466,11 +466,15 @@ class Renderpy:
                         'diffuse_texture or example_diffuse_texture '
                         'when loading an image_light')
         
-        if name not in self.gl_data['light_buffers']:
-            light_buffers = {}
-            light_buffers['diffuse_texture'] = glGenTextures(1)
-            light_buffers['reflection_texture'] = glGenTextures(1)
-            self.gl_data['light_buffers'][name] = light_buffers
+        if name in self.gl_data['light_buffers']:
+            glDeleteTextures([
+                    self.gl_data['light_buffers'][name]['diffuse_texture'],
+                    self.gl_data['light_buffers'][name]['reflection_texture']])
+        
+        light_buffers = {}
+        light_buffers['diffuse_texture'] = glGenTextures(1)
+        light_buffers['reflection_texture'] = glGenTextures(1)
+        self.gl_data['light_buffers'][name] = light_buffers
         
         image_light_data = {}
         image_light_data['offset_matrix'] = numpy.array(offset_matrix)
@@ -711,22 +715,6 @@ class Renderpy:
             image_light_blur_reflection = 2.0,
             crop = None):
         
-        if name not in self.scene_description['materials']:
-            self.scene_description['materials'][name] = {}
-            material_buffers = {}
-            material_buffers['texture'] = glGenTextures(1)
-            self.gl_data['material_buffers'][name] = material_buffers
-        
-        self.scene_description['materials'][name].update({
-                'ka' : ka,
-                'kd' : kd,
-                'ks' : ks,
-                'shine' : shine,
-                'image_light_kd' : image_light_kd,
-                'image_light_ks' : image_light_ks,
-                'image_light_blur_reflection' : image_light_blur_reflection})
-        
-        '''
         self.scene_description['materials'][name] = {
                 'ka' : ka,
                 'kd' : kd,
@@ -736,10 +724,13 @@ class Renderpy:
                 'image_light_ks' : image_light_ks,
                 'image_light_blur_reflection' : image_light_blur_reflection}
         
+        if name in self.gl_data['material_buffers']:
+            glDeleteTextures(
+                    [self.gl_data['material_buffers'][name]['texture']])
+        
         material_buffers = {}
         material_buffers['texture'] = glGenTextures(1)
         self.gl_data['material_buffers'][name] = material_buffers
-        '''
         
         if texture is not None:
             self.replace_texture(name, texture, crop)
