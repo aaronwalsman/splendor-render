@@ -55,3 +55,10 @@ def translate_matrix(translate):
     elif len(translate) == 4:
         m[:,3] = translate
     return m
+
+def scale_matrix(sx, sy, sz):
+    m = numpy.eye(4)
+    m[0,0] = sx
+    m[1,1] = sy
+    m[2,2] = sz
+    return m
