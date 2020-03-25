@@ -431,8 +431,6 @@ class Renderpy:
             offset_matrix = numpy.eye(4),
             blur = 0.0,
             diffuse_contrast = 1.,
-            #diffuse_lo_rescale = 1.,
-            #diffuse_hi_rescale = 1.,
             rescale_diffuse_intensity = False,
             diffuse_intensity_target_lo = 0.,
             diffuse_intensity_target_hi = 1.,
@@ -468,18 +466,17 @@ class Renderpy:
                         'diffuse_texture or example_diffuse_texture '
                         'when loading an image_light')
         
-        light_buffers = {}
-        light_buffers['diffuse_texture'] = glGenTextures(1)
-        light_buffers['reflection_texture'] = glGenTextures(1)
-        self.gl_data['light_buffers'][name] = light_buffers
+        if name not in self.gl_data['light_buffers']:
+            light_buffers = {}
+            light_buffers['diffuse_texture'] = glGenTextures(1)
+            light_buffers['reflection_texture'] = glGenTextures(1)
+            self.gl_data['light_buffers'][name] = light_buffers
         
         image_light_data = {}
         image_light_data['offset_matrix'] = numpy.array(offset_matrix)
         image_light_data['blur'] = blur
         image_light_data['render_background'] = render_background
         image_light_data['diffuse_contrast'] = diffuse_contrast
-        #image_light_data['diffuse_lo_rescale'] = diffuse_lo_rescale
-        #image_light_data['diffuse_hi_rescale'] = diffuse_hi_rescale
         image_light_data['rescale_diffuse_intensity'] = (
                 rescale_diffuse_intensity)
         image_light_data['diffuse_intensity_target_lo'] = (
