@@ -714,6 +714,22 @@ class Renderpy:
             image_light_blur_reflection = 2.0,
             crop = None):
         
+        if name not in self.scene_description['materials']:
+            self.scene_description['materials'][name] = {}
+            material_buffers = {}
+            material_buffers['texture'] = glGenTextures(1)
+            self.gl_data['material_buffers'][name] = material_buffers
+        
+        self.scene_description['materials'][name].update({
+                'ka' : ka,
+                'kd' : kd,
+                'ks' : ks,
+                'shine' : shine,
+                'image_light_kd' : image_light_kd,
+                'image_light_ks' : image_light_ks,
+                'image_light_blur_reflection' : image_light_blur_reflection})
+        
+        '''
         self.scene_description['materials'][name] = {
                 'ka' : ka,
                 'kd' : kd,
@@ -726,6 +742,7 @@ class Renderpy:
         material_buffers = {}
         material_buffers['texture'] = glGenTextures(1)
         self.gl_data['material_buffers'][name] = material_buffers
+        '''
         
         if texture is not None:
             self.replace_texture(name, texture, crop)
