@@ -135,7 +135,7 @@ def reflection_to_diffuse(
     pixel_locations = []
     for cube_face in intensity_cube:
         y,x = numpy.where(
-                intensity_cube[cube_face] > intensity_threshold)
+                intensity_cube[cube_face] >= intensity_threshold)
         for i in range(len(x)):
             pixel_locations.append((cube_face, x[i], y[i]))
     
