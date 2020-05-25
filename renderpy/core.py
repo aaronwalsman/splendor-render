@@ -84,6 +84,7 @@ class Renderpy:
                 'textured_shader':{},
                 'vertex_color_shader':{},
                 'mask_shader':{},
+                'coord_shader':{},
                 'background_shader':{}
         }
         
@@ -115,6 +116,7 @@ class Renderpy:
         textured_shader_data = {}
         vertex_color_shader_data = {}
         mask_shader_data = {}
+        coord_shader_data = {}
         background_shader_data = {}
         
         # compile the shaders
@@ -131,6 +133,10 @@ class Renderpy:
                 shader_definitions.mask_vertex_shader, GL_VERTEX_SHADER)
         mask_shader_data['fragment_shader'] = shaders.compileShader(
                 shader_definitions.mask_fragment_shader, GL_FRAGMENT_SHADER)
+        coord_shader_data['vertex_shader'] = shaders.compileShader(
+                shader_definitions.coord_vertex_shader, GL_VERTEX_SHADER)
+        coord_shader_data['fragment_shader'] = shaders.compileShader(
+                shader_definitions.coord_fragment_shader, GL_FRAGMENT_SHADER)
         background_shader_data['vertex_shader'] = shaders.compileShader(
                 shader_definitions.background_vertex_shader, GL_VERTEX_SHADER)
         background_shader_data['fragment_shader'] = shaders.compileShader(
@@ -150,6 +156,10 @@ class Renderpy:
                 mask_shader_data['vertex_shader'],
                 mask_shader_data['fragment_shader'])
         mask_shader_data['program'] = mask_program
+        coord_program = shaders.compileProgram(
+                coord_shader_data['vertex_shader'],
+                coord_shader_data['fragment_shader'])
+        coord_shader_data['program'] = coord_program
         background_program = shaders.compileProgram(
                 background_shader_data['vertex_shader'],
                 background_shader_data['fragment_shader'])
@@ -159,6 +169,7 @@ class Renderpy:
         textured_shader_data['locations'] = {}
         vertex_color_shader_data['locations'] = {}
         mask_shader_data['locations'] = {}
+        coord_shader_data['locations'] = {}
         background_shader_data['locations'] = {}
         
         # (position/normal/uv)
@@ -178,10 +189,14 @@ class Renderpy:
         
         mask_shader_data['locations']['vertex_position'] = (
                 glGetAttribLocation(mask_program, 'vertex_position'))
+        '''
         mask_shader_data['locations']['vertex_normal'] = (
                 glGetAttribLocation(mask_program, 'vertex_normal'))
         mask_shader_data['locations']['vertex_uv'] = (
                 glGetAttribLocation(mask_program, 'vertex_uv'))
+        '''
+        coord_shader_data['locations']['vertex_position'] = (
+                glGetAttribLocation(coord_program, 'vertex_position'))
         
         # (pose and projection matrices)
         for variable in 'camera_pose', 'projection_matrix', 'model_pose':
@@ -191,6 +206,8 @@ class Renderpy:
                     glGetUniformLocation(vertex_color_program, variable))
             mask_shader_data['locations'][variable] = (
                     glGetUniformLocation(mask_program, variable))
+            coord_shader_data['locations'][variable] = (
+                    glGetUniformLocation(coord_program, variable))
         
         for variable in (
                 'camera_pose', 'projection_matrix', 'offset_matrix', 'blur'):
@@ -256,9 +273,16 @@ class Renderpy:
         mask_shader_data['locations']['mask_color'] = (
                 glGetUniformLocation(mask_program, 'mask_color'))
         
+        # (coord_data)
+        coord_shader_data['locations']['box_min'] = (
+                glGetUniformLocation(coord_program, 'box_min'))
+        coord_shader_data['locations']['box_max'] = (
+                glGetUniformLocation(coord_program, 'box_max'))
+        
         self.gl_data['textured_shader'] = textured_shader_data
         self.gl_data['vertex_color_shader'] = vertex_color_shader_data
         self.gl_data['mask_shader'] = mask_shader_data
+        self.gl_data['coord_shader'] = coord_shader_data
         self.gl_data['background_shader'] = background_shader_data
     
     def load_scene(self, scene, clear_existing=False):
@@ -526,6 +550,7 @@ class Renderpy:
         # or an image directory was provided
         if texture_directory is not None:
             cube_order = {'px':0, 'nx':1, 'py':2, 'ny':3, 'pz':4, 'nz':5}
+            texture_directory = os.path.expanduser(texture_directory)
             all_images = os.listdir(texture_directory)
             diffuse_files = sorted(
                     [image for image in all_images if '_dif.' in image],
@@ -787,13 +812,15 @@ class Renderpy:
             mesh_name,
             material_name,
             transform = numpy.eye(4),
-            mask_color = numpy.array([0,0,0])):
+            mask_color = numpy.array([0,0,0]),
+            coord_box = ((0,0,0),(0,0,0))):
         
         instance_data = {}
         instance_data['mesh_name'] = mesh_name
         instance_data['material_name'] = material_name
         instance_data['transform'] = numpy.array(transform)
         instance_data['mask_color'] = numpy.array(mask_color)
+        instance_data['coord_box'] = numpy.array(coord_box)
         self.scene_description['instances'][instance_name] = instance_data
     
     def remove_instance(self, instance_name):
@@ -804,7 +831,7 @@ class Renderpy:
     
     def set_instance_transform(self, instance_name, transform):
         self.scene_description['instances'][instance_name]['transform'] = (
-                transform)
+                numpy.array(transform))
     
     def set_instance_material(self, instance_name, material_name):
         self.scene_description['instances'][instance_name]['material_name'] = (
@@ -1313,6 +1340,91 @@ class Renderpy:
         glUniform3fv(
                 location_data['mask_color'],
                 1, numpy.array(mask_color, dtype=numpy.float32))
+        
+        mesh_buffers['face_buffer'].bind()
+        mesh_buffers['vertex_buffer'].bind()
+        
+        try:
+            glEnableVertexAttribArray(location_data['vertex_position'])
+            
+            stride = (3+3+2) * 4
+            glVertexAttribPointer(
+                    location_data['vertex_position'],
+                    3, GL_FLOAT, False, stride,
+                    mesh_buffers['vertex_buffer'])
+            
+            glDrawElements(
+                    GL_TRIANGLES,
+                    len(mesh['faces'])*3,
+                    GL_UNSIGNED_INT,
+                    None)
+        
+        finally:
+            mesh_buffers['face_buffer'].unbind()
+            mesh_buffers['vertex_buffer'].unbind()
+    
+    def coord_render(self, instances=None, flip_y=True):
+        
+        #clear
+        self.clear_frame()
+        
+        # turn on the shader
+        glUseProgram(self.gl_data['coord_shader']['program'])
+        
+        try:
+            location_data = self.gl_data['coord_shader']['locations']
+            camera_pose = self.scene_description['camera']['pose']
+            glUniformMatrix4fv(
+                    location_data['camera_pose'],
+                    1, GL_TRUE,
+                    camera_pose.astype(numpy.float32))
+            
+            projection_matrix = self.scene_description['camera']['projection']
+            if flip_y:
+                projection_matrix = numpy.dot(
+                        projection_matrix,
+                        numpy.array([
+                            [1,0,0,0],
+                            [0,-1,0,0],
+                            [0,0,1,0],
+                            [0,0,0,1]]))
+            glUniformMatrix4fv(
+                    location_data['projection_matrix'],
+                    1, GL_TRUE,
+                    projection_matrix.astype(numpy.float32))
+            
+            # render all instances
+            if instances is None:
+                instances = self.scene_description['instances']
+            for instance_name in instances:
+                self.coord_render_instance(instance_name)
+        
+        finally:
+            glUseProgram(0)
+        
+        glFinish()
+    
+    def coord_render_instance(self, instance_name):
+        instance_data = self.scene_description['instances'][instance_name]
+        instance_mesh = instance_data['mesh_name']
+        coord_box = instance_data['coord_box']
+        mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
+        mesh = self.loaded_data['meshes'][instance_mesh]
+        
+        location_data = self.gl_data['coord_shader']['locations']
+        
+        glUniformMatrix4fv(
+                location_data['model_pose'],
+                1, GL_TRUE,
+                numpy.array(instance_data['transform'], dtype=numpy.float32))
+        
+        glUniform3fv(
+                location_data['box_min'],
+                1, numpy.array(coord_box[0], dtype=numpy.float32))
+    
+        glUniform3fv(
+                location_data['box_max'],
+                1, numpy.array(coord_box[1], dtype=numpy.float32))
         
         mesh_buffers['face_buffer'].bind()
         mesh_buffers['vertex_buffer'].bind()

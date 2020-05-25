@@ -649,7 +649,38 @@ out vec3 color;
 uniform vec3 mask_color;
 
 void main(){
-    
     color = mask_color;
+}
+'''
+
+coord_vertex_shader = '''#version 330 core
+
+layout(location=0) in vec3 vertex_position;
+
+out vec3 coord;
+
+uniform mat4 projection_matrix;
+uniform mat4 model_pose;
+uniform mat4 camera_pose;
+
+uniform vec3 box_min;
+uniform vec3 box_max;
+
+void main(){
+    mat4 pvm = projection_matrix * camera_pose * model_pose;
+    
+    gl_Position = pvm * vec4(vertex_position, 1);
+    coord = (vertex_position - box_min) / (box_max - box_min);
+}
+'''
+
+coord_fragment_shader = '''#version 330 core
+
+in vec3 coord;
+
+out vec3 color;
+
+void main(){
+    color = coord;
 }
 '''
