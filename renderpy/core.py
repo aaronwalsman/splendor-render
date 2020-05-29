@@ -15,7 +15,6 @@ import os
 # opengl
 from OpenGL.GL import *
 from OpenGL.GLU import *
-from OpenGL.arrays import vbo
 from OpenGL.GL import shaders
 from OpenGL.arrays import vbo
 
@@ -262,7 +261,6 @@ class Renderpy:
         self.gl_data['background_shader'] = background_shader_data
     
     def load_scene(self, scene, clear_existing=False):
-    
         if clear_existing:
             self.clear_scene()
         
@@ -725,6 +723,7 @@ class Renderpy:
                 'image_light_blur_reflection' : image_light_blur_reflection}
         
         if name in self.gl_data['material_buffers']:
+            glBindTexture(GL_TEXTURE_2D,0)
             glDeleteTextures(
                     [self.gl_data['material_buffers'][name]['texture']])
         
@@ -767,7 +766,7 @@ class Renderpy:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
                     GL_LINEAR_MIPMAP_LINEAR)
             glGenerateMipmap(GL_TEXTURE_2D)
-        
+            
         finally:
             glBindTexture(GL_TEXTURE_2D, 0)
     
