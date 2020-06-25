@@ -5,7 +5,8 @@ import os
 from OpenGL.GL import *
 #from OpenGL.GLX import *
 #from OpenGL.GLU import *
-from OpenGL.GLUT import *
+#from OpenGL.GLUT import *
+import OpenGL.GLUT as GLUT
 
 # numpy
 import numpy
@@ -42,16 +43,19 @@ class BufferManager:
             os.environ['XAUTHORITY'] = x_authority
             os.environ['DISPLAY'] = display
         
-        glutInit([])
+        GLUT.glutInit([])
         # GLUT_DOUBLE maxes out at 60fps
-        #glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
+        #GLUT.glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
         if anti_aliasing:
-            glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_MULTISAMPLE)
+            GLUT.glutInitDisplayMode(
+                    GLUT.GLUT_RGBA |
+                    GLUT.GLUT_DEPTH |
+                    GLUT.GLUT_MULTISAMPLE)
             glEnable(GL_MULTISAMPLE)
         else:
-            glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH)
-        glutInitWindowSize(width, height)
-        self.window_id = glutCreateWindow('RENDERPY')
+            GLUT.glutInitDisplayMode(GLUT.GLUT_RGBA | GLUT.GLUT_DEPTH)
+        GLUT.glutInitWindowSize(width, height)
+        self.window_id = GLUT.glutCreateWindow('RENDERPY')
         self.set_active()
         self.window_width = width
         self.window_height = height
@@ -62,39 +66,16 @@ class BufferManager:
         self.framebuffer_data = {}
     
     def hide_window(self):
-        glutHideWindow(self.window_id)
+        GLUT.glutHideWindow(self.window_id)
     
     def show_window(self):
-        glutShowWindow(self.window_id)
+        GLUT.glutShowWindow(self.window_id)
     
     def resize_window(self, width, height):
         if self.window_width != width or self.window_height != height:
             self.window_width = width
             self.window_height = height
-            glutReshapeWindow(width, height)
-    
-    '''
-    def add_depth_frame(self, frame_name, width, height):
-        
-        if frame_name in self.framebuffer_data:
-            raise FrameExistsError('The frame %s is already in use'%frame_name)
-        
-        # frame buffer
-        frame_buffer = glGenFrameBuffers(1)
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frame_buffer)
-        
-        # depth renderbuffer
-        render_buffer = glGenRenderbuffers(1)
-        glBindFramebuffer(GL_RENDER_BUFFER, render_buffer)
-        glRenderbufferStorage(
-                GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, width, height)
-        glFramebufferRenderBuffer(
-                GL_FRAMEBUFFER,
-                GL_DEPTH_ATTACHMENT,
-                GL_RENDERBUFFER,
-                render_buffer)
-        
-    '''        
+            GLUT.glutReshapeWindow(width, height)
     
     def add_frame(self, frame_name, width, height, anti_aliasing=True):
         
@@ -174,7 +155,7 @@ class BufferManager:
         This is only necessary if you have multiple buffer managers, which
         you shouldn't do, because you will end up confusing yourself.
         '''
-        glutSetWindow(self.window_id)
+        GLUT.glutSetWindow(self.window_id)
     
     def enable_window(self):
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
@@ -200,7 +181,11 @@ class BufferManager:
             glDisable(GL_MULTISAMPLE)
         glViewport(0, 0, width, height)
     
-    def read_pixels(self, frame, read_depth=False, near=0.05, far=50.0):
+    def read_pixels(self,
+            frame,
+            read_depth = False,
+            near = 0.05,
+            far = 50.0):
         if frame is None:
             self.enable_window()
             width = self.window_width
@@ -236,8 +221,6 @@ class BufferManager:
             image = 2.0 * image - 1.0
             image = 2.0 * near * far / (far + near - image * (far - near))
             #image[mask] = -1.
-            print(numpy.min(image))
-            print(numpy.max(image))
         else:
             pixels = glReadPixels(
                     0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
@@ -254,9 +237,14 @@ class BufferManager:
         
         return image
     
+    def start_main_loop(self, **callbacks):
+        for callback_name, callback_function in callbacks.items():
+            getattr(GLUT, callback_name)(callback_function)
+        GLUT.glutMainLoop()
+    
     def finish(self):
         glFlush()
         glFinish()
-        glutPostRedisplay()
-        glutSwapBuffers()
-        glutLeaveMainLoop()
+        GLUT.glutPostRedisplay()
+        GLUT.glutSwapBuffers()
+        GLUT.glutLeaveMainLoop()

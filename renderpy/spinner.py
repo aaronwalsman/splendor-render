@@ -3,7 +3,7 @@ import time
 import sys
 import os
 import numpy
-import buffer_manager
+import buffer_manager_glut as buffer_manager
 import core
 
 def spin(
@@ -44,6 +44,7 @@ def spin(
                 print('Unable to load file: %s'%scene_file)
                 time.sleep(1)
                 print('Retrying...')
+                raise
             else:
                 break
     

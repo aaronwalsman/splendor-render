@@ -19,7 +19,7 @@ def save_image(image, path):
 def load_depth(path):
     '''
     This is a stub so that depth saving can be easily changed in one place.
-    Returns a numpy uint8 array with shape HxWx1.
+    Returns a numpy array with shape HxWx1.
     '''
     with open(path, 'rb') as f:
         return numpy.load(f)
