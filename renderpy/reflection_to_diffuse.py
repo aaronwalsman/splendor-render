@@ -16,7 +16,7 @@ import numpy
 
 # local
 from . import shader_definitions
-from . import buffer_manager
+from . import buffer_manager_egl as buffer_manager
 from . import camera
 from .image import load_image, save_image
 

@@ -4,7 +4,7 @@ import sys
 import os
 import numpy
 
-from . import buffer_manager
+from . import buffer_manager_egl as buffer_manager
 from . import core
 from . import camera
 from .image import save_image
@@ -19,7 +19,7 @@ def reflection_maps_from_scene(
         ambient_color=(1.0,1.0,1.0),
         fake_hdri=True):
     
-    manager = buffer_manager.initialize_shared_buffer_manager(width, height)
+    manager = buffer_manager.initialize_shared_buffer_manager()
     try:
         manager.add_frame('reflection', width, height)
     except buffer_manager.FrameExistsError:

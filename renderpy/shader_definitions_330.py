@@ -110,7 +110,7 @@ vec3 image_light_diffuse(
 }
 '''
 
-textured_vertex_shader = '''#version 460 core
+textured_vertex_shader = '''#version 330 core
 
 layout(location=0) in vec3 vertex_position;
 layout(location=1) in vec3 vertex_normal;
@@ -152,7 +152,7 @@ void main(){
 }
 '''
 
-textured_fragment_shader = '''#version 460 core
+textured_fragment_shader = '''#version 330 core
 
 const int MAX_NUM_LIGHTS = 8;
 
@@ -186,10 +186,10 @@ uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
 uniform mat4 camera_pose;
 
-layout(binding=0) uniform sampler2D texture_sampler;
+uniform sampler2D texture_sampler;
 //uniform sampler2D shadow_sampler;
-layout(binding=2) uniform samplerCube diffuse_sampler;
-layout(binding=3) uniform samplerCube reflect_sampler;
+uniform samplerCube diffuse_sampler;
+uniform samplerCube reflect_sampler;
 ''' + phong_fn + image_light_diffuse_fn + '''
 
 void main(){
@@ -315,7 +315,7 @@ void main(){
 }
 '''
 
-vertex_color_vertex_shader = '''#version 460 core
+vertex_color_vertex_shader = '''#version 330 core
 
 layout(location=0) in vec3 vertex_position;
 layout(location=1) in vec3 vertex_normal;
@@ -341,7 +341,7 @@ void main(){
 }
 '''
 
-vertex_color_fragment_shader = '''#version 460 core
+vertex_color_fragment_shader = '''#version 330 core
 
 const int MAX_NUM_LIGHTS = 8;
 
@@ -373,8 +373,8 @@ uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 uniform mat4 camera_pose;
 
 //uniform sampler2D shadow_sampler;
-layout(binding=2) uniform samplerCube diffuse_sampler;
-layout(binding=3) uniform samplerCube reflect_sampler;
+uniform samplerCube diffuse_sampler;
+uniform samplerCube reflect_sampler;
 ''' + phong_fn + image_light_diffuse_fn + '''
 
 void main(){
@@ -493,7 +493,7 @@ void main(){
 }
 '''
 
-background_vertex_shader = '''#version 460 core
+background_vertex_shader = '''#version 330 core
 
 uniform mat4 projection_matrix;
 uniform mat4 camera_pose;
@@ -529,7 +529,7 @@ void main(){
 }
 '''
 
-background_2D_fragment_shader = '''#version 460 core
+background_2D_fragment_shader = '''#version 330 core
 in vec2 fragment_uv;
 out vec3 color;
 
@@ -540,12 +540,12 @@ void main(){
 }
 '''
 
-background_fragment_shader = '''#version 460 core
+background_fragment_shader = '''#version 330 core
 in vec3 fragment_direction;
 out vec3 color;
 
 uniform float blur;
-layout(binding=3) uniform samplerCube cubemap_sampler;
+uniform samplerCube cubemap_sampler;
 uniform mat4 offset_matrix;
 ''' + skybox_fn + '''
 void main(){
@@ -556,7 +556,7 @@ void main(){
 }
 '''
 
-panorama_to_cube_fragment_shader = '''#version 460 core
+panorama_to_cube_fragment_shader = '''#version 330 core
 #define M_PI 3.1415926535897932384626433832795
 
 in vec4 fragment_direction;
@@ -576,7 +576,7 @@ void main(){
 }
 '''
 
-reflection_to_diffuse_fragment_shader = '''#version 460 core
+reflection_to_diffuse_fragment_shader = '''#version 330 core
 #define NUM_SAMPLES 512
 in vec3 fragment_direction;
 in vec2 fragment_uv;
@@ -624,7 +624,7 @@ void main(){
 }
 '''
 
-mask_vertex_shader = '''#version 460 core
+mask_vertex_shader = '''#version 330 core
 
 layout(location=0) in vec3 vertex_position;
 
@@ -642,7 +642,7 @@ void main(){
 }
 '''
 
-mask_fragment_shader = '''#version 460 core
+mask_fragment_shader = '''#version 330 core
 
 out vec3 color;
 
@@ -653,7 +653,7 @@ void main(){
 }
 '''
 
-coord_vertex_shader = '''#version 460 core
+coord_vertex_shader = '''#version 330 core
 
 layout(location=0) in vec3 vertex_position;
 
@@ -674,7 +674,7 @@ void main(){
 }
 '''
 
-coord_fragment_shader = '''#version 460 core
+coord_fragment_shader = '''#version 330 core
 
 in vec3 coord;
 
@@ -685,7 +685,7 @@ void main(){
 }
 '''
 
-textured_depthmap_vertex_shader = '''#version 460 core
+textured_depthmap_vertex_shader = '''#version 330 core
 
 layout(location=0) in float vertex_depth;
 
@@ -722,8 +722,8 @@ void main() {
 }
 '''
 
-textured_depthmap_fragment_shader = '''#version 460 core
-layout(binding=0) uniform sampler2D texture_sampler;
+textured_depthmap_fragment_shader = '''#version 330 core
+uniform sampler2D texture_sampler;
 in vec2 fragment_uv;
 out vec3 color;
 
