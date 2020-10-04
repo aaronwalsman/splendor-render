@@ -1,14 +1,14 @@
 {
     "image_lights":{
         "background_1": {
-            "texture_directory": "./example_image_lights/skyscraper",
+            "texture_directory": "./example_image_lights/blue_hour",
             "reflection_mipmaps": null,
             "blur":0,
             "render_background":1,
             "diffuse_contrast":1,
-            "rescale_diffuse_intensity":false,
-            "diffuse_intensity_target_lo":-1.0,
-            "diffuse_intensity_target_hi":2.0,
+            "rescale_diffuse_intensity":true,
+            "diffuse_intensity_target_lo":0.0,
+            "diffuse_intensity_target_hi":1.0,
             "diffuse_tint_lo":[0.0,0.0,0.0],
             "diffuse_tint_hi":[0.0,0.0,0.0],
             "reflect_tint":[0.0,0.0,0.0]
@@ -28,9 +28,9 @@
             "kd":0.5,
             "ks":0.5,
             "shine":1.0,
-            "image_light_kd":0.85,
-            "image_light_ks":0.15,
-            "image_light_blur_reflection":1.0
+            "image_light_kd":0.8,
+            "image_light_ks":0.2,
+            "image_light_blur_reflection":1
         }
     },
     "instances": {
