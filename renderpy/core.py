@@ -23,6 +23,7 @@ import numpy
 
 # local
 import renderpy.camera as camera
+import renderpy.masks as masks
 import renderpy.shader_definitions as shader_definitions
 import renderpy.obj_mesh as obj_mesh
 from renderpy.image import load_image, load_depth
@@ -411,7 +412,8 @@ class Renderpy:
             mesh_path = None,
             #primitive = None,
             mesh_data = None,
-            scale = 1.0):
+            scale = 1.0,
+            create_uvs = False):
         
         # if a mesh path was provided, load that
         if mesh_path is not None:
@@ -440,6 +442,9 @@ class Renderpy:
         
         vertex_floats = numpy.array(mesh['vertices'], dtype=numpy.float32)
         normal_floats = numpy.array(mesh['normals'], dtype=numpy.float32)
+        if not len(mesh['uvs']) and create_uvs:
+            mesh['uvs'] = [[0,0] for _ in mesh['vertices']]
+        
         if len(mesh['uvs']):
             uv_floats = numpy.array(mesh['uvs'], dtype=numpy.float32)
             combined_floats = numpy.concatenate(
@@ -923,7 +928,8 @@ class Renderpy:
             material_name,
             transform = numpy.eye(4),
             mask_color = numpy.array([0,0,0]),
-            coord_box = ((0,0,0),(0,0,0))):
+            coord_box = ((0,0,0),(0,0,0)),
+            hidden = False):
         
         instance_data = {}
         instance_data['mesh_name'] = mesh_name
@@ -931,6 +937,7 @@ class Renderpy:
         instance_data['transform'] = numpy.array(transform)
         instance_data['mask_color'] = numpy.array(mask_color)
         instance_data['coord_box'] = numpy.array(coord_box)
+        instance_data['hidden'] = hidden
         self.scene_description['instances'][instance_name] = instance_data
     
     def remove_instance(self, instance_name):
@@ -949,6 +956,34 @@ class Renderpy:
     
     def get_instance_transform(self, instance_name):
         return self.scene_description['instances'][instance_name]['transform']
+    
+    def get_instance_center_bbox(self, instances=None):
+        if instances is None:
+            instances = self.scene_description['instances'].keys()
+        centers = numpy.stack([
+                self.scene_description['instances'][instance]['transform'][:3,3]
+                for instance in instances])
+        bbox_min = numpy.min(centers, axis=0)
+        bbox_max = numpy.max(centers, axis=0)
+        return bbox_min, bbox_max
+    
+    def set_instance_masks_to_instance_indices(self, instance_indices):
+        for instance_name, index in instance_indices.items():
+            instance_data = self.scene_description['instances'][instance_name]
+            instance_data['mask_color'] = masks.color_index_to_float(index)
+        
+    def set_instance_masks_to_mesh_indices(self, mesh_indices, instances=None):
+        if instances is None:
+            instances = self.scene_description['instances'].keys()
+        for instance in instances:
+            instance_data = self.scene_description['instances'][instance]
+            mesh_name = instance_data['mesh_name']
+            try:
+                mesh_index = mesh_indices[mesh_name]
+            except KeyError:
+                continue
+            instance_data['mask_color'] = (
+                    masks.color_index_to_float(mesh_index))
     
     def add_depthmap_instance(self,
             depthmap_instance_name,
@@ -1289,11 +1324,28 @@ class Renderpy:
                     glUniform3fv(
                             location_data['image_light_reflect_tint'],
                             1, reflect_tint)
-        
                 
+                mesh_instances = {}
+                for instance_name in shader_instances:
+                    instance_data = (
+                            self.scene_description['instances'][instance_name])
+                    mesh_name = instance_data['mesh_name']
+                    try:
+                        mesh_instances[mesh_name].append(instance_name)
+                    except KeyError:
+                        mesh_instances[mesh_name] = [instance_name]
+                
+                for mesh_name, instance_names in mesh_instances.items():
+                    self.color_render_instance(instance_names[0])
+                    for instance_name in instance_names[1:]:
+                        self.color_render_instance(
+                                instance_name, set_mesh_attrib_pointers=False)
+                
+                '''
                 # render the instances
                 for instance_name in shader_instances:
                     self.color_render_instance(instance_name)
+                '''
                 
             finally:
                 glUseProgram(0)
@@ -1363,8 +1415,13 @@ class Renderpy:
             depthmap_buffers['index_buffer'].unbind()
             glBindTexture(GL_TEXTURE_2D, 0)
     
-    def color_render_instance(self, instance_name):
+    def color_render_instance(self,
+            instance_name,
+            set_mesh_attrib_pointers=True):
         instance_data = self.scene_description['instances'][instance_name]
+        if instance_data['hidden']:
+            return
+        
         instance_mesh = instance_data['mesh_name']
         instance_material = instance_data['material_name']
         material_data = (
@@ -1415,38 +1472,41 @@ class Renderpy:
             glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
         
         try:
-            glEnableVertexAttribArray(location_data['vertex_position'])
-            glEnableVertexAttribArray(location_data['vertex_normal'])
-            if do_textured_mesh:
-                glEnableVertexAttribArray(location_data['vertex_uv'])
-                stride = (3+3+2) * 4
-                glVertexAttribPointer(
-                        location_data['vertex_position'],
-                        3, GL_FLOAT, False, stride,
-                        mesh_buffers['vertex_buffer'])
-                glVertexAttribPointer(
-                        location_data['vertex_normal'],
-                        3, GL_FLOAT, False, stride,
-                        mesh_buffers['vertex_buffer']+((3)*4))
-                glVertexAttribPointer(
-                        location_data['vertex_uv'],
-                        2, GL_FLOAT, False, stride,
-                        mesh_buffers['vertex_buffer']+((3+3)*4))
-            else:
-                glEnableVertexAttribArray(location_data['vertex_color'])
-                stride = (3+3+3) * 4
-                glVertexAttribPointer(
-                        location_data['vertex_position'],
-                        3, GL_FLOAT, False, stride,
-                        mesh_buffers['vertex_buffer'])
-                glVertexAttribPointer(
-                        location_data['vertex_normal'],
-                        3, GL_FLOAT, False, stride,
-                        mesh_buffers['vertex_buffer']+((3)*4))
-                glVertexAttribPointer(
-                        location_data['vertex_color'],
-                        3, GL_FLOAT, False, stride,
-                        mesh_buffers['vertex_buffer']+((3+3)*4))
+            # SOMETHING BETWEEN HERE...
+            if set_mesh_attrib_pointers:
+                glEnableVertexAttribArray(location_data['vertex_position'])
+                glEnableVertexAttribArray(location_data['vertex_normal'])
+                if do_textured_mesh:
+                    glEnableVertexAttribArray(location_data['vertex_uv'])
+                    stride = (3+3+2) * 4
+                    glVertexAttribPointer(
+                            location_data['vertex_position'],
+                            3, GL_FLOAT, False, stride,
+                            mesh_buffers['vertex_buffer'])
+                    glVertexAttribPointer(
+                            location_data['vertex_normal'],
+                            3, GL_FLOAT, False, stride,
+                            mesh_buffers['vertex_buffer']+((3)*4))
+                    glVertexAttribPointer(
+                            location_data['vertex_uv'],
+                            2, GL_FLOAT, False, stride,
+                            mesh_buffers['vertex_buffer']+((3+3)*4))
+                else:
+                    glEnableVertexAttribArray(location_data['vertex_color'])
+                    stride = (3+3+3) * 4
+                    glVertexAttribPointer(
+                            location_data['vertex_position'],
+                            3, GL_FLOAT, False, stride,
+                            mesh_buffers['vertex_buffer'])
+                    glVertexAttribPointer(
+                            location_data['vertex_normal'],
+                            3, GL_FLOAT, False, stride,
+                            mesh_buffers['vertex_buffer']+((3)*4))
+                    glVertexAttribPointer(
+                            location_data['vertex_color'],
+                            3, GL_FLOAT, False, stride,
+                            mesh_buffers['vertex_buffer']+((3+3)*4))
+            # AND HERE TAKES ~40% of the rendering time
             
             glDrawElements(
                     GL_TRIANGLES,
@@ -1578,6 +1638,9 @@ class Renderpy:
     
     def mask_render_instance(self, instance_name):
         instance_data = self.scene_description['instances'][instance_name]
+        if instance_data['hidden']:
+            return
+        
         instance_mesh = instance_data['mesh_name']
         mask_color = instance_data['mask_color']
         mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
@@ -1659,6 +1722,9 @@ class Renderpy:
     
     def coord_render_instance(self, instance_name):
         instance_data = self.scene_description['instances'][instance_name]
+        if instance_data['hidden']:
+            return
+        
         instance_mesh = instance_data['mesh_name']
         coord_box = instance_data['coord_box']
         mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
