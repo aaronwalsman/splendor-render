@@ -101,7 +101,7 @@ class BufferManager:
         depth_buffer = glGenRenderbuffers(1)
         glBindRenderbuffer(GL_RENDERBUFFER, depth_buffer)
         glRenderbufferStorage(
-                GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height)
+                GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height)
         glFramebufferRenderbuffer(
                 GL_FRAMEBUFFER,
                 GL_DEPTH_ATTACHMENT,
