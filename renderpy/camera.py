@@ -99,7 +99,7 @@ def camera_pose_to_matrix(pose):
         raise ValueError('camera pose should be a 4x4 matrix or 6 elements '
                 '[azimuth, elevation, tilt, distance, shift_x, shift_y]')
         
-def azimuthal_pose_to_matrix(pose):
+def azimuthal_pose_to_matrix(pose, center=(0,0,0)):
     azimuth = pose[0]
     elevation = pose[1]
     tilt = pose[2]
@@ -113,10 +113,13 @@ def azimuthal_pose_to_matrix(pose):
     
     translate = pose_utils.translate_matrix([shift_x, shift_y, distance])
     
+    c = pose_utils.translate_matrix(center)
+    
     m = numpy.linalg.inv(
+            numpy.dot(c,
             numpy.dot(a,
             numpy.dot(e,
-            numpy.dot(t, translate))))
+            numpy.dot(t, translate)))))
     
     return m
 
