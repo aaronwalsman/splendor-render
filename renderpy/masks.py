@@ -1,6 +1,3 @@
-#import numpy.random
-#numpy.random.seed(1234)
-
 import numpy
 
 CELL_WIDTH = 8
@@ -8,8 +5,6 @@ CELL_OFFSET = CELL_WIDTH//2
 NUM_CELLS = 256//CELL_WIDTH
 NUM_MASKS = NUM_CELLS**3
 
-#color_index_to_scramble = numpy.random.permutation(NUM_MASKS-1)+1
-#color_index_to_scramble = numpy.concatenate(([0], color_index_to_scramble))
 # generate a scramble/descramble lookup so that nearby indices will not be
 # similar to each other
 a = 7019 # a medium-sized prime
