@@ -12,10 +12,8 @@ import tqdm
 # numpy
 import numpy
 
-# imageio
-import imageio
-
 # local
+import renderpy.image as image
 import renderpy.panorama_to_cube as p2c
 import renderpy.reflection_to_diffuse as r2d
 
@@ -74,8 +72,9 @@ for i, house in enumerate(houses):
         
         pano_index = re.search('[0-9]+', pano_file)[0]
         
-        pano = numpy.array(
-                imageio.imread(os.path.join(pano_rgb, pano_file)))[:,:,:3]
+        #pano = numpy.array(
+        #        imageio.imread(os.path.join(pano_rgb, pano_file)))[:,:,:3]
+        pano = image.load_image(os.path.join(pano_rgb, pano_file))
         fix_black_bars(pano)
         reflection_images = p2c.panorama_to_cube(
                 pano, args.reflection_resolution)
@@ -85,7 +84,8 @@ for i, house in enumerate(houses):
             os.makedirs(reflection_dir)
         for cube_face in reflection_images:
             image_path = os.path.join(reflection_dir, cube_face + '.png')
-            imageio.imsave(image_path, reflection_images[cube_face])
+            #imageio.imsave(image_path, reflection_images[cube_face])
+            image.save_image(image_path, reflection_images[cube_face])
         
         diffuse_images = r2d.reflection_to_diffuse(
                 reflection_images, args.diffuse_resolution)
@@ -98,5 +98,3 @@ for i, house in enumerate(houses):
             imageio.imsave(image_path, diffuse_images[cube_face])
     
     break
-
-print('='*80)
