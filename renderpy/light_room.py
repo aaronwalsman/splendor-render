@@ -139,16 +139,6 @@ def make_light_room(
         'materials' : {},
         'instances' : {},
         'background_color' : background_color,
-        #'camera' : {
-        #    'pose':[0.0, 0.0, 0, 0, 0, 0],
-        #    'projection':[
-        #            [1.0,   0,  0,    0],
-        #            [  0, 1.0,  0,    0],
-        #            [  0,   0, -1, -0.1],
-        #            [  0,   0, -1,    0]],
-        #    'pose_delta' : [0.0004,0.0001,0,0,0,0]
-        #},
-        #'ambient_color' : (1,1,1)
     }
     
     scene_description['meshes']['disc'] = {
