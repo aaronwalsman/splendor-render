@@ -12,11 +12,9 @@ import tqdm
 # numpy
 import numpy
 
-# imageio
-import imageio
-
 # local
 import renderpy.resize_image as ri
+import renderpy.image
 import renderpy.reflection_to_diffuse as r2d
 
 parser = argparse.ArgumentParser(description = 
@@ -50,8 +48,10 @@ for i, house in enumerate(house_hashes):
         index_mapping = {0:'py', 1:'pz', 2:'px', 3:'nz', 4:'nx', 5:'ny'}
         reflection_images = {}
         for index in range(6):
-            image = numpy.array(imageio.imread(os.path.join(
-                    house_path, house_position + '_skybox%i_sami.jpg'%index)))
+            image = renderpy.image.load_image(os.path.join(
+                    house_path, house_position + '_skybox%i_sami.jpg'%index))
+            #image = numpy.array(imageio.imread(os.path.join(
+            #        house_path, house_position + '_skybox%i_sami.jpg'%index)))
             if args.reflection_resolution != -1:
                 image = ri.resize_image(
                         image,
@@ -66,14 +66,17 @@ for i, house in enumerate(house_hashes):
             os.makedirs(output_path)
         for cube_face in diffuse_images:
             diffuse_path = os.path.join(output_path, cube_face + '_dif.jpg')
-            imageio.imsave(
-                    diffuse_path,
-                    diffuse_images[cube_face],
-                    quality=100)
+            renderpy.image.save_image(diffuse_images[cube_face], diffuse_path)
+            #imageio.imsave(
+            #        diffuse_path,
+            #        diffuse_images[cube_face],
+            #        quality=100)
             reflection_path = os.path.join(output_path, cube_face + '_ref.jpg')
-            imageio.imsave(
-                    reflection_path,
-                    reflection_images[cube_face],
-                    quality=100)
+            #imageio.imsave(
+            #        reflection_path,
+            #        reflection_images[cube_face],
+            #        quality=100)
+            renderpy.image.save_image(
+                    reflection_images[cube_face], reflection_path)
 
 print('='*80)
