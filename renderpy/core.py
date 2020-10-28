@@ -954,6 +954,12 @@ class Renderpy:
         self.scene_description['instances'][instance_name]['material_name'] = (
                 material_name)
     
+    def hide_instance(self, instance_name):
+        self.scene_description['instances'][instance_name]['hidden'] = True
+    
+    def show_instance(self, instance_name):
+        self.scene_description['instances'][instance_name]['hidden'] = False
+    
     def get_instance_transform(self, instance_name):
         return self.scene_description['instances'][instance_name]['transform']
     
@@ -1329,6 +1335,8 @@ class Renderpy:
                 for instance_name in shader_instances:
                     instance_data = (
                             self.scene_description['instances'][instance_name])
+                    if instance_data['hidden']:
+                        continue
                     mesh_name = instance_data['mesh_name']
                     try:
                         mesh_instances[mesh_name].append(instance_name)
