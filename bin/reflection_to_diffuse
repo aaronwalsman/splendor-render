@@ -15,10 +15,10 @@ from OpenGL.arrays import vbo
 import numpy
 
 # local
-from . import shader_definitions
-from . import buffer_manager_egl as buffer_manager
-from . import camera
-from .image import load_image, save_image
+from renderpy import shader_definitions
+from renderpy import buffer_manager_egl as buffer_manager
+from renderpy import camera
+from renderpy.image import load_image, save_image
 
 NUM_SAMPLES = 512
 
@@ -36,8 +36,8 @@ def reflection_to_diffuse(
         contrast = 1,
         importance_threshold = 0.95,
         num_importance_samples = 64,
-        importance_sample_gain = 0.3,
-        random_sample_gain = 0.7):
+        importance_sample_gain = 0.7,
+        random_sample_gain = 0.5):
     
     num_random_samples = NUM_SAMPLES - num_importance_samples
     

@@ -3,9 +3,9 @@ import time
 import sys
 import os
 import numpy
-import buffer_manager_glut as buffer_manager
-import core
-import camera
+import renderpy.buffer_manager_glut as buffer_manager
+import renderpy.core as core
+import renderpy.camera as camera
 
 def start_viewer(
         file_path,
@@ -38,7 +38,9 @@ def start_viewer(
                     state['recent_file_change_time'] = change_time
                     print('Loaded: %s'%file_path)
             except:
-                print('Unable to load file: %s'%scene_file)
+                print('Unable to load file: %s'%file_path)
+                print('========================')
+                raise
                 time.sleep(1)
                 print('Retrying...')
             else:
@@ -50,8 +52,8 @@ def start_viewer(
                 depth = manager.read_pixels(
                         None,
                         read_depth = True,
-                        near = 50,
-                        far = 5000)
+                        near = 1,#.05,
+                        far = 500)#50)
                 state['mouse_button'] = button
                 state['mouse_click_position'] = (x,y)
                 state['mouse_click_depth'] = depth[height-y,x]

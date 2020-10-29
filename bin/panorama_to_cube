@@ -14,7 +14,7 @@ parser.add_argument('--filter', type=str, default='linear')
 args = parser.parse_args()
 
 if not os.path.isdir(args.output):
-    os.path.makedirs(args.output)
+    os.makedirs(args.output)
 
 panorama_image = image.load_image(args.panorama)
 out_images = panorama.panorama_to_cube(panorama_image, args.size, args.filter)
