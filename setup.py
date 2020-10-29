@@ -8,6 +8,7 @@ setup(  name = 'renderpy',
         author_email = 'awalsman@cs.washington.edu',
         packages = ['renderpy'],
         scripts = [
-                'bin/panorama_to_cube'
+                'bin/panorama_to_cube',
+                'bin/reflection_to_diffuse'
         ],
         zip_safe = False)

@@ -494,14 +494,13 @@ void main(){
 '''
 
 background_vertex_shader = '''#version 460 core
+#define FAR 1-(1e-4)
 
 uniform mat4 projection_matrix;
 uniform mat4 camera_pose;
 
 out vec3 fragment_direction;
 out vec2 fragment_uv;
-
-#define FAR 1-(1e-4)
 
 void main(){
     mat4 inv_vp = inverse(projection_matrix * camera_pose);
@@ -559,10 +558,10 @@ void main(){
 panorama_to_cube_fragment_shader = '''#version 460 core
 #define M_PI 3.1415926535897932384626433832795
 
-in vec4 fragment_direction;
+in vec3 fragment_direction;
 out vec3 color;
 
-uniform sampler2D texture_sampler;
+layout(binding=0) uniform sampler2D texture_sampler;
 
 void main(){
     vec3 target_direction = vec3(0,0,1);
