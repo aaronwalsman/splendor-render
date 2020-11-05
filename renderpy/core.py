@@ -27,6 +27,7 @@ import renderpy.masks as masks
 import renderpy.shader_definitions as shader_definitions
 import renderpy.obj_mesh as obj_mesh
 from renderpy.image import load_image, load_depth
+import renderpy.json_numpy as json_numpy
 #import renderpy.primitives as primitives
 
 max_num_lights = 8
@@ -37,12 +38,6 @@ default_camera_projection = camera.projection_matrix(math.radians(60.), 1.0)
 default_shadow_light_pose = numpy.eye(4)
 default_shadow_light_projection = camera.projection_matrix(
         math.radians(60.), 1.0)
-
-class NumpyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, numpy.ndarray):
-            return obj.tolist()
-        return json.JSONEncoder.default(self.obj)
 
 class Renderpy:
     
@@ -96,7 +91,8 @@ class Renderpy:
         self.compile_shaders()
     
     def get_json_description(self, **kwargs):
-        return json.dumps(self.scene_description, cls=NumpyEncoder, **kwargs)
+        return json.dumps(
+                self.scene_description, cls=json_numpy.NumpyEncoder, **kwargs)
     
     def opengl_init(self):
         renderer = glGetString(GL_RENDERER).decode('utf-8')
