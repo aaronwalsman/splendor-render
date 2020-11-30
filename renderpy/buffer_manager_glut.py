@@ -234,7 +234,6 @@ class BufferManager:
                     self.framebuffer_data[frame]['framebuffermulti'])
             glEnable(GL_MULTISAMPLE)
         glViewport(0, 0, width, height)
-        
         return image
     
     def start_main_loop(self, **callbacks):

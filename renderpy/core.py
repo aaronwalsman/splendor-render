@@ -959,6 +959,9 @@ class Renderpy:
     def get_instance_transform(self, instance_name):
         return self.scene_description['instances'][instance_name]['transform']
     
+    def get_instance_mesh_name(self, instance_name):
+        return self.scene_description['instances'][instance_name]['mesh_name']
+    
     def get_instance_center_bbox(self, instances=None):
         if instances is None:
             instances = self.scene_description['instances'].keys()

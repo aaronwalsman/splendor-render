@@ -3,7 +3,7 @@ import time
 import sys
 import argparse
 import numpy
-from renderpy import buffer_manager
+import renderpy.buffer_manager_egl as buffer_manager
 from renderpy import core
 from renderpy.image import save_image, save_depth
 
@@ -16,7 +16,7 @@ def render_scene(
         anti_alias=True,
         render_mode='color'):
     
-    manager = buffer_manager.initialize_shared_buffer_manager(width, height)
+    manager = buffer_manager.initialize_shared_buffer_manager()
     try:
         manager.add_frame(
                 frame_name, width, height, anti_aliasing=anti_alias)

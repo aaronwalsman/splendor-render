@@ -40,22 +40,13 @@ def color_index_to_float(index):
     byte_color = color_index_to_byte(index)
     return color_byte_to_float(byte_color)
 
-'''
-def test_a_thing():
-    #a = numpy.random.randint(0, NUM_MASKS, size=(256,256))
-    a = 12
-    import time
-    t0 = time.time()
-    b = color_index_to_byte(a)
-    #noise = numpy.random.randint(-1,2, size=(512,512,3))
-    #b = b + noise
-    t1 = time.time()
-    i = color_byte_to_index(b)
-    t2 = time.time()
+def color_index_bbox(index_map, index):
+    y, x = numpy.where(index_map == index)
+    if not y.shape[0]:
+        return None
     
-    print(t1 - t0)
-    print(t2 - t1)
-    
-    print(b.shape)
-    print(numpy.all(i == a))
-'''
+    min_x = numpy.min(x)
+    min_y = numpy.min(y)
+    max_x = numpy.max(x)
+    max_y = numpy.max(y)
+    return min_x, min_y, max_x, max_y

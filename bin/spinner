@@ -54,10 +54,14 @@ def spin(
     steps = 0
     pose_delta = numpy.eye(4)
     integrated_pose_delta = numpy.eye(4)
+    recent_time = time.time()
     while True:
         if steps % poll_frequency == 0:
             # reload the scene if necessary
             reload_scene()
+            new_time = time.time()
+            print(poll_frequency/(new_time - recent_time))
+            recent_time = new_time
         steps += 1
         
         if render_state['camera_pose_delta'] is not None:
