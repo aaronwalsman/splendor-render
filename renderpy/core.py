@@ -97,10 +97,7 @@ class Renderpy:
     def opengl_init(self):
         renderer = glGetString(GL_RENDERER).decode('utf-8')
         version = glGetString(GL_VERSION).decode('utf-8')
-        #print('Renderer: %s'%renderer)
-        #print('OpenGL Version: %s'%version)
         
-        #glEnable(GL_MULTISAMPLE)
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS)
         glDepthMask(GL_TRUE)
@@ -202,12 +199,7 @@ class Renderpy:
         
         mask_shader_data['locations']['vertex_position'] = (
                 glGetAttribLocation(mask_program, 'vertex_position'))
-        '''
-        mask_shader_data['locations']['vertex_normal'] = (
-                glGetAttribLocation(mask_program, 'vertex_normal'))
-        mask_shader_data['locations']['vertex_uv'] = (
-                glGetAttribLocation(mask_program, 'vertex_uv'))
-        '''
+        
         coord_shader_data['locations']['vertex_position'] = (
                 glGetAttribLocation(coord_program, 'vertex_position'))
         
@@ -319,8 +311,8 @@ class Renderpy:
         self.gl_data['background_shader'] = background_shader_data
         self.gl_data['textured_depthmap_shader'] = textured_depthmap_shader_data
     
-    def load_scene(self, scene, clear_existing=False):
-        if clear_existing:
+    def load_scene(self, scene, clear_scene=False, reload_assets=False):
+        if clear_scene:
             self.clear_scene()
         
         if isinstance(scene, str):
@@ -328,15 +320,18 @@ class Renderpy:
         
         if 'meshes' in scene:
             for mesh in scene['meshes']:
-                self.load_mesh(mesh, **scene['meshes'][mesh])
+                if reload_assets or not self.mesh_exists(mesh):
+                    self.load_mesh(mesh, **scene['meshes'][mesh])
         
         if 'depthmaps' in scene:
             for depthmap in scene['depthmaps']:
-                self.load_depthmap(depthmap, **scene['depthmaps'][depthmap])
+                if reload_assets or not self.depthmap_exists(depthmap):
+                    self.load_depthmap(depthmap, **scene['depthmaps'][depthmap])
         
         if 'materials' in scene:
             for material in scene['materials']:
-                self.load_material(material, **scene['materials'][material])
+                if reload_assets or not self.material_exists(material):
+                    self.load_material(material, **scene['materials'][material])
         
         if 'active_image_light' in scene:
             self.scene_description['active_image_light'] = (
@@ -344,9 +339,10 @@ class Renderpy:
         
         if 'image_lights' in scene:
             for image_light in scene['image_lights']:
-                image_light_arguments = scene['image_lights'][image_light]
-                image_light_arguments.setdefault('set_active', False)
-                self.load_image_light(image_light, **image_light_arguments)
+                if reload_assets or not self.image_light_exists(image_light):
+                    image_light_arguments = scene['image_lights'][image_light]
+                    image_light_arguments.setdefault('set_active', False)
+                    self.load_image_light(image_light, **image_light_arguments)
         
         if 'instances' in scene:
             for instance in scene['instances']:
@@ -406,7 +402,6 @@ class Renderpy:
     def load_mesh(self,
             name,
             mesh_path = None,
-            #primitive = None,
             mesh_data = None,
             scale = 1.0,
             create_uvs = False):
@@ -416,20 +411,12 @@ class Renderpy:
             mesh = obj_mesh.load_mesh(mesh_path, scale=scale)
             self.scene_description['meshes'][name] = {'mesh_path':mesh_path}
         
-        ## if a primitive was specified, load that
-        #elif primitive is not None:
-        #    mesh_path = primitives.primitive_paths[primitive]
-        #    mesh = obj_mesh.load_mesh(mesh_path)
-        #    self.scene_description['meshes'][name] = {'primitive':primitive}
-        
         # if mesh data was provided, load that
         elif mesh_data is not None:
             self.scene_description['meshes'][name] = {'mesh_data':mesh_data}
             mesh = mesh_data
         
         else:
-            #raise Exception('Must supply a "mesh_path", "primitive" or '
-            #        '"mesh_data" when loading a mesh')
             raise Exception('Must supply a "mesh_path" or a "mesh_data" '
                     'argument when loading a mesh')
         
@@ -705,7 +692,6 @@ class Renderpy:
         
         if isinstance(diffuse_textures[0], str):
             light_description['diffuse_textures'] = diffuse_textures
-            #diffuse_images = [scipy.misc.imread(diffuse_texture)[:,:,:3]
             diffuse_images = [load_image(diffuse_texture)
                     for diffuse_texture in diffuse_textures]
         else:
@@ -714,7 +700,6 @@ class Renderpy:
         
         if isinstance(reflection_textures[0], str):
             light_description['reflection_textures'] = reflection_textures
-            #reflection_images = [scipy.misc.imread(reflection_texture)[:,:,:3]
             reflection_images = [load_image(reflection_texture)
                     for reflection_texture in reflection_textures]
         else:
@@ -1909,6 +1894,9 @@ class Renderpy:
     
     def instance_exists(self, instance):
         return instance in self.scene_description['instances']
+    
+    def depthmap_exists(self, depthmap):
+        return depthmap in self.scene_description['depthmaps']
     
     def depthmap_instance_exists(self, depthmap_instance):
         return depthmap_instance in self.scene_description['depthmap_instances']
