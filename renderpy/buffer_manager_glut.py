@@ -3,9 +3,6 @@ import os
 
 # opengl
 from OpenGL.GL import *
-#from OpenGL.GLX import *
-#from OpenGL.GLU import *
-#from OpenGL.GLUT import *
 import OpenGL.GLUT as GLUT
 
 # numpy
@@ -19,7 +16,7 @@ os.environ['XAUTHORITY'] = "/home/awalsman/.Xauthority"
 os.environ['DISPLAY'] = ':0'
 
 def initialize_shared_buffer_manager(*args, **kwargs):
-    if len(shared_buffer_manager):
+    if False: #len(shared_buffer_manager):
         return shared_buffer_manager[0]
     else:
         shared_buffer_manager.append(BufferManager(*args, **kwargs))
