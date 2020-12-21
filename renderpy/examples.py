@@ -20,8 +20,6 @@ def get_example_files(path, extensions):
             in [(fp, os.path.splitext(fp)) for fp in os.listdir(path)]
             if extension.lower() in extensions}
 
-print(os.listdir(resolve_path(parser['paths']['scenes'])))
-
 image_lights = get_example_files(
         resolve_path(parser['paths']['image_lights']), ('',))
 
