@@ -69,6 +69,13 @@ def projection_matrix_from_intrinsics(
     
     return P
 
+def clip_from_projection(projection):
+    near =-((-projection[3,3] - projection[2,3]) /
+            ( projection[2,2] + projection[3,2]))
+    far = -(( projection[3,3] - projection[2,3]) /
+            ( projection[2,2] - projection[3,2]))
+    return near, far
+
 def change_projection_aspect_ratio(
         projection_matrix,
         old_resolution,
@@ -80,6 +87,61 @@ def change_projection_aspect_ratio(
     scaled_projection_matrix[1] *= y_scale
     
     return scaled_projection_matrix
+
+def crop_projection_matrix(box, resolution, projection):
+    box_width = box[3] - box[1]
+    box_height = box[2] - box[0]
+    cropped_projection = projection.copy()
+    
+    x_scale = resolution[1] / box_width
+    y_scale = resolution[0] / box_height
+    cropped_projection[0,0] *= x_scale
+    cropped_projection[1,1] *= y_scale
+    
+    box_center_x = box_width * 0.5 + box[1]
+    box_center_y = box_height * 0.5 + box[0]
+    x_offset = (box_center_x - resolution[1]/2.) * 2 / box_width
+    # this -1 scale is due to the inverse relationship between pixels
+    # and normalized device coordinates
+    y_offset = -(box_center_y - resolution[0]/2.) * 2 / box_height
+    
+    cropped_projection[0,2] = (
+            cropped_projection[0,2] * x_scale + x_offset)
+    cropped_projection[1,2] = (
+            cropped_projection[1,2] * y_scale + y_offset)
+    
+    return cropped_projection
+
+def project(
+        position,
+        projection_matrix,
+        camera_matrix,
+        screen_resolution,
+        flip_y = True,
+        round_to_pixel=True):
+    
+    if len(position) == 3:
+        position = numpy.append(position, [1])
+    
+    rx = screen_resolution[1] - 1
+    ry = screen_resolution[0] - 1
+    
+    projected = numpy.dot(numpy.dot(projection_matrix, camera_matrix), position)
+    projected_x = projected[0] / projected[3]
+    projected_y = projected[1] / projected[3]
+    
+    if flip_y:
+        projected_y *= -1
+    
+    x = rx * (projected_x + 1.) * 0.5
+    y = ry * (projected_y + 1.) * 0.5
+    
+    if round_to_pixel:
+        x = round(x)
+        y = round(y)
+    
+    return x, y
+
 
 #===============================================================================
 # camera pose
@@ -280,76 +342,3 @@ def sample_turntable(
     
     return poses
 '''
-
-def crop_projection_matrix(box, resolution, projection, batch=False):
-    box_width = box[3] - box[1]
-    box_height = box[2] - box[0]
-    try:
-        cropped_projection = projection.clone()
-    except:
-        cropped_projection = projection.copy()
-    x_scale = resolution[1] / box_width
-    y_scale = resolution[0] / box_height
-    if batch:
-        cropped_projection[:,0,0] *= x_scale
-        cropped_projection[:,1,1] *= y_scale
-    else:
-        cropped_projection[0,0] *= x_scale
-        cropped_projection[1,1] *= y_scale
-    
-    box_center_x = box_width * 0.5 + box[1]
-    box_center_y = box_height * 0.5 + box[0]
-    x_offset = (box_center_x - resolution[1]/2.) * 2 / box_width
-    # this -1 scale is due to the inverse relationship between pixels
-    # and normalized device coordinates
-    y_offset = -(box_center_y - resolution[0]/2.) * 2 / box_height
-    
-    if batch:
-        cropped_projection[:,0,2] = (
-                cropped_projection[:,0,2] * x_scale + x_offset)
-        cropped_projection[:,1,2] = (
-                cropped_projection[:,1,2] * y_scale + y_offset)
-    else:
-        cropped_projection[0,2] = (
-                cropped_projection[0,2] * x_scale + x_offset)
-        cropped_projection[1,2] = (
-                cropped_projection[1,2] * y_scale + y_offset)
-    
-    return cropped_projection
-
-
-def position_to_pixels(
-        position,
-        projection_matrix,
-        camera_matrix,
-        screen_resolution,
-        flip_y = True,
-        round_output=True):
-    
-    if len(position) == 3:
-        position = numpy.append(position, [1])
-    
-    projected = numpy.dot(numpy.dot(projection_matrix, camera_matrix), position)
-    projected_x = projected[0] / projected[3]
-    projected_y = projected[1] / projected[3]
-    
-    if flip_y:
-        projected_y *= -1
-    
-    if round_output:
-        if isinstance(projected_x, numpy.ndarray):
-            x = numpy.round((projected_x + 1.) * 0.5 * screen_resolution[1])
-        else:
-            x = int(round((projected_x + 1.) * 0.5 * screen_resolution[1]))
-        
-        if isinstance(projected_y, numpy.ndarray):
-            y = numpy.round((projected_y + 1.) * 0.5 * screen_resolution[0])
-        else:
-            y = int(round((projected_y + 1.) * 0.5 * screen_resolution[0]))
-    
-    else:
-        x = projected_x * screen_resolution[1]
-        y = projected_y * screen_resolution[0]
-    
-    return x, y
-

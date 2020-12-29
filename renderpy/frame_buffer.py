@@ -73,8 +73,7 @@ class FrameBufferWrapper:
     
     def read_pixels(self,
             read_depth = False,
-            near = 0.05,
-            far = 50.0):
+            projection = None):
         
         if self.anti_alias:
             glBindFramebuffer(GL_READ_FRAMEBUFFER, self.frame_buffer_multi)
@@ -88,6 +87,7 @@ class FrameBufferWrapper:
             self.enable()
         
         if read_depth:
+            near, far = camera.clip_from_projection(projection)
             pixels = glReadPixels(
                     0, 0, self.width, self.height,
                     GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT)
