@@ -21,7 +21,8 @@ from OpenGL.arrays import vbo
 # numpy
 import numpy
 
-# local
+# renderpy
+from renderpy.assets import AssetLibrary
 import renderpy.camera as camera
 import renderpy.masks as masks
 import renderpy.shader_definitions as shader_definitions
@@ -32,17 +33,16 @@ import renderpy.json_numpy as json_numpy
 
 max_num_lights = 8
 default_camera_pose = numpy.eye(4)
-default_camera_projection = camera.projection_matrix(math.radians(60.), 1.0)
-#default_shadow_light_pose = camera.turntable_pose(
-#        .5, 1.0, math.radians(-20.), 0, .25)
-default_shadow_light_pose = numpy.eye(4)
-default_shadow_light_projection = camera.projection_matrix(
-        math.radians(60.), 1.0)
+default_camera_projection = camera.projection_matrix(math.radians(90.), 1.0)
 
 class Renderpy:
-    
-    def __init__(self):
-            
+    def __init__(self, assets=None):
+        # asset library
+        if isinstance(assets, AssetLibrary):
+            self.asset_library = assets
+        else:
+            self.asset_library = AssetLibrary(assets)
+        
         # scene data
         self.scene_description = {
                 'meshes':{},
@@ -52,18 +52,11 @@ class Renderpy:
                 'depthmap_instances':{},
                 'background_color':numpy.array([0,0,0,0]),
                 'ambient_color':numpy.array([0,0,0]),
-                'shadow_light':{
-                    'enabled':True,
-                    'color':[1,1,1],
-                    'pose':default_shadow_light_pose,
-                    'projection':default_shadow_light_projection
-                },
                 'point_lights':{},
                 'direction_lights':{},
                 'camera':{
                     'pose':default_camera_pose,
                     'projection':default_camera_projection,
-                    'pose_delta':None
                 },
                 'image_lights':{},
                 'active_image_light':None
@@ -316,6 +309,7 @@ class Renderpy:
             self.clear_scene()
         
         if isinstance(scene, str):
+            scene = self.assets['scenes'][scene]
             scene = json.load(open(scene))
         
         if 'meshes' in scene:
@@ -377,8 +371,6 @@ class Renderpy:
                 self.set_camera_pose(scene['camera']['pose'])
             if 'projection' in scene['camera']:
                 self.set_projection(scene['camera']['projection'])
-            if 'pose_delta' in scene['camera']:
-                self.set_camera_pose_delta(scene['camera']['pose_delta'])
     
     def clear_scene(self):
         self.clear_meshes()
@@ -396,8 +388,13 @@ class Renderpy:
     def reset_camera(self):
         self.scene_description['camera'] = {
                 'pose':default_camera_pose,
-                'projection':default_camera_projection,
-                'pose_delta':None}
+                'projection':default_camera_projection}
+    
+    def load_mesh_asset(self, mesh, scale = 1.0):
+        mesh = self.asset_library['meshes'][mesh]
+        mesh_name = os.path.splitext(os.path.basename(mesh))[0]
+        
+        self.load_mesh_file(
     
     def load_mesh(self,
             name,
@@ -408,6 +405,7 @@ class Renderpy:
         
         # if a mesh path was provided, load that
         if mesh_path is not None:
+            mesh_path = self.asset_library['meshes'][mesh_path]
             mesh = obj_mesh.load_mesh(mesh_path, scale=scale)
             self.scene_description['meshes'][name] = {'mesh_path':mesh_path}
         
@@ -462,6 +460,7 @@ class Renderpy:
         
         # if a path was provided, load that
         if depthmap_path is not None:
+            depthmap_path = self.asset_library['depthmaps'][depthmap_path]
             depthmap = load_depth(depthmap_path)
             self.scene_description['depthmaps'][name] = {
                     'depthmap_path':depthmap_path}
@@ -1090,19 +1089,12 @@ class Renderpy:
     def get_camera_pose(self):
         return self.scene_description['camera']['pose']
     
-    def set_camera_pose_delta(self, camera_pose_delta):
-        if camera_pose_delta is None:
-            self.scene_description['camera']['pose_delta'] = camera_pose_delta
-        else:
-            camera_pose_delta = camera.camera_pose_to_matrix(camera_pose_delta)
-            self.scene_description['camera']['pose_delta'] = camera_pose_delta
-    
-    def get_camera_pose_delta(self):
-        return self.scene_description['camera']['pose_delta']
-    
     def clear_frame(self):
         glClearColor(*self.scene_description['background_color'])
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        try:
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        except:
+            raise Exception('A bad thing happened')
     
     def color_render(self,
             instances = None,
@@ -1894,6 +1886,9 @@ class Renderpy:
     
     def instance_exists(self, instance):
         return instance in self.scene_description['instances']
+    
+    def instance_hidden(self, instance):
+        return self.scene_description['instances'][instance]['hidden']
     
     def depthmap_exists(self, depthmap):
         return depthmap in self.scene_description['depthmaps']
