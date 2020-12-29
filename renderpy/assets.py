@@ -13,23 +13,23 @@ def resolve_path(path):
     else:
         return os.path.abspath(os.path.join(root_path, path))
 
-def get_example_files(path, extensions):
+def get_asset_files(path, extensions):
     return {
             name : os.path.join(path, file_name)
             for file_name, (name, extension)
             in [(fp, os.path.splitext(fp)) for fp in os.listdir(path)]
             if extension.lower() in extensions}
 
-image_lights = get_example_files(
+image_lights = get_asset_files(
         resolve_path(parser['paths']['image_lights']), ('',))
 
-meshes = get_example_files(
+meshes = get_asset_files(
         resolve_path(parser['paths']['meshes']), ('.obj',))
 
-panoramas = get_example_files(
+panoramas = get_asset_files(
         resolve_path(parser['paths']['panoramas']), ('.png', '.jpg'))
 
-scenes = get_example_files(
+scenes = get_asset_files(
         resolve_path(parser['paths']['scenes']), ('.json',))
 
 '''
