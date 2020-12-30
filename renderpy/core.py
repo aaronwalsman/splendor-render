@@ -29,13 +29,26 @@ import renderpy.shader_definitions as shader_definitions
 import renderpy.obj_mesh as obj_mesh
 from renderpy.image import load_image, load_depth
 import renderpy.json_numpy as json_numpy
-#import renderpy.primitives as primitives
+
 
 max_num_lights = 8
 default_camera_pose = numpy.eye(4)
 default_camera_projection = camera.projection_matrix(math.radians(90.), 1.0)
 
 class Renderpy:
+    
+    global_parameters = (
+            'ambient_color', 'background_color', 'active_image_light')
+    asset_types = (
+            ('mesh', 'meshes'),
+            ('material', 'materials'),
+            ('image_light', 'image_lights'),
+            ('depth_map', 'depth_maps'))
+    instance_types = (
+            ('instance', 'instances'),
+            ('depthmap_instance', 'depthmap_instances'),
+            ('point_light', 'point_lights'))
+    
     def __init__(self, assets=None):
         # asset library
         if isinstance(assets, AssetLibrary):
@@ -237,12 +250,6 @@ class Renderpy:
         # (sampler data)
         textured_shader_data['locations']['texture_sampler'] = (
                 glGetUniformLocation(textured_program, 'texture_sampler'))
-        #textured_shader_data['locations']['shadow_sampler'] = (
-        #        glGetUniformLocation(textured_program, 'shadow_sampler'))
-        #textured_shader_data['locations']['diffuse_sampler'] = (
-        #        glGetUniformLocation(textured_program, 'diffuse_sampler'))
-        #textured_shader_data['locations']['reflection_sampler'] = (
-        #        glGetUniformLocation(textured_program, 'reflection_sampler'))
         background_shader_data['locations']['cubemap_sampler'] = (
                 glGetUniformLocation(background_program, 'cubemap_sampler'))
         textured_depthmap_shader_data['locations']['texture_sampler'] = (
@@ -251,7 +258,6 @@ class Renderpy:
         
         glUseProgram(textured_program)
         glUniform1i(textured_shader_data['locations']['texture_sampler'], 0)
-        #glUniform1i(textured_shader_data['locations']['shadow_sampler'], 1)
         glUniform1i(textured_shader_data['locations']['diffuse_sampler'], 2)
         glUniform1i(textured_shader_data['locations']['reflect_sampler'], 3)
         
@@ -304,6 +310,9 @@ class Renderpy:
         self.gl_data['background_shader'] = background_shader_data
         self.gl_data['textured_depthmap_shader'] = textured_depthmap_shader_data
     
+    #===========================================================================
+    # scene methods
+    #===========================================================================
     def load_scene(self, scene, clear_scene=False, reload_assets=False):
         if clear_scene:
             self.clear_scene()
@@ -312,24 +321,30 @@ class Renderpy:
             scene = self.assets['scenes'][scene]
             scene = json.load(open(scene))
         
+        # meshes, depthmaps, materials, image_lights
+        for singular, plural in self.asset_types:
+            if plural in scene:
+                for asset_name, asset_args in scene[plural].items():
+                    exists_fn = getattr(self, singular + '_exists')
+                    if reload_asets or not exists_fn(asset_name):
+                        load_fn = getattr(self, 'load_' + singular)
+                        load_fn(asset_name, **asset_args)
+        
+        '''
         if 'meshes' in scene:
-            for mesh in scene['meshes']:
-                if reload_assets or not self.mesh_exists(mesh):
-                    self.load_mesh(mesh, **scene['meshes'][mesh])
+            for mesh_name, mesh_args in scene['meshes'].items():
+                if reload_assets or not self.mesh_exists(mesh_name):
+                    self.load_mesh(mesh_name, **mesh_args)
         
         if 'depthmaps' in scene:
-            for depthmap in scene['depthmaps']:
-                if reload_assets or not self.depthmap_exists(depthmap):
-                    self.load_depthmap(depthmap, **scene['depthmaps'][depthmap])
+            for depthmap_name, depthmap_args in scene['depthmaps'].items():
+                if reload_assets or not self.depthmap_exists(depthmap_name):
+                    self.load_depthmap(depthmap_name, **depthmap_args)
         
         if 'materials' in scene:
             for material in scene['materials']:
                 if reload_assets or not self.material_exists(material):
                     self.load_material(material, **scene['materials'][material])
-        
-        if 'active_image_light' in scene:
-            self.scene_description['active_image_light'] = (
-                    scene['active_image_light'])
         
         if 'image_lights' in scene:
             for image_light in scene['image_lights']:
@@ -337,7 +352,16 @@ class Renderpy:
                     image_light_arguments = scene['image_lights'][image_light]
                     image_light_arguments.setdefault('set_active', False)
                     self.load_image_light(image_light, **image_light_arguments)
+        '''
         
+        # instances, depthmap_instances, point_lights, direction_lights
+        for singular, plural in self.instance_types:
+            if plural in scene:
+                for instance_name, instance_args in scene[plural].items():
+                    add_fn = getattr(self, 'add_' + singular)
+                    add_fn(instance_name, **instance_args)
+        
+        '''
         if 'instances' in scene:
             for instance in scene['instances']:
                 self.add_instance(instance, **scene['instances'][instance])
@@ -347,12 +371,6 @@ class Renderpy:
                 self.add_depthmap_instance(
                         depthmap_instance,
                         **scene['depthmap_instances'][depthmap_instance])
-        
-        if 'ambient_color' in scene:
-            self.set_ambient_color(scene['ambient_color'])
-        
-        if 'background_color' in scene:
-            self.set_background_color(scene['background_color'])
         
         if 'point_lights' in scene:
             for point_light in scene['point_lights']:
@@ -365,6 +383,23 @@ class Renderpy:
                 self.add_direction_light(
                         direction_light,
                         **scene['direction_lights'][direction_light])
+        '''
+        
+        for global_parameter in self.global_parameters:
+            if global_parameter in scene:
+                set_fn = getattr(self, 'set_' + global_parameter)
+                set_fn(scene[global_parameter])
+        
+        '''
+        if 'active_image_light' in scene:
+            self.set_active_image_light(scene['active_image_light'])
+        
+        if 'ambient_color' in scene:
+            self.set_ambient_color(scene['ambient_color'])
+        
+        if 'background_color' in scene:
+            self.set_background_color(scene['background_color'])
+        '''
         
         if 'camera' in scene:
             if 'pose' in scene['camera']:
@@ -373,49 +408,94 @@ class Renderpy:
                 self.set_projection(scene['camera']['projection'])
     
     def clear_scene(self):
-        self.clear_meshes()
-        self.clear_depthmaps()
-        self.clear_materials()
-        self.scene_description['active_image_light'] = None
-        self.clear_image_lights()
-        self.clear_instances()
-        self.clear_depthmap_instances()
+        for singular, plural in self.asset_types:
+            getattr(self, 'clear_' + plural)()
+        #self.clear_meshes()
+        #self.clear_depthmaps()
+        #self.clear_materials()
+        #self.clear_image_lights()
+        for singular, plural in self.instance_types:
+            getattr(self, 'clear_' + plural)()
+        #self.clear_instances()
+        #self.clear_depthmap_instances()
+        #self.clear_point_lights()
+        #self.clear_direction_lights()
         self.set_ambient_color([0,0,0])
-        self.clear_point_lights()
-        self.clear_direction_lights()
+        self.set_background_color([0,0,0,0])
+        self.scene_description['active_image_light'] = None
         self.reset_camera()
     
+    #===========================================================================
+    # global settings
+    #===========================================================================
+    def set_ambient_color(self, color):
+        self.scene_description['ambient_color'] = numpy.array(color)
+    
+    def set_background_color(self, background_color):
+        if len(background_color) == 3:
+            background_color = tuple(background_color) + (1,)
+        self.scene_description['background_color'] = background_color
+    
+    def set_active_image_light(self, image_light):
+        self.scene_description['active_image_light'] = image_light
+    
+    #===========================================================================
+    # camera methods
+    #===========================================================================
     def reset_camera(self):
+        '''
         self.scene_description['camera'] = {
                 'pose':default_camera_pose,
                 'projection':default_camera_projection}
+        '''
+        self.set_camera_pose(default_camera_pose)
+        self.set_projection(default_camera_projection)
     
-    def load_mesh_asset(self, mesh, scale = 1.0):
-        mesh = self.asset_library['meshes'][mesh]
-        mesh_name = os.path.splitext(os.path.basename(mesh))[0]
-        
-        self.load_mesh_file(
+    def set_projection(self, projection_matrix):
+        self.scene_description['camera']['projection'] = numpy.array(
+                projection_matrix)
     
+    def get_projection(self):
+        return self.scene_description['camera']['projection']
+    
+    def set_camera_pose(self, camera_pose):
+        camera_pose = camera.camera_pose_to_matrix(camera_pose)
+        self.scene_description['camera']['pose'] = numpy.array(
+                camera_pose)
+    
+    def get_camera_pose(self):
+        return self.scene_description['camera']['pose']
+    
+    #===========================================================================
+    # mesh methods
+    #===========================================================================
     def load_mesh(self,
             name,
+            mesh_asset = None,
             mesh_path = None,
             mesh_data = None,
             scale = 1.0,
             create_uvs = False):
         
-        # if a mesh path was provided, load that
-        if mesh_path is not None:
-            mesh_path = self.asset_library['meshes'][mesh_path]
+        # if a mesh asset name was provided, load that
+        if mesh_asset is not None:
+            mesh_path = self.asset_library['meshes'][mesh_asset]
+            mesh = obj_mesh.load_mesh(mesh_path, scale=scale)
+            self.scene_description['meshes'][name] = {'mesh_asset':mesh_asset}
+        
+        # otherwise, load name as an asset path
+        elif mesh_path is not None:
             mesh = obj_mesh.load_mesh(mesh_path, scale=scale)
             self.scene_description['meshes'][name] = {'mesh_path':mesh_path}
         
-        # if mesh data was provided, load that
+        # otherwise if mesh data was provided, load that
         elif mesh_data is not None:
-            self.scene_description['meshes'][name] = {'mesh_data':mesh_data}
             mesh = mesh_data
+            self.scene_description['meshes'][name] = {'mesh_data':mesh_data}
         
         else:
-            raise Exception('Must supply a "mesh_path" or a "mesh_data" '
+            raise RenderpyException(
+                    'Must supply a "mesh_asset", "mesh_path" or "mesh_data" '
                     'argument when loading a mesh')
         
         # create mesh buffers and load the mesh data
@@ -448,60 +528,7 @@ class Renderpy:
         self.loaded_data['meshes'][name] = mesh
         self.gl_data['mesh_buffers'][name] = mesh_buffers
     
-    def load_depthmap(self,
-            name,
-            depthmap_path = None,
-            depthmap_data = None,
-            indices = None,
-            focal_length = (1,1)):
-        
-        if name in self.scene_description['depthmaps']:
-            self.remove_depthmap(name)
-        
-        # if a path was provided, load that
-        if depthmap_path is not None:
-            depthmap_path = self.asset_library['depthmaps'][depthmap_path]
-            depthmap = load_depth(depthmap_path)
-            self.scene_description['depthmaps'][name] = {
-                    'depthmap_path':depthmap_path}
-        
-        # if depthmap data was provided, load that
-        elif depthmap_data is not None:
-            self.scene_description['depthmaps'][name] = {
-                    'depthmap_data':depthmap_data}
-            depthmap = depthmap_data
-        
-        else:
-            raise Exception(
-                    'Must supply a "depthmap_path" or a "depthmap_data" '
-                    'argument when loading a depthmap')
-        
-        depthmap = numpy.array(depthmap, dtype=numpy.float32)
-        
-        self.scene_description['depthmaps'][name]['height'] = depthmap.shape[0]
-        self.scene_description['depthmaps'][name]['width'] = depthmap.shape[1]
-        self.scene_description['depthmaps'][name]['focal_length'] = focal_length
-        
-        # create depth VBO
-        depthmap_buffers = {}
-        depthmap_buffers['depth_buffer'] = vbo.VBO(depthmap)
-        
-        # create index VBO
-        if indices is None:
-            indices = numpy.arange(
-                    depthmap.shape[0] * depthmap.shape[1],
-                    dtype = numpy.int32)
-        depthmap_buffers['index_buffer'] = vbo.VBO(
-                indices,
-                target = GL_ELEMENT_ARRAY_BUFFER)
-        
-        # store the loaded and gl data
-        self.loaded_data['depthmaps'][name] = depthmap
-        self.gl_data['depthmap_buffers'][name] = depthmap_buffers
-        
-    
     def load_background_mesh(self):
-        # this doesn't use load_mesh above because it doesn't need/want uvs
         if 'BACKGROUND' not in self.gl_data['mesh_buffers']:
             mesh_buffers = {}
             vertex_floats = numpy.array([
@@ -530,6 +557,76 @@ class Renderpy:
         for name in list(self.scene_description['meshes'].keys()):
             self.remove_mesh(name)
     
+    def list_meshes(self):
+        return list(self.scene_description['meshes'].keys())
+    
+    def mesh_exists(self, mesh):
+        return mesh in self.scene_description['meshes']
+    
+    def get_mesh(self, mesh):
+        return self.scene_description['meshes'][mesh]
+    
+    #===========================================================================
+    # depthmap methods
+    #===========================================================================
+    def load_depthmap(self,
+            name,
+            depthmap_asset = None,
+            depthmap_path = None,
+            depthmap_data = None,
+            indices = None,
+            focal_length = (1,1)):
+        
+        if name in self.scene_description['depthmaps']:
+            self.remove_depthmap(name)
+        
+        # if an asset was provided, load that
+        if depthmap_asset is not None:
+            depthmap_path = self.asset_library['depthmaps'][depthmap_path]
+            depthmap = load_depth(depthmap_path)
+            self.scene_description['depthmaps'][name] = {
+                    'depthmap_asset':depthmap_asset}
+        
+        # if a path was provided, load that
+        elif depthmap_path is not None:
+            depthmap = load_depth(depthmap_path)
+            self.scene_description['depthmaps'][name] = {
+                    'depthmap_path':depthmap_path}
+        
+        # if depthmap data was provided, load that
+        elif depthmap_data is not None:
+            self.scene_description['depthmaps'][name] = {
+                    'depthmap_data':depthmap_data}
+            depthmap = depthmap_data
+        
+        else:
+            raise RenderpyException(
+                    'Must supply a "depthmap_asset", "depthmap_path" or a '
+                    '"depthmap_data" argument when loading a depthmap')
+        
+        depthmap = numpy.array(depthmap, dtype=numpy.float32)
+        
+        self.scene_description['depthmaps'][name]['height'] = depthmap.shape[0]
+        self.scene_description['depthmaps'][name]['width'] = depthmap.shape[1]
+        self.scene_description['depthmaps'][name]['focal_length'] = focal_length
+        
+        # create depth VBO
+        depthmap_buffers = {}
+        depthmap_buffers['depth_buffer'] = vbo.VBO(depthmap)
+        
+        # create index VBO
+        if indices is None:
+            indices = numpy.arange(
+                    depthmap.shape[0] * depthmap.shape[1],
+                    dtype = numpy.int32)
+        depthmap_buffers['index_buffer'] = vbo.VBO(
+                indices,
+                target = GL_ELEMENT_ARRAY_BUFFER)
+        
+        # store the loaded and gl data
+        self.loaded_data['depthmaps'][name] = depthmap
+        self.gl_data['depthmap_buffers'][name] = depthmap_buffers
+    
     def remove_depthmap(self, name):
         del(self.scene_description['depthmaps'][name])
         self.gl_data['depthmap_buffers'][name]['depth_buffer'].delete()
@@ -540,6 +637,18 @@ class Renderpy:
         for name in list(self.scene_description['depthmaps'].keys()):
             self.remove_depthmap(name)
     
+    def list_depthmaps(self):
+        return list(self.scene_description['depthmaps'].keys())
+    
+    def depthmap_exists(self, depthmap):
+        return depthmap in self.scene_description['depthmaps']
+    
+    def get_depthmap(self, depthmap):
+        return self.scene_description['depthmaps'][depthmap]
+    
+    #===========================================================================
+    # image_light methods
+    #===========================================================================
     def load_image_light(self,
             name,
             diffuse_textures = None,
@@ -559,7 +668,7 @@ class Renderpy:
             reflect_tint = (0,0,0),
             render_background = True,
             crop = None,
-            set_active = True):
+            set_active = False):
         
         if texture_directory is None:
             if diffuse_textures is not None:
@@ -623,9 +732,39 @@ class Renderpy:
         if set_active:
             self.set_active_image_light(name)
     
-    def set_active_image_light(self, name):
-        self.scene_description['active_image_light'] = name
+    def remove_image_light(self, name):
+        glDeleteTextures(
+                self.gl_data['light_buffers'][name]['diffuse_texture'])
+        glDeleteTextures(
+                self.gl_data['light_buffers'][name]['reflection_texture'])
+        del(self.gl_data['light_buffers'][name])
+        del(self.loaded_data['textures'][name + '_diffuse'])
+        del(self.loaded_data['textures'][name + '_reflect'])
+        del(self.scene_description['image_lights'][name])
+        
+        # delete the background mesh if there are no image lights left
+        if len(self.scene_description['image_lights']) == 0:
+            self.gl_data['mesh_buffers']['BACKGROUND']['vertex_buffer'].delete()
+            self.gl_data['mesh_buffers']['BACKGROUND']['face_buffer'].delete()
+            del(self.gl_data['mesh_buffers']['BACKGROUND'])
     
+    def clear_image_lights(self):
+        for image_light in list(self.scene_description['image_lights'].keys()):
+            self.remove_image_light(image_light)
+        self.set_active_image_light(None)
+    
+    def list_image_lights(self):
+        return list(self.scene_description['image_lights'].keys())
+    
+    def image_light_exists(self, image_light):
+        return image_light in self.scene_description['image_lights']
+    
+    def get_image_light(self, image_light):
+        return self.scene_description['image_lights'][image_light]
+    
+    #===========================================================================
+    # texture methods
+    #===========================================================================
     @staticmethod
     def validate_texture(image):
         if image.shape[0] not in [1,2,4,8,16,32,64,128,256,512,1024,2048,4096]:
@@ -634,6 +773,42 @@ class Renderpy:
         if image.shape[1] not in [1,2,4,8,16,32,64,128,256,512,1024,2048,4096]:
             raise Exception('Image width must be a power of 2 '
                     'less than or equal to 4096 (Got %i)'%(image.shape[1]))
+    
+    def replace_texture(self,
+            name,
+            texture,
+            crop = None):
+        
+        if isinstance(texture, str):
+            self.scene_description['materials'][name]['texture'] = texture
+            image = load_image(texture)
+        else:
+            self.scene_description['materials'][name]['texture'] = -1
+            image = numpy.array(texture)
+        
+        if crop is not None:
+            image = image[crop[0]:crop[2], crop[1]:crop[3]]
+        
+        image = numpy.array(image)
+        self.validate_texture(image)
+        self.loaded_data['textures'][name] = image
+        
+        material_buffers = self.gl_data['material_buffers'][name]
+        glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
+        try:
+            glTexImage2D(
+                    GL_TEXTURE_2D, 0, GL_RGB,
+                    image.shape[1], image.shape[0], 0,
+                    GL_RGB, GL_UNSIGNED_BYTE, image)
+            
+            # GL_NEAREST?
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                    GL_LINEAR_MIPMAP_LINEAR)
+            glGenerateMipmap(GL_TEXTURE_2D)
+            
+        finally:
+            glBindTexture(GL_TEXTURE_2D, 0)
     
     def replace_image_light_textures(self,
             name,
@@ -801,27 +976,12 @@ class Renderpy:
         self.loaded_data['textures'][name + '_diffuse'] = diffuse_images
         self.loaded_data['textures'][name + '_reflect'] = reflection_images
     
-    def remove_image_light(self, name):
-        glDeleteTextures(
-                self.gl_data['light_buffers'][name]['diffuse_texture'])
-        glDeleteTextures(
-                self.gl_data['light_buffers'][name]['reflection_texture'])
-        del(self.gl_data['light_buffers'][name])
-        del(self.loaded_data['textures'][name + '_diffuse'])
-        del(self.loaded_data['textures'][name + '_reflect'])
-        del(self.scene_description['image_lights'][name])
-        
-        # delete the background mesh if there are no image lights left
-        if len(self.scene_description['image_lights']) == 0:
-            self.gl_data['mesh_buffers']['BACKGROUND']['vertex_buffer'].delete()
-            self.gl_data['mesh_buffers']['BACKGROUND']['face_buffer'].delete()
-            del(self.gl_data['mesh_buffers']['BACKGROUND'])
+    def get_texture(self, texture_name):
+        return self.loaded_data['textures'][texture_name]
     
-    def clear_image_lights(self):
-        for image_light in list(self.scene_description['image_lights'].keys()):
-            self.remove_image_light(image_light)
-        self.set_active_image_light(None)
-    
+    #===========================================================================
+    # material methods
+    #===========================================================================
     def load_material(self,
             name,
             texture = None,
@@ -855,42 +1015,6 @@ class Renderpy:
         if texture is not None:
             self.replace_texture(name, texture, crop)
     
-    def replace_texture(self,
-            name,
-            texture,
-            crop = None):
-        
-        if isinstance(texture, str):
-            self.scene_description['materials'][name]['texture'] = texture
-            image = load_image(texture)
-        else:
-            self.scene_description['materials'][name]['texture'] = -1
-            image = numpy.array(texture)
-        
-        if crop is not None:
-            image = image[crop[0]:crop[2], crop[1]:crop[3]]
-        
-        image = numpy.array(image)
-        self.validate_texture(image)
-        self.loaded_data['textures'][name] = image
-        
-        material_buffers = self.gl_data['material_buffers'][name]
-        glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
-        try:
-            glTexImage2D(
-                    GL_TEXTURE_2D, 0, GL_RGB,
-                    image.shape[1], image.shape[0], 0,
-                    GL_RGB, GL_UNSIGNED_BYTE, image)
-            
-            # GL_NEAREST?
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                    GL_LINEAR_MIPMAP_LINEAR)
-            glGenerateMipmap(GL_TEXTURE_2D)
-            
-        finally:
-            glBindTexture(GL_TEXTURE_2D, 0)
-    
     def remove_material(self, name):
         glDeleteTextures(self.gl_data['material_buffers'][name]['texture'])
         if name in self.loaded_data['textures']:
@@ -902,6 +1026,18 @@ class Renderpy:
         for name in list(self.scene_description['materials'].keys()):
             self.remove_material(name)
     
+    def list_materials(self):
+        return list(self.scene_description['materials'].keys())
+    
+    def material_exists(self, material):
+        return material in self.scene_description['materials']
+    
+    def get_material(self, material_name):
+        return self.scene_description['materials'][material_name]
+    
+    #===========================================================================
+    # instance methods
+    #===========================================================================
     def add_instance(self,
             instance_name,
             mesh_name,
@@ -926,6 +1062,9 @@ class Renderpy:
     def clear_instances(self):
         self.scene_description['instances'] = {}
     
+    def get_instance_transform(self, instance_name):
+        return self.scene_description['instances'][instance_name]['transform']
+    
     def set_instance_transform(self, instance_name, transform):
         self.scene_description['instances'][instance_name]['transform'] = (
                 numpy.array(transform))
@@ -939,9 +1078,6 @@ class Renderpy:
     
     def show_instance(self, instance_name):
         self.scene_description['instances'][instance_name]['hidden'] = False
-    
-    def get_instance_transform(self, instance_name):
-        return self.scene_description['instances'][instance_name]['transform']
     
     def get_instance_mesh_name(self, instance_name):
         return self.scene_description['instances'][instance_name]['mesh_name']
@@ -974,6 +1110,18 @@ class Renderpy:
             instance_data['mask_color'] = (
                     masks.color_index_to_float(mesh_index))
     
+    def list_instances(self):
+        return list(self.scene_description['instances'].keys())
+    
+    def instance_exists(self, instance):
+        return instance in self.scene_description['instances']
+    
+    def instance_hidden(self, instance):
+        return self.scene_description['instances'][instance]['hidden']
+    
+    #===========================================================================
+    # depthmap_instance methods
+    #===========================================================================
     def add_depthmap_instance(self,
             depthmap_instance_name,
             depthmap_name,
@@ -1010,6 +1158,12 @@ class Renderpy:
         return self.scene_description['depthmap_instances'][
                 depthmap_instance_name]['transform']
     
+    def depthmap_instance_exists(self, depthmap_instance):
+        return depthmap_instance in self.scene_description['depthmap_instances']
+    
+    #===========================================================================
+    # point_light methods
+    #===========================================================================
     def add_point_light(self, name, position, color):
         self.scene_description['point_lights'][name] = {
                 'position' : numpy.array(position),
@@ -1021,6 +1175,9 @@ class Renderpy:
     def clear_point_lights(self):
         self.scene_description['point_lights'] = {}
     
+    #===========================================================================
+    # direction_light methods
+    #===========================================================================
     def add_direction_light(self,
             name,
             direction,
@@ -1032,33 +1189,6 @@ class Renderpy:
         self.scene_description['direction_lights'][name] = {
                 'direction' : numpy.array(direction),
                 'color' : numpy.array(color)}
-                #'shadow_matrix' : shadow_matrix}
-        
-        '''
-        if use_shadows:
-            buffers = {}
-            buffers['depth_framebuffer'] = glGenFramebuffers(1)
-            glBindFramebuffer(GL_FRAMEBUFFER, buffers['depth_framebuffer'])
-            
-            buffers['depth_texture'] = glGenTextures(1)
-            glBindTexture(GL_TEXTURE_2D, buffers['depth_texture'])
-            glTexImage2D(
-                    GL_TEXTURE_2D, 0, 0, GL_DEPTH_COMPONENT_16,
-                    shadow_resolution[0], shadow_resolution[1],
-                    0, GL_DEPTH_COMPONENT, GL_FLOAT, 0)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-            glFrameBufferTexture(
-                    GL_FRAME_BUFFER,
-                    GL_DEPTH_ATTACHMENT,
-                    buffers['depth_texture'],
-                    0)
-            glDrawBuffer(GL_NONE)
-            
-            self.gl_data['light_buffers'][name] = buffers
-        '''
     
     def remove_direction_light(self, name):
         del(self.scene_description['direction_lights'][name])
@@ -1066,36 +1196,19 @@ class Renderpy:
     def clear_direction_lights(self):
         self.scene_description['direction_lights'] = {}
     
-    def set_ambient_color(self, color):
-        self.scene_description['ambient_color'] = numpy.array(color)
-    
-    def set_background_color(self, background_color):
-        if len(background_color) == 3:
-            background_color = tuple(background_color) + (1,)
-        self.scene_description['background_color'] = background_color
-    
-    def set_projection(self, projection_matrix):
-        self.scene_description['camera']['projection'] = numpy.array(
-                projection_matrix)
-    
-    def get_projection(self):
-        return self.scene_description['camera']['projection']
-    
-    def set_camera_pose(self, camera_pose):
-        camera_pose = camera.camera_pose_to_matrix(camera_pose)
-        self.scene_description['camera']['pose'] = numpy.array(
-                camera_pose)
-    
-    def get_camera_pose(self):
-        return self.scene_description['camera']['pose']
-    
+    #===========================================================================
+    # render methods
+    #===========================================================================
     def clear_frame(self):
         glClearColor(*self.scene_description['background_color'])
-        try:
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        except:
-            raise Exception('A bad thing happened')
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     
+    def finish_frame(self):
+        glFinish()
+    
+    #---------------------------------------------------------------------------
+    # color_render methods
+    #---------------------------------------------------------------------------
     def color_render(self,
             instances = None,
             depthmap_instances = None,
@@ -1325,79 +1438,11 @@ class Renderpy:
                         self.color_render_instance(
                                 instance_name, set_mesh_attrib_pointers=False)
                 
-                '''
-                # render the instances
-                for instance_name in shader_instances:
-                    self.color_render_instance(instance_name)
-                '''
-                
             finally:
                 glUseProgram(0)
         
         if finish:
             self.finish_frame()
-    
-    def finish_frame(self):
-        glFinish()
-    
-    def color_render_depthmap_instance(self, depthmap_instance_name):
-        depthmap_instance_data = self.scene_description['depthmap_instances'][
-                depthmap_instance_name]
-        instance_depthmap = depthmap_instance_data['depthmap_name']
-        instance_material = depthmap_instance_data['material_name']
-        material_data = (
-                self.scene_description['materials'][instance_material])
-        depthmap_buffers = self.gl_data['depthmap_buffers'][instance_depthmap]
-        material_buffers = self.gl_data['material_buffers'][instance_material]
-        depth_data = self.loaded_data['depthmaps'][instance_depthmap]
-        location_data = self.gl_data['textured_depthmap_shader']['locations']
-        
-        glUniformMatrix4fv(
-                location_data['model_pose'],
-                1, GL_TRUE,
-                depthmap_instance_data['transform'].astype(numpy.float32))
-        
-        depthmap_data = self.scene_description['depthmaps'][instance_depthmap]
-        focal_length = numpy.array(
-                depthmap_data['focal_length'],
-                dtype = numpy.float32)
-        width = depthmap_data['width']
-        height = depthmap_data['height']
-        glUniform2fv(
-                location_data['focal_length'],
-                1, focal_length)
-        #print(width)
-        #print(height)
-        #print(focal_length)
-        glUniform1i(location_data['width'], width)
-        glUniform1i(location_data['height'], height)
-        
-        glPointSize(depthmap_instance_data['point_size'])
-        
-        depthmap_buffers['depth_buffer'].bind()
-        depthmap_buffers['index_buffer'].bind()
-        glActiveTexture(GL_TEXTURE0)
-        glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
-        try:
-            glEnableVertexAttribArray(location_data['vertex_depth'])
-            
-            stride = 4
-            glVertexAttribPointer(
-                    location_data['vertex_depth'],
-                    1, GL_FLOAT, False, stride,
-                    depthmap_buffers['depth_buffer'])
-            depth_data = self.loaded_data['depthmaps'][depthmap_instance_name]
-            num_points = depth_data.shape[0] * depth_data.shape[1]
-            glDrawElements(
-                    GL_POINTS,
-                    num_points,
-                    GL_UNSIGNED_INT,
-                    None)
-        
-        finally:
-            depthmap_buffers['depth_buffer'].unbind()
-            depthmap_buffers['index_buffer'].unbind()
-            glBindTexture(GL_TEXTURE_2D, 0)
     
     def color_render_instance(self,
             instance_name,
@@ -1503,6 +1548,62 @@ class Renderpy:
             mesh_buffers['vertex_buffer'].unbind()
             glBindTexture(GL_TEXTURE_2D, 0)
     
+    def color_render_depthmap_instance(self, depthmap_instance_name):
+        depthmap_instance_data = self.scene_description['depthmap_instances'][
+                depthmap_instance_name]
+        instance_depthmap = depthmap_instance_data['depthmap_name']
+        instance_material = depthmap_instance_data['material_name']
+        material_data = (
+                self.scene_description['materials'][instance_material])
+        depthmap_buffers = self.gl_data['depthmap_buffers'][instance_depthmap]
+        material_buffers = self.gl_data['material_buffers'][instance_material]
+        depth_data = self.loaded_data['depthmaps'][instance_depthmap]
+        location_data = self.gl_data['textured_depthmap_shader']['locations']
+        
+        glUniformMatrix4fv(
+                location_data['model_pose'],
+                1, GL_TRUE,
+                depthmap_instance_data['transform'].astype(numpy.float32))
+        
+        depthmap_data = self.scene_description['depthmaps'][instance_depthmap]
+        focal_length = numpy.array(
+                depthmap_data['focal_length'],
+                dtype = numpy.float32)
+        width = depthmap_data['width']
+        height = depthmap_data['height']
+        glUniform2fv(
+                location_data['focal_length'],
+                1, focal_length)
+        glUniform1i(location_data['width'], width)
+        glUniform1i(location_data['height'], height)
+        
+        glPointSize(depthmap_instance_data['point_size'])
+        
+        depthmap_buffers['depth_buffer'].bind()
+        depthmap_buffers['index_buffer'].bind()
+        glActiveTexture(GL_TEXTURE0)
+        glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
+        try:
+            glEnableVertexAttribArray(location_data['vertex_depth'])
+            
+            stride = 4
+            glVertexAttribPointer(
+                    location_data['vertex_depth'],
+                    1, GL_FLOAT, False, stride,
+                    depthmap_buffers['depth_buffer'])
+            depth_data = self.loaded_data['depthmaps'][depthmap_instance_name]
+            num_points = depth_data.shape[0] * depth_data.shape[1]
+            glDrawElements(
+                    GL_POINTS,
+                    num_points,
+                    GL_UNSIGNED_INT,
+                    None)
+        
+        finally:
+            depthmap_buffers['depth_buffer'].unbind()
+            depthmap_buffers['index_buffer'].unbind()
+            glBindTexture(GL_TEXTURE_2D, 0)
+    
     def render_background(self, image_light_name, flip_y=True):
         glUseProgram(self.gl_data['background_shader']['program'])
         
@@ -1575,6 +1676,9 @@ class Renderpy:
             mesh_buffers['vertex_buffer'].unbind()
             glBindTexture(GL_TEXTURE_CUBE_MAP, 0)
     
+    #---------------------------------------------------------------------------
+    # mask_render methods
+    #---------------------------------------------------------------------------
     def mask_render(self, instances=None, flip_y=True):
         
         # clear
@@ -1663,6 +1767,9 @@ class Renderpy:
             mesh_buffers['face_buffer'].unbind()
             mesh_buffers['vertex_buffer'].unbind()
     
+    #---------------------------------------------------------------------------
+    # coord_render methods
+    #---------------------------------------------------------------------------
     def coord_render(self, instances=None, flip_y=True):
         
         #clear
@@ -1751,6 +1858,9 @@ class Renderpy:
             mesh_buffers['face_buffer'].unbind()
             mesh_buffers['vertex_buffer'].unbind()
     
+    #---------------------------------------------------------------------------
+    # misc render methods
+    #---------------------------------------------------------------------------
     def render_points(self, points, color, point_size = 1, flip_y = True):
         glPushMatrix()
         try:
@@ -1856,42 +1966,3 @@ class Renderpy:
     def render_vertices(self, instance_name, flip_y = True):
         #TODO: add this for debugging purposes
         raise NotImplementedError
-    
-    def list_image_lights(self):
-        return list(self.scene_description['image_lights'].keys())
-    
-    def image_light_exists(self, image_light):
-        return image_light in self.scene_description['image_lights']
-    
-    def list_meshes(self):
-        return list(self.scene_description['meshes'].keys())
-    
-    def mesh_exists(self, mesh):
-        return mesh in self.scene_description['meshes']
-    
-    def list_materials(self):
-        return list(self.scene_description['materials'].keys())
-    
-    def material_exists(self, material):
-        return material in self.scene_description['materials']
-    
-    def get_material(self, material_name):
-        return self.scene_description['materials'][material_name]
-    
-    def get_texture(self, texture_name):
-        return self.loaded_data['textures'][texture_name]
-    
-    def list_instances(self):
-        return list(self.scene_description['instances'].keys())
-    
-    def instance_exists(self, instance):
-        return instance in self.scene_description['instances']
-    
-    def instance_hidden(self, instance):
-        return self.scene_description['instances'][instance]['hidden']
-    
-    def depthmap_exists(self, depthmap):
-        return depthmap in self.scene_description['depthmaps']
-    
-    def depthmap_instance_exists(self, depthmap_instance):
-        return depthmap_instance in self.scene_description['depthmap_instances']
