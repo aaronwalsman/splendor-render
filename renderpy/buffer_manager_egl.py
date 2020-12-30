@@ -44,16 +44,13 @@ eglQueryDevicesEXT = get_egl_function('eglQueryDevicesEXT', EGL.EGLBoolean)
 eglQueryDeviceStringEXT = get_egl_function(
         'eglQueryDeviceStringEXT', ctypes.c_char_p)
 
-shared_buffer_manager = []
+egl_state = {
+    'buffer_manager' : None
+}
 def initialize_shared_buffer_manager(*args, **kwargs):
-    if len(shared_buffer_manager):
-        return shared_buffer_manager[0]
-    else:
-        shared_buffer_manager.append(BufferManager(*args, **kwargs))
-        return shared_buffer_manager[0]
-
-class FrameExistsError(Exception):
-    pass
+    if egl_state['buffer_manager'] is None:
+        egl_state['buffer_manager'] = BufferManagerEGL(*args, **kwargs)
+    return egl_state['buffer_manager']
 
 class EGLDevice:
     def __init__(self, display=None):
@@ -103,16 +100,13 @@ def get_default_device():
     
     return query_devices()[0]
 
-class BufferManager:
-    def __init__(self,
-            device = None):
+class BufferManagerEGL:
+    def __init__(self, device = None):
         
         if device is None:
             device = get_default_device()
         
         self.egl_device = device
-        
-        self.framebuffer_data = {}
         
         from OpenGL.EGL import (
                 EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
@@ -185,146 +179,6 @@ class BufferManager:
                 self.egl_context = None
             eglTerminate(self.egl_display)
             self.egl_display = None
-    
-    def add_frame(self, frame_name, width, height, anti_aliasing=True):
-        
-        if frame_name in self.framebuffer_data:
-            raise FrameExistsError('The frame %s is already in use'%frame_name)
-        
-        # frame buffer
-        frame_buffer = glGenFramebuffers(1)
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frame_buffer)
-        
-        # color renderbuffer
-        render_buffer = glGenRenderbuffers(1)
-        glBindRenderbuffer(GL_RENDERBUFFER, render_buffer)
-        glRenderbufferStorage(
-                GL_RENDERBUFFER, GL_RGBA8, width, height)
-        glFramebufferRenderbuffer(
-                GL_FRAMEBUFFER,
-                GL_COLOR_ATTACHMENT0,
-                GL_RENDERBUFFER,
-                render_buffer)
-
-        # depth renderbuffer
-        depth_buffer = glGenRenderbuffers(1)
-        glBindRenderbuffer(GL_RENDERBUFFER, depth_buffer)
-        glRenderbufferStorage(
-                GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height)
-        glFramebufferRenderbuffer(
-                GL_FRAMEBUFFER,
-                GL_DEPTH_ATTACHMENT,
-                GL_RENDERBUFFER,
-                depth_buffer)
-        
-        self.framebuffer_data[frame_name] = {
-                'width':width,
-                'height':height,
-                'framebuffer':frame_buffer,
-                'renderbuffer':render_buffer,
-                'depthbuffer':depth_buffer,
-                'anti_aliasing':anti_aliasing}
-        
-        if anti_aliasing:
-            # multi-sample frame buffer
-            frame_buffer_multi = glGenFramebuffers(1)
-            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frame_buffer_multi)
-
-            # color multi-sample renderbuffer
-            render_buffer_multi = glGenRenderbuffers(1)
-            glBindRenderbuffer(GL_RENDERBUFFER, render_buffer_multi)
-            glRenderbufferStorageMultisample(
-                    GL_RENDERBUFFER, 8, GL_RGBA8, width, height)
-            glFramebufferRenderbuffer(
-                    GL_FRAMEBUFFER,
-                    GL_COLOR_ATTACHMENT0,
-                    GL_RENDERBUFFER,
-                    render_buffer_multi)
-
-            # depth multi-sample renderbuffer
-            depth_buffer_multi = glGenRenderbuffers(1)
-            glBindRenderbuffer(GL_RENDERBUFFER, depth_buffer_multi)
-            glRenderbufferStorageMultisample(
-                    GL_RENDERBUFFER, 8, GL_DEPTH_COMPONENT16, width, height)
-            glFramebufferRenderbuffer(
-                    GL_FRAMEBUFFER,
-                    GL_DEPTH_ATTACHMENT,
-                    GL_RENDERBUFFER,
-                    depth_buffer_multi)
-
-            self.framebuffer_data[frame_name]['framebuffermulti'] = (
-                    frame_buffer_multi)
-            self.framebuffer_data[frame_name]['depthbuffermulti'] = (
-                    depth_buffer_multi)
-            self.framebuffer_data[frame_name]['renderbuffermulti'] = (
-                    render_buffer_multi)
-        
-    def enable_frame(self, frame):
-        width = self.framebuffer_data[frame]['width']
-        height = self.framebuffer_data[frame]['height']
-        anti_aliasing = self.framebuffer_data[frame]['anti_aliasing']
-        if anti_aliasing:
-            glBindFramebuffer(
-                    GL_FRAMEBUFFER,
-                    self.framebuffer_data[frame]['framebuffermulti'])
-            glEnable(GL_MULTISAMPLE)
-        else:
-            glBindFramebuffer(
-                    GL_FRAMEBUFFER,
-                    self.framebuffer_data[frame]['framebuffer'])
-            glDisable(GL_MULTISAMPLE)
-        glViewport(0, 0, width, height)
-    
-    def read_pixels(self, frame, read_depth=False, near=0.05, far=50.0):
-        if frame is None:
-            self.enable_window()
-            width = self.window_width
-            height = self.window_height
-            anti_aliasing = self.anti_aliasing
-        else:
-            width = self.framebuffer_data[frame]['width']
-            height = self.framebuffer_data[frame]['height']
-            anti_aliasing = self.framebuffer_data[frame]['anti_aliasing']
-            if anti_aliasing:
-                glBindFramebuffer(
-                        GL_READ_FRAMEBUFFER,
-                        self.framebuffer_data[frame]['framebuffermulti'])
-                glBindFramebuffer(
-                        GL_DRAW_FRAMEBUFFER,
-                        self.framebuffer_data[frame]['framebuffer'])
-                glBlitFramebuffer(
-                        0, 0, width, height,
-                        0, 0, width, height,
-                        GL_COLOR_BUFFER_BIT, GL_NEAREST)
-                glBindFramebuffer(
-                        GL_FRAMEBUFFER,
-                        self.framebuffer_data[frame]['framebuffer'])
-            else:
-                self.enable_frame(frame)
-        
-        if read_depth:
-            pixels = glReadPixels(
-                    0, 0, width, height, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT)
-            image = numpy.frombuffer(pixels, dtype=numpy.ushort).reshape(
-                    height, width, 1)
-            image = image.astype(numpy.float) / (2**16-1)
-            image = 2.0 * image - 1.0
-            image = 2.0 * near * far / (far + near - image * (far - near))
-        else:
-            pixels = glReadPixels(
-                    0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
-            image = numpy.frombuffer(pixels, dtype=numpy.uint8).reshape(
-                    height, width, 3)
-
-        # re-enable the multibuffer for future drawing
-        if anti_aliasing and frame is not None:
-            glBindFramebuffer(
-                    GL_FRAMEBUFFER,
-                    self.framebuffer_data[frame]['framebuffermulti'])
-            glEnable(GL_MULTISAMPLE)
-        glViewport(0, 0, width, height)
-
-        return image
     
     def finish():
         glFlush()
