@@ -2,23 +2,19 @@ import numpy
 from . import camera
 
 class InteractiveCamera(object):
-    def __init__(self, manager, renderer, near, far):
+    def __init__(self, manager, renderer):
         self.manager = manager
         self.renderer = renderer
         self.button = -1
         self.mouse_click_position = (0,0)
         self.mouse_click_depth = 0
-        self.near = near
-        self.far = far
     
     def mouse_button(self, button, button_state, x, y):
         if button in (0,2,3,4):
             if button_state == 0:
                 depth = self.manager.read_pixels(
-                        None,
                         read_depth = True,
-                        near = self.near,
-                        far = self.far)
+                        projection = self.renderer.get_projection())
                 self.button = button
                 self.mouse_click_position = (x,y)
                 self.mouse_click_depth = depth[self.manager.height-y,x]

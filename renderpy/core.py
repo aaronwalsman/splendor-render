@@ -29,7 +29,7 @@ import renderpy.shader_definitions as shader_definitions
 import renderpy.obj_mesh as obj_mesh
 from renderpy.image import load_image, load_depth
 import renderpy.json_numpy as json_numpy
-
+from renderpy.exceptions import RenderpyException
 
 max_num_lights = 8
 default_camera_pose = numpy.eye(4)
@@ -43,7 +43,7 @@ class Renderpy:
             ('mesh', 'meshes'),
             ('material', 'materials'),
             ('image_light', 'image_lights'),
-            ('depth_map', 'depth_maps'))
+            ('depthmap', 'depthmaps'))
     instance_types = (
             ('instance', 'instances'),
             ('depthmap_instance', 'depthmap_instances'),
@@ -318,7 +318,7 @@ class Renderpy:
             self.clear_scene()
         
         if isinstance(scene, str):
-            scene = self.assets['scenes'][scene]
+            scene = self.asset_library['scenes'][scene]
             scene = json.load(open(scene))
         
         # meshes, depthmaps, materials, image_lights
@@ -326,7 +326,7 @@ class Renderpy:
             if plural in scene:
                 for asset_name, asset_args in scene[plural].items():
                     exists_fn = getattr(self, singular + '_exists')
-                    if reload_asets or not exists_fn(asset_name):
+                    if reload_assets or not exists_fn(asset_name):
                         load_fn = getattr(self, 'load_' + singular)
                         load_fn(asset_name, **asset_args)
         
@@ -674,25 +674,17 @@ class Renderpy:
             if diffuse_textures is not None:
                 pass
             
-            elif example_diffuse_textures is not None:
-                diffuse_textures = primitives.example_cube_texture_paths[
-                        example_diffuse_textures]
-            
             else:
-                raise Exception('Must specify either a '
-                        'diffuse_texture or example_diffuse_texture '
+                raise RenderpyException('Must specify a '
+                        'diffuse_texture or a texture_directory'
                         'when loading an image_light')
             
             if reflection_textures is not None:
                 pass
             
-            elif example_reflection_textures is not None:
-                reflection_textures = primitives.example_cube_texture_paths[
-                        example_reflection_textures]
-            
             else:
-                raise Exception('Must specify either a '
-                        'diffuse_texture or example_diffuse_texture '
+                raise RenderpyException('Must specify a '
+                        'reflection_texture or a texture directory'
                         'when loading an image_light')
         
         if name in self.gl_data['light_buffers']:
@@ -781,6 +773,7 @@ class Renderpy:
         
         if isinstance(texture, str):
             self.scene_description['materials'][name]['texture'] = texture
+            texture = self.asset_library['textures'][texture]
             image = load_image(texture)
         else:
             self.scene_description['materials'][name]['texture'] = -1
@@ -820,6 +813,8 @@ class Renderpy:
         # make sure that either diffuse and reflection textures were provided
         # or an image directory was provided
         if texture_directory is not None:
+            texture_directory = (
+                    self.asset_library['image_lights'][texture_directory])
             cube_order = {'px':0, 'nx':1, 'py':2, 'ny':3, 'pz':4, 'nz':5}
             texture_directory = os.path.expanduser(texture_directory)
             all_images = os.listdir(texture_directory)

@@ -1,23 +1,29 @@
 import os
 import configparser
 
-renderpy_root_path = os.path.join(os.path.dirname(__file__), '..')
-default_config_path = os.path.join(renderpy_root_path, 'defaults.cfg')
+from renderpy.exceptions import AssetError
 
-asset_types = ('image_lights', 'meshes', 'materials', 'panoramas', 'scenes')
+renderpy_root_path = os.path.join(os.path.dirname(__file__), '..')
+default_config_path = os.path.join(renderpy_root_path, 'default_assets.cfg')
+
+asset_types = (
+        'image_lights',
+        'meshes',
+        'materials',
+        'textures',
+        'panoramas',
+        'scenes')
 asset_extensions = {
         'image_lights' : (),
         'meshes' : ('.obj',),
+        'textures' : ('.jpg', '.png'),
         'materials' : (),
         'panoramas' : ('.jpg', '.png'),
         'scenes' : ('.json',)
 }
 
-class AssetError(Exception):
-    pass
-
 class PathFinder:
-    def __init__(paths, asset_type):
+    def __init__(self, paths, asset_type):
         self.paths = paths
         self.asset_type = asset_type
     
@@ -32,7 +38,7 @@ class PathFinder:
             extensionless_path = os.path.join(path, key)
             if os.path.exists(extensionless_path):
                 return extensionless_path
-            for extension in extensions:
+            for extension in asset_extensions[self.asset_type]:
                 extension_path = os.path.join(path, key + extension)
                 if os.path.exists(extension_path):
                     return extension_path
@@ -48,14 +54,14 @@ class AssetLibrary:
         
         self.load_config(config_path, clear=True)
     
-    @static_method
+    @staticmethod
     def path_list_to_paths(path_list, HERE):
         paths = path_list.split(',')
         paths = [path.replace('{HERE}', HERE)
                 for path in paths]
         return paths
     
-    def load_config(self, config_path, clear=False)
+    def load_config(self, config_path, clear=False):
         if clear:
             self.directories = {asset_type : [] for asset_type in asset_types}
         
@@ -66,7 +72,7 @@ class AssetLibrary:
         for asset_type in asset_types:
             if asset_type in parser['paths']:
                 self.directories[asset_type].extend(self.path_list_to_paths(
-                        parser['paths'][asset_type], HERE)
+                        parser['paths'][asset_type], HERE))
     
     def __getitem__(self, asset_type):
         return PathFinder(self.directories[asset_type], asset_type)

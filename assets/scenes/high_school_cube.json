@@ -1,7 +1,7 @@
 {
     "image_lights":{
         "background_1": {
-            "texture_directory": "examples/image_lights/high_school",
+            "texture_directory": "high_school",
             "reflection_mipmaps": null,
             "blur":0,
             "render_background":1,
@@ -17,13 +17,13 @@
     "active_image_light" : "background_1",
     "meshes": {
         "cube": {
-            "mesh_path": "examples/meshes/cube.obj",
+            "mesh_asset" : "cube",
             "scale":1.0
         }
     },
     "materials": {
         "cube": {
-            "texture": "examples/meshes/cube.png",
+            "texture": "cube",
             "ka":1.0,
             "kd":0.5,
             "ks":0.5,

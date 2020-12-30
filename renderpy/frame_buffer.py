@@ -3,11 +3,12 @@ import numpy
 from OpenGL.GL import *
 
 class FrameBufferWrapper:
-    def __init__(self, width, height, anti_alias=True):
+    def __init__(self, width, height, anti_alias=True, anti_alias_samples=8):
         
         self.width = width
         self.height = height
         self.anti_alias = anti_alias
+        self.anti_alias_samples = anti_alias_samples
         
         # frame buffer
         self.frame_buffer = glGenFramebuffers(1)
@@ -44,7 +45,11 @@ class FrameBufferWrapper:
             self.render_buffer_multi = glGenRenderbuffers(1)
             glBindRenderbuffer(GL_RENDERBUFFER, self.render_buffer_multi)
             glRenderbufferStorageMultisample(
-                    GL_RENDERBUFFER, 8, GL_RGBA8, self.width, self.height)
+                    GL_RENDERBUFFER,
+                    self.anti_alias_samples,
+                    GL_RGBA8,
+                    self.width,
+                    self.height)
             glFramebufferRenderbuffer(
                     GL_FRAMEBUFFER,
                     GL_COLOR_ATTACHMENT0,
@@ -55,7 +60,11 @@ class FrameBufferWrapper:
             self.depth_buffer_multi = glGenRenderbuffers(1)
             glBindRenderbuffer(GL_RENDERBUFFER, self.depth_buffer_multi)
             glRenderbufferStorageMultisample(
-                    GL_RENDERBUFFER, 8, GL_DEPTH_COMPONENT16, width, height)
+                    GL_RENDERBUFFER,
+                    self.anti_alias_samples,
+                    GL_DEPTH_COMPONENT16,
+                    width,
+                    height)
             glFramebufferRenderbuffer(
                     GL_FRAMEBUFFER,
                     GL_DEPTH_ATTACHMENT,

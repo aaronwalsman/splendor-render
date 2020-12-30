@@ -8,6 +8,9 @@ import OpenGL.GLUT as GLUT
 # numpy
 import numpy
 
+# renderpy
+import renderpy.camera as camera
+
 default_window_size = 128
 
 glut_state = {
@@ -24,6 +27,7 @@ class BufferManagerGLUT:
             width = default_window_size,
             height = default_window_size,
             anti_alias = True,
+            anti_alias_samples = 8,
             hide_window = False,
             x_authority = None,
             display = None):
@@ -31,6 +35,7 @@ class BufferManagerGLUT:
         self.width = width
         self.height = height
         self.anti_alias = anti_alias
+        self.anti_alias_samples = anti_alias_samples
         
         if x_authority is not None:
             os.environ['XAUTHORITY'] = x_authority
@@ -43,6 +48,7 @@ class BufferManagerGLUT:
                     GLUT.GLUT_DEPTH |
                     GLUT.GLUT_MULTISAMPLE)
             glEnable(GL_MULTISAMPLE)
+            GLUT.glutSetOption(GLUT.GLUT_MULTISAMPLE, self.anti_alias_samples)
         else:
             GLUT.glutInitDisplayMode(GLUT.GLUT_RGBA | GLUT.GLUT_DEPTH)
         GLUT.glutInitWindowSize(self.width, self.height)
@@ -76,15 +82,15 @@ class BufferManagerGLUT:
             glDisable(GL_MULTISAMPLE)
     
     def read_pixels(self,
-            frame,
             read_depth = False,
-            near = 0.05,
-            far = 50.0):
-        if frame is None:
-            self.enable_window()
-            width = self.width
-            height = self.height
-            anti_alias = self.anti_alias
+            projection = None):
+        
+        #if frame is None:
+        self.enable_window()
+        width = self.width
+        height = self.height
+        anti_alias = self.anti_alias
+        '''
         else:
             width = self.framebuffer_data[frame]['width']
             height = self.framebuffer_data[frame]['height']
@@ -105,8 +111,9 @@ class BufferManagerGLUT:
                         self.framebuffer_data[frame]['framebuffer'])
             else:
                 self.enable_frame(frame)
-        
+        '''
         if read_depth:
+            near, far = camera.clip_from_projection(projection)
             pixels = glReadPixels(
                     0, 0, width, height, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT)
             image = numpy.frombuffer(pixels, dtype=numpy.ushort).reshape(
@@ -120,12 +127,14 @@ class BufferManagerGLUT:
             image = numpy.frombuffer(pixels, dtype=numpy.uint8).reshape(
                     height, width, 3)
         
+        '''
         # re-enable the multibuffer for future drawing
         if anti_alias and frame is not None:
             glBindFramebuffer(
                     GL_FRAMEBUFFER,
                     self.framebuffer_data[frame]['framebuffermulti'])
             glEnable(GL_MULTISAMPLE)
+        '''
         glViewport(0, 0, width, height)
         return image
     
