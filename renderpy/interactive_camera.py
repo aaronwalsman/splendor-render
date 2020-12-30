@@ -21,7 +21,7 @@ class InteractiveCamera(object):
                         far = self.far)
                 self.button = button
                 self.mouse_click_position = (x,y)
-                self.mouse_click_depth = depth[self.manager.window_height-y,x]
+                self.mouse_click_depth = depth[self.manager.height-y,x]
 
                 if button in (3,4):
                     camera_pose = self.renderer.get_camera_pose()
@@ -44,9 +44,9 @@ class InteractiveCamera(object):
         if self.button == 0:
             # orbit
             delta_x = (
-                    x - self.mouse_click_position[0])/self.manager.window_width
+                    x - self.mouse_click_position[0])/self.manager.width
             delta_y = (
-                    y - self.mouse_click_position[1])/self.manager.window_height
+                    y - self.mouse_click_position[1])/self.manager.height
             camera_pose = self.renderer.get_camera_pose()
             camera_pose = numpy.linalg.inv(camera_pose)
             
@@ -68,9 +68,9 @@ class InteractiveCamera(object):
         if self.button == 2:
             # pan
             delta_x = (
-                    x - self.mouse_click_position[0])/self.manager.window_width
+                    x - self.mouse_click_position[0])/self.manager.width
             delta_y = (
-                    y - self.mouse_click_position[1])/self.manager.window_height
+                    y - self.mouse_click_position[1])/self.manager.height
             camera_pose = self.renderer.get_camera_pose()
             x_direction = camera_pose[0,0:3]
             y_direction = camera_pose[1,0:3]
