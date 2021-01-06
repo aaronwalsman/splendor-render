@@ -32,8 +32,9 @@ import renderpy.json_numpy as json_numpy
 from renderpy.exceptions import RenderpyException
 
 max_num_lights = 8
-default_camera_pose = numpy.eye(4)
-default_camera_projection = camera.projection_matrix(math.radians(90.), 1.0)
+default_default_camera_pose = numpy.eye(4)
+default_default_camera_projection = camera.projection_matrix(
+        math.radians(90.), 1.0)
 
 class Renderpy:
     
@@ -49,12 +50,24 @@ class Renderpy:
             ('depthmap_instance', 'depthmap_instances'),
             ('point_light', 'point_lights'))
     
-    def __init__(self, assets=None):
+    def __init__(self,
+            assets=None,
+            default_camera_pose=None,
+            default_camera_projection=None):
+        
         # asset library
         if isinstance(assets, AssetLibrary):
             self.asset_library = assets
         else:
             self.asset_library = AssetLibrary(assets)
+        
+        # default camera settings
+        if default_camera_pose is None:
+            default_camera_pose = default_default_camera_pose
+        self.default_camera_pose = default_camera_pose
+        if default_camera_projection is None:
+            default_camera_projection = default_default_camera_projection
+        self.default_camera_projection = default_camera_projection
         
         # scene data
         self.scene_description = {
@@ -443,13 +456,8 @@ class Renderpy:
     # camera methods
     #===========================================================================
     def reset_camera(self):
-        '''
-        self.scene_description['camera'] = {
-                'pose':default_camera_pose,
-                'projection':default_camera_projection}
-        '''
-        self.set_camera_pose(default_camera_pose)
-        self.set_projection(default_camera_projection)
+        self.set_camera_pose(self.default_camera_pose)
+        self.set_projection(self.default_camera_projection)
     
     def set_projection(self, projection_matrix):
         self.scene_description['camera']['projection'] = numpy.array(
@@ -465,6 +473,13 @@ class Renderpy:
     
     def get_camera_pose(self):
         return self.scene_description['camera']['pose']
+    
+    def camera_frame_scene(self, *args, **kwargs):
+        bbox = self.get_instance_center_bbox()
+        camera_matrix = camera.frame_bbox(
+                bbox, self.get_projection(), 3.0,
+                *args, **kwargs)
+        self.set_camera_pose(camera_matrix)
     
     #===========================================================================
     # mesh methods
@@ -502,12 +517,18 @@ class Renderpy:
         mesh_buffers = {}
         
         vertex_floats = numpy.array(mesh['vertices'], dtype=numpy.float32)
+        if vertex_floats.shape[1] > 3:
+            vertex_floats = vertex_floats[:,:3]
         normal_floats = numpy.array(mesh['normals'], dtype=numpy.float32)
+        if normal_floats.shape[1] > 3:
+            normal_floats = normal_floats[:,:3]
         if not len(mesh['uvs']) and create_uvs:
             mesh['uvs'] = [[0,0] for _ in mesh['vertices']]
         
         if len(mesh['uvs']):
             uv_floats = numpy.array(mesh['uvs'], dtype=numpy.float32)
+            if uv_floats.shape[1]:
+                uv_floats = uv_floats[:,:2]
             combined_floats = numpy.concatenate(
                     (vertex_floats, normal_floats, uv_floats), axis=1)
             mesh_buffers['vertex_buffer'] = vbo.VBO(combined_floats)
@@ -654,7 +675,6 @@ class Renderpy:
             diffuse_textures = None,
             example_diffuse_textures = None,
             reflection_textures = None,
-            example_reflection_textures = None,
             texture_directory = None,
             reflection_mipmaps = None,
             offset_matrix = numpy.eye(4),
@@ -980,6 +1000,7 @@ class Renderpy:
     def load_material(self,
             name,
             texture = None,
+            color = None,
             ka = 1.0,
             kd = 1.0,
             ks = 0.5,
@@ -1006,6 +1027,10 @@ class Renderpy:
         material_buffers = {}
         material_buffers['texture'] = glGenTextures(1)
         self.gl_data['material_buffers'][name] = material_buffers
+        
+        if color is not None:
+            texture = numpy.zeros((16,16,3), dtype=numpy.uint8)
+            texture[:] = color
         
         if texture is not None:
             self.replace_texture(name, texture, crop)
@@ -1080,9 +1105,12 @@ class Renderpy:
     def get_instance_center_bbox(self, instances=None):
         if instances is None:
             instances = self.scene_description['instances'].keys()
-        centers = numpy.stack([
-                self.scene_description['instances'][instance]['transform'][:3,3]
-                for instance in instances])
+        if len(instances) > 1:
+            centers = numpy.stack([
+                    self.get_instance_transform(instance)[:3,3]
+                    for instance in instances])
+        else:
+            centers = numpy.array([[0,0,0],[1,1,1]])
         bbox_min = numpy.min(centers, axis=0)
         bbox_max = numpy.max(centers, axis=0)
         return bbox_min, bbox_max

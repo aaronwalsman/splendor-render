@@ -185,6 +185,20 @@ def azimuthal_pose_to_matrix(pose, center=(0,0,0)):
     
     return m
 
+def framing_distance_for_bbox(bbox, projection_matrix, multiplier):
+    diagonal = numpy.array(bbox[1]) - numpy.array(bbox[0])
+    radius = numpy.linalg.norm(diagonal) * 0.5
+    return projection_matrix[0,0] * radius * 0.5 * multiplier
+
+def frame_bbox(bbox, projection_matrix, multiplier,
+        azimuth=0, elevation=0, tilt=0, shift_x=0, shift_y=0):
+    diagonal = numpy.array(bbox[1]) - numpy.array(bbox[0])
+    centroid = bbox[0] + diagonal * 0.5
+    distance = framing_distance_for_bbox(bbox, projection_matrix, multiplier)
+    return azimuthal_pose_to_matrix(
+            [azimuth, elevation, tilt, distance, shift_x, shift_y],
+            center = centroid)
+
 '''
 # moved to camera_utils.py in detection_utils
 def turntable_pose(
