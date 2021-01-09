@@ -50,7 +50,7 @@ class GlutWindowWrapper:
                     GLUT.GLUT_MULTISAMPLE)
             GLUT.glutSetOption(GLUT.GLUT_MULTISAMPLE, self.anti_alias_samples)
         else:
-            GLUT.glutInitDisplaymode(GLUT.GLUT_GRBA | GLUT.GLUT_DEPTH)
+            GLUT.glutInitDisplayMode(GLUT.GLUT_RGBA | GLUT.GLUT_DEPTH)
         GLUT.glutInitWindowSize(self.width, self.height)
         self.window_id = GLUT.glutCreateWindow(name)
         self.set_active()
