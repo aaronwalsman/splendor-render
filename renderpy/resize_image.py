@@ -16,7 +16,7 @@ import numpy
 import imageio
 
 # local
-import shader_definitions
+import shaders.shader_definitions as shader_definitions
 import buffer_manager
 import camera
 

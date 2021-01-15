@@ -25,7 +25,7 @@ import numpy
 from renderpy.assets import AssetLibrary
 import renderpy.camera as camera
 import renderpy.masks as masks
-import renderpy.shader_definitions as shader_definitions
+import renderpy.shaders.shader_definitions as shader_definitions
 import renderpy.obj_mesh as obj_mesh
 from renderpy.image import load_image, load_depth
 import renderpy.json_numpy as json_numpy
