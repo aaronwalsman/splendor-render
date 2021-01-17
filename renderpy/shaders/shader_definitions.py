@@ -4,10 +4,9 @@ from renderpy.shaders.image_light import image_light_diffuse_fn
 from renderpy.shaders.mesh import mesh_vertex_shader
 from renderpy.shaders.color_render import color_fragment_shader
 from renderpy.shaders.background import (
-        background_verex_shader,
+        background_vertex_shader,
         background_2D_fragment_shader,
         background_fragment_shader)
-from panorama_to_cube import panorama_to_cube_fragment_shader
 
 textured_vertex_shader = '''#version 460 core
 #define use_texture''' + mesh_vertex_shader
