@@ -18,3 +18,5 @@ except ImportError:
 
 import OpenGL.GLUT as GLUT
 import OpenGL.platform as platform
+import OpenGL.EGL as EGL
+from OpenGL._opaque import opaque_pointer_cls
