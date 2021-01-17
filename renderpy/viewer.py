@@ -25,7 +25,7 @@ def start_double_viewer(
     
     renderer = core.Renderpy()
     
-    file_path =renderer.asset_library['scenes'][file_path]
+    file_path = renderer.asset_library['scenes'][file_path]
     
     camera_control = InteractiveCamera(color_window, renderer)
     

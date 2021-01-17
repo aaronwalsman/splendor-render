@@ -38,7 +38,8 @@ def start_viewer(file_path):
     def mouse_button(button, button_state, x, y):
         if button_state == 0:
             color = image[y,x]
-            print(masks.color_byte_to_index(color))
+            print('Index at (%i,%i): %i'%(
+                    x, y, masks.color_byte_to_index(color)))
     
     mask_window.start_main_loop(
             glutDisplayFunc = render,
