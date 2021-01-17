@@ -1,5 +1,18 @@
 import os
 
+from renderpy.opengl_wrapper import (
+    glFlush,
+    glFinish,
+    glBindFramebuffer,
+    GL_FRAMEBUFFER,
+    glViewport,
+    glEnable,
+    glDisable,
+    GL_MULTISAMPLE,
+    glReadPixels,
+    GLUT,
+)
+
 import numpy
 
 from renderpy.opengl_wrapper import GL, GLUT
