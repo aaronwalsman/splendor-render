@@ -1,7 +1,7 @@
 from renderpy.shaders.utils import phong_fn
 from renderpy.shaders.image_light import image_light_diffuse_fn
 
-color_fragment_shader = '''
+lighting_model_fragment_shader = '''
 const int MAX_NUM_LIGHTS = 8;
 
 in vec4 fragment_position;
