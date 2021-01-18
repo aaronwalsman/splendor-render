@@ -18,5 +18,9 @@ except ImportError:
 
 import OpenGL.GLUT as GLUT
 import OpenGL.platform as platform
-import OpenGL.EGL as EGL
+try:
+    import OpenGL.EGL as EGL
+except:
+    print('EGL not supported by system, skipping EGL import')
 from OpenGL._opaque import opaque_pointer_cls
+from OpenGL.arrays import vbo
