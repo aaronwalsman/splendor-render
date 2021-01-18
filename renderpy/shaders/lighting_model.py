@@ -7,11 +7,11 @@ const int MAX_NUM_LIGHTS = 8;
 in vec4 fragment_position;
 in vec4 fragment_normal;
 
-#ifdef use_texture
+#ifdef COMPILE_TEXTURE
 in vec2 fragment_uv;
 #endif
 
-#ifdef use_vertex_colors
+#ifdef COMPILE_VERTEX_COLORS
 in vec3 fragment_color;
 #endif
 
@@ -19,7 +19,7 @@ out vec3 color;
 
 uniform vec4 material_properties;
 
-#ifdef use_flat_color
+#ifdef COMPILE_FLAT_COLOR
 uniform vec3 flat_color;
 #endif
 
@@ -38,7 +38,7 @@ uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
 uniform mat4 camera_pose;
 
-#ifdef use_texture
+#ifdef COMPILE_TEXTURE
 layout(binding=0) uniform sampler2D texture_sampler;
 #endif
 
@@ -134,15 +134,15 @@ void main(){
         specular_contribution += light_color * light_phong.y;
     }
     
-    #ifdef use_texture
+    #ifdef COMPILE_TEXTURE
     vec3 diffuse_color = texture(texture_sampler, fragment_uv).rgb;
     #endif
     
-    #ifdef use_vertex_colors
+    #ifdef COMPILE_VERTEX_COLORS
     vec3 diffuse_color = fragment_color;
     #endif
     
-    #ifdef use_flat_color
+    #ifdef COMPILE_FLAT_COLOR
     vec3 diffuse_color = flat_color;
     #endif
     
