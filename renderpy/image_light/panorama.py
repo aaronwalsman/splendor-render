@@ -7,28 +7,27 @@ from OpenGL.arrays import vbo
 
 import numpy
 
-import renderpy.shader_definitions as shader_definitions
-import renderpy.buffer_manager_glut as buffer_manager
+from renderpy.shaders.background import background_vertex_shader
+from renderpy.shaders.skybox import panorama_to_cube_fragment_shader
+from renderpy.frame_buffer import FrameBufferWrapper
+import renderpy.buffer_manager_egl as buffer_manager
 import renderpy.camera as camera
 import renderpy.image as image
 
 def panorama_to_cube(panorama_image, cube_width, panorama_filter='linear'):
     
     # initialize the buffer manager
+    #manager = buffer_manager.initialize_shared_buffer_manager()
     manager = buffer_manager.initialize_shared_buffer_manager()
-    try:
-        manager.add_frame('panorama_to_cube', cube_width, cube_width)
-    except buffer_manager.FrameExistsError:
-        pass
-    manager.enable_frame('panorama_to_cube')
+    
+    frame_buffer = FrameBufferWrapper(cube_width, cube_width)
+    frame_buffer.enable()
     
     # compile the shaders
     vertex_shader = shaders.compileShader(
-            shader_definitions.background_vertex_shader,
-            GL_VERTEX_SHADER)
+            background_vertex_shader, GL_VERTEX_SHADER)
     fragment_shader = shaders.compileShader(
-            shader_definitions.panorama_to_cube_fragment_shader,
-            GL_FRAGMENT_SHADER)
+            panorama_to_cube_fragment_shader, GL_FRAGMENT_SHADER)
     program = shaders.compileProgram(vertex_shader, fragment_shader)
     
     glUseProgram(program)
@@ -123,8 +122,7 @@ def panorama_to_cube(panorama_image, cube_width, panorama_filter='linear'):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glUniformMatrix4fv(camera_location, 1, GL_TRUE, camera_pose)
         glDrawElements(GL_TRIANGLES, 2*3, GL_UNSIGNED_INT, None)
-        output_images[cube_face] = (
-                manager.read_pixels('panorama_to_cube'))
+        output_images[cube_face] = frame_buffer.read_pixels()
     
     vertex_buffer.unbind()
     face_buffer.unbind()
