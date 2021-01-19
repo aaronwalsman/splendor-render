@@ -24,4 +24,4 @@ except:
     print('EGL not supported by system, skipping EGL import')
 from OpenGL._opaque import opaque_pointer_cls
 from OpenGL.arrays import vbo
-import OpenGL.GLU as GLU
+from OpenGL.GL import shaders
