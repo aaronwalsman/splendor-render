@@ -14,8 +14,6 @@ import os
 
 # opengl
 from OpenGL.GL import *
-from OpenGL.GLU import *
-from OpenGL.GL import shaders
 from OpenGL.arrays import vbo
 
 # numpy
@@ -122,7 +120,7 @@ class Renderpy:
         glDepthMask(GL_TRUE)
         glDepthFunc(GL_LESS)
         glDepthRange(0.0, 1.0)
-        glEnable(GL_NORMALIZE)
+        #glEnable(GL_NORMALIZE)
 
         glClearColor(0.,0.,0.,0.)
 
