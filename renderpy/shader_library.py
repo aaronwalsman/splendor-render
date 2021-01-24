@@ -1,4 +1,5 @@
 import OpenGL.GL as gl
+import OpenGL.GL.shaders as shaders
 
 from renderpy.shaders.color_render import (
         textured_vertex_shader, textured_fragment_shader,
@@ -37,15 +38,15 @@ class ShaderLibrary:
             self.gl_data[shader_name] = {}
             
             # compile shaders
-            vertex_shader = gl.shaders.compileShader(
+            vertex_shader = shaders.compileShader(
                     vertex_code, gl.GL_VERTEX_SHADER)
-            fragment_shader = gl.shaders.compileShader(
+            fragment_shader = shaders.compileShader(
                     fragment_code, gl.GL_FRAGMENT_SHADER)
             self.gl_data[shader_name]['vertex_shader'] = vertex_shader
             self.gl_data[shader_name]['fragment_shader'] = fragment_shader
             
             # compile programs
-            program = gl.shaders.compileProgram(
+            program = shaders.compileProgram(
                     self.gl_data[shader_name]['vertex_shader'],
                     self.gl_data[shader_name]['fragment_shader'])
             self.gl_data[shader_name]['program'] = program
