@@ -9,6 +9,7 @@ setup(  name = 'renderpy',
         packages = ['renderpy'],
         scripts = [
                 'bin/drpy_viewer',
+                'bin/drpy_mask_viewer',
                 'bin/drpy_render',
                 'bin/panorama_to_cube',
                 'bin/reflection_to_diffuse'

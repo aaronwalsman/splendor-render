@@ -2,6 +2,8 @@ import numpy
 
 from OpenGL.GL import *
 
+import renderpy.camera as camera
+
 class FrameBufferWrapper:
     def __init__(self, width, height, anti_alias=True, anti_alias_samples=8):
         

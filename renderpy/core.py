@@ -14,8 +14,6 @@ import os
 
 # opengl
 from OpenGL.GL import *
-from OpenGL.GLU import *
-from OpenGL.GL import shaders
 from OpenGL.arrays import vbo
 
 # numpy
@@ -25,7 +23,7 @@ import numpy
 from renderpy.assets import AssetLibrary
 import renderpy.camera as camera
 import renderpy.masks as masks
-import renderpy.shader_definitions as shader_definitions
+from renderpy.shader_library import ShaderLibrary
 import renderpy.obj_mesh as obj_mesh
 from renderpy.image import load_image, load_depth
 import renderpy.json_numpy as json_numpy
@@ -107,7 +105,7 @@ class Renderpy:
         }
         
         self.opengl_init()
-        self.compile_shaders()
+        self.shader_library = ShaderLibrary()
     
     def get_json_description(self, **kwargs):
         return json.dumps(
@@ -122,207 +120,10 @@ class Renderpy:
         glDepthMask(GL_TRUE)
         glDepthFunc(GL_LESS)
         glDepthRange(0.0, 1.0)
-        glEnable(GL_NORMALIZE)
+        #glEnable(GL_NORMALIZE)
 
         glClearColor(0.,0.,0.,0.)
-    
-    def compile_shaders(self):
-        
-        # book keeping
-        textured_shader_data = {}
-        vertex_color_shader_data = {}
-        mask_shader_data = {}
-        coord_shader_data = {}
-        background_shader_data = {}
-        textured_depthmap_shader_data = {}
-        
-        # compile the shaders
-        textured_shader_data['vertex_shader'] = shaders.compileShader(
-                shader_definitions.textured_vertex_shader, GL_VERTEX_SHADER)
-        textured_shader_data['fragment_shader'] = shaders.compileShader(
-                shader_definitions.textured_fragment_shader, GL_FRAGMENT_SHADER)
-        vertex_color_shader_data['vertex_shader'] = shaders.compileShader(
-                shader_definitions.vertex_color_vertex_shader, GL_VERTEX_SHADER)
-        vertex_color_shader_data['fragment_shader'] = shaders.compileShader(
-                shader_definitions.vertex_color_fragment_shader,
-                GL_FRAGMENT_SHADER)
-        mask_shader_data['vertex_shader'] = shaders.compileShader(
-                shader_definitions.mask_vertex_shader, GL_VERTEX_SHADER)
-        mask_shader_data['fragment_shader'] = shaders.compileShader(
-                shader_definitions.mask_fragment_shader, GL_FRAGMENT_SHADER)
-        coord_shader_data['vertex_shader'] = shaders.compileShader(
-                shader_definitions.coord_vertex_shader, GL_VERTEX_SHADER)
-        coord_shader_data['fragment_shader'] = shaders.compileShader(
-                shader_definitions.coord_fragment_shader, GL_FRAGMENT_SHADER)
-        background_shader_data['vertex_shader'] = shaders.compileShader(
-                shader_definitions.background_vertex_shader, GL_VERTEX_SHADER)
-        background_shader_data['fragment_shader'] = shaders.compileShader(
-                shader_definitions.background_fragment_shader,
-                GL_FRAGMENT_SHADER)
-        textured_depthmap_shader_data['vertex_shader'] = shaders.compileShader(
-                shader_definitions.textured_depthmap_vertex_shader,
-                GL_VERTEX_SHADER)
-        textured_depthmap_shader_data['fragment_shader'] = (
-                shaders.compileShader(
-                    shader_definitions.textured_depthmap_fragment_shader,
-                    GL_FRAGMENT_SHADER))
-        
-        # compile the programs
-        textured_program = shaders.compileProgram(
-                textured_shader_data['vertex_shader'],
-                textured_shader_data['fragment_shader'])
-        textured_shader_data['program'] = textured_program
-        vertex_color_program = shaders.compileProgram(
-                vertex_color_shader_data['vertex_shader'],
-                vertex_color_shader_data['fragment_shader'])
-        vertex_color_shader_data['program'] = vertex_color_program
-        mask_program = shaders.compileProgram(
-                mask_shader_data['vertex_shader'],
-                mask_shader_data['fragment_shader'])
-        mask_shader_data['program'] = mask_program
-        coord_program = shaders.compileProgram(
-                coord_shader_data['vertex_shader'],
-                coord_shader_data['fragment_shader'])
-        coord_shader_data['program'] = coord_program
-        background_program = shaders.compileProgram(
-                background_shader_data['vertex_shader'],
-                background_shader_data['fragment_shader'])
-        background_shader_data['program'] = background_program
-        textured_depthmap_program = shaders.compileProgram(
-                textured_depthmap_shader_data['vertex_shader'],
-                textured_depthmap_shader_data['fragment_shader'])
-        textured_depthmap_shader_data['program'] = textured_depthmap_program
-        
-        # get attribute locations
-        textured_shader_data['locations'] = {}
-        vertex_color_shader_data['locations'] = {}
-        mask_shader_data['locations'] = {}
-        coord_shader_data['locations'] = {}
-        background_shader_data['locations'] = {}
-        textured_depthmap_shader_data['locations'] = {}
-        
-        # (position/normal/uv)
-        textured_shader_data['locations']['vertex_position'] = (
-                glGetAttribLocation(textured_program, 'vertex_position'))
-        textured_shader_data['locations']['vertex_normal'] = (
-                glGetAttribLocation(textured_program, 'vertex_normal'))
-        textured_shader_data['locations']['vertex_uv'] = (
-                glGetAttribLocation(textured_program, 'vertex_uv'))
-        
-        vertex_color_shader_data['locations']['vertex_position'] = (
-                glGetAttribLocation(vertex_color_program, 'vertex_position'))
-        vertex_color_shader_data['locations']['vertex_normal'] = (
-                glGetAttribLocation(vertex_color_program, 'vertex_normal'))
-        vertex_color_shader_data['locations']['vertex_color'] = (
-                glGetAttribLocation(vertex_color_program, 'vertex_color'))
-        
-        mask_shader_data['locations']['vertex_position'] = (
-                glGetAttribLocation(mask_program, 'vertex_position'))
-        
-        coord_shader_data['locations']['vertex_position'] = (
-                glGetAttribLocation(coord_program, 'vertex_position'))
-        
-        textured_depthmap_shader_data['locations']['vertex_depth'] = (
-                glGetAttribLocation(textured_depthmap_program, 'vertex_depth'))
-        
-        # (pose and projection matrices)
-        for variable in 'camera_pose', 'projection_matrix', 'model_pose':
-            textured_shader_data['locations'][variable] = (
-                    glGetUniformLocation(textured_program, variable))
-            vertex_color_shader_data['locations'][variable] = (
-                    glGetUniformLocation(vertex_color_program, variable))
-            mask_shader_data['locations'][variable] = (
-                    glGetUniformLocation(mask_program, variable))
-            coord_shader_data['locations'][variable] = (
-                    glGetUniformLocation(coord_program, variable))
-            textured_depthmap_shader_data['locations'][variable] = (
-                    glGetUniformLocation(textured_depthmap_program, variable))
-        
-        for variable in (
-                'camera_pose', 'projection_matrix', 'offset_matrix', 'blur'):
-            background_shader_data['locations'][variable] = (
-                    glGetUniformLocation(background_program, variable))
-        
-        # (material data)
-        for variable in (
-                'material_properties',
-                'image_light_offset_matrix',
-                'image_light_diffuse_minmax',
-                'image_light_diffuse_rescale',
-                'image_light_diffuse_tint_lo',
-                'image_light_diffuse_tint_hi',
-                'image_light_reflect_tint',
-                'image_light_material_properties',
-                'diffuse_sampler',
-                'reflect_sampler'):
-            textured_shader_data['locations'][variable] = (
-                    glGetUniformLocation(textured_program, variable))
-            vertex_color_shader_data['locations'][variable] = (
-                    glGetUniformLocation(vertex_color_program, variable))
-        
-        # (sampler data)
-        textured_shader_data['locations']['texture_sampler'] = (
-                glGetUniformLocation(textured_program, 'texture_sampler'))
-        background_shader_data['locations']['cubemap_sampler'] = (
-                glGetUniformLocation(background_program, 'cubemap_sampler'))
-        textured_depthmap_shader_data['locations']['texture_sampler'] = (
-                glGetUniformLocation(
-                    textured_depthmap_program, 'texture_sampler'))
-        
-        glUseProgram(textured_program)
-        glUniform1i(textured_shader_data['locations']['texture_sampler'], 0)
-        glUniform1i(textured_shader_data['locations']['diffuse_sampler'], 2)
-        glUniform1i(textured_shader_data['locations']['reflect_sampler'], 3)
-        
-        glUseProgram(vertex_color_program)
-        glUniform1i(vertex_color_shader_data['locations']['diffuse_sampler'], 2)
-        glUniform1i(vertex_color_shader_data['locations']['reflect_sampler'], 3)
-        
-        glUseProgram(background_program)
-        glUniform1i(background_shader_data['locations']['cubemap_sampler'], 0)
-        
-        glUseProgram(textured_depthmap_program)
-        glUniform1i(
-                textured_depthmap_shader_data['locations']['texture_sampler'],
-                0)
-        
-        # (light data)
-        for variable in (
-                'ambient_color',
-                'num_point_lights',
-                'num_direction_lights',
-                'point_light_data',
-                'direction_light_data'):
-            textured_shader_data['locations'][variable] = (
-                    glGetUniformLocation(textured_program, variable))
-            vertex_color_shader_data['locations'][variable] = (
-                    glGetUniformLocation(vertex_color_program, variable))
-        
-        # (mask data)
-        mask_shader_data['locations']['mask_color'] = (
-                glGetUniformLocation(mask_program, 'mask_color'))
-        
-        # (coord_data)
-        coord_shader_data['locations']['box_min'] = (
-                glGetUniformLocation(coord_program, 'box_min'))
-        coord_shader_data['locations']['box_max'] = (
-                glGetUniformLocation(coord_program, 'box_max'))
-        
-        # (textured depthmap data)
-        textured_depthmap_shader_data['locations']['focal_length'] = (
-                glGetUniformLocation(textured_depthmap_program, 'focal_length'))
-        textured_depthmap_shader_data['locations']['width'] = (
-                glGetUniformLocation(textured_depthmap_program, 'width'))
-        textured_depthmap_shader_data['locations']['height'] = (
-                glGetUniformLocation(textured_depthmap_program, 'height'))
-        
-        self.gl_data['textured_shader'] = textured_shader_data
-        self.gl_data['vertex_color_shader'] = vertex_color_shader_data
-        self.gl_data['mask_shader'] = mask_shader_data
-        self.gl_data['coord_shader'] = coord_shader_data
-        self.gl_data['background_shader'] = background_shader_data
-        self.gl_data['textured_depthmap_shader'] = textured_depthmap_shader_data
-    
+
     #===========================================================================
     # scene methods
     #===========================================================================
@@ -490,7 +291,8 @@ class Renderpy:
             mesh_path = None,
             mesh_data = None,
             scale = 1.0,
-            create_uvs = False):
+            create_uvs = False,
+            color_mode = 'textured'):
         
         # if a mesh asset name was provided, load that
         if mesh_asset is not None:
@@ -513,6 +315,8 @@ class Renderpy:
                     'Must supply a "mesh_asset", "mesh_path" or "mesh_data" '
                     'argument when loading a mesh')
         
+        self.scene_description['meshes'][name]['color_mode'] = color_mode
+        
         # create mesh buffers and load the mesh data
         mesh_buffers = {}
         
@@ -522,10 +326,10 @@ class Renderpy:
         normal_floats = numpy.array(mesh['normals'], dtype=numpy.float32)
         if normal_floats.shape[1] > 3:
             normal_floats = normal_floats[:,:3]
-        if not len(mesh['uvs']) and create_uvs:
-            mesh['uvs'] = [[0,0] for _ in mesh['vertices']]
         
-        if len(mesh['uvs']):
+        if color_mode == 'textured':
+            if not len(mesh['uvs']) and create_uvs:
+                mesh['uvs'] = [[0,0] for _ in mesh['vertices']]
             uv_floats = numpy.array(mesh['uvs'], dtype=numpy.float32)
             if uv_floats.shape[1]:
                 uv_floats = uv_floats[:,:2]
@@ -533,11 +337,16 @@ class Renderpy:
                     (vertex_floats, normal_floats, uv_floats), axis=1)
             mesh_buffers['vertex_buffer'] = vbo.VBO(combined_floats)
         
-        else:
+        elif color_mode == 'vertex_colors':
             vertex_color_floats = numpy.array(
                     mesh['vertex_colors'], dtype=numpy.float32)
             combined_floats = numpy.concatenate(
                     (vertex_floats, normal_floats, vertex_color_floats), axis=1)
+            mesh_buffers['vertex_buffer'] = vbo.VBO(combined_floats)
+        
+        elif color_mode == 'flat':
+            combined_floats = numpy.concatenate(
+                    (vertex_floats, normal_floats), axis=1)
             mesh_buffers['vertex_buffer'] = vbo.VBO(combined_floats)
             
         face_ints = numpy.array(mesh['faces'], dtype=numpy.int32)
@@ -586,6 +395,18 @@ class Renderpy:
     
     def get_mesh(self, mesh):
         return self.scene_description['meshes'][mesh]
+    
+    def get_mesh_color_mode(self, mesh):
+        return self.scene_description['meshes'][mesh]['color_mode']
+    
+    def get_mesh_stride(self, mesh_name):
+        color_mode = self.get_mesh_color_mode(mesh_name)
+        if color_mode == 'textured':
+            return (3+3+2) * 4
+        elif color_mode == 'vertex_color':
+            return (3+3+3) * 4
+        elif color_mode == 'flat':
+            return (3+3) * 4
     
     #===========================================================================
     # depthmap methods
@@ -1000,7 +821,7 @@ class Renderpy:
     def load_material(self,
             name,
             texture = None,
-            color = None,
+            flat_color = None,
             ka = 1.0,
             kd = 1.0,
             ks = 0.5,
@@ -1017,7 +838,8 @@ class Renderpy:
                 'shine' : shine,
                 'image_light_kd' : image_light_kd,
                 'image_light_ks' : image_light_ks,
-                'image_light_blur_reflection' : image_light_blur_reflection}
+                'image_light_blur_reflection' : image_light_blur_reflection,
+                'flat_color':flat_color}
         
         if name in self.gl_data['material_buffers']:
             glBindTexture(GL_TEXTURE_2D,0)
@@ -1027,11 +849,11 @@ class Renderpy:
         material_buffers = {}
         material_buffers['texture'] = glGenTextures(1)
         self.gl_data['material_buffers'][name] = material_buffers
-        
+        '''
         if color is not None:
             texture = numpy.zeros((16,16,3), dtype=numpy.uint8)
             texture[:] = color
-        
+        '''
         if texture is not None:
             self.replace_texture(name, texture, crop)
     
@@ -1054,6 +876,9 @@ class Renderpy:
     
     def get_material(self, material_name):
         return self.scene_description['materials'][material_name]
+    
+    def get_material_flat_color(self, material_name):
+        return self.scene_description['materials'][material_name]['flat_color']
     
     #===========================================================================
     # instance methods
@@ -1101,6 +926,10 @@ class Renderpy:
     
     def get_instance_mesh_name(self, instance_name):
         return self.scene_description['instances'][instance_name]['mesh_name']
+    
+    def get_instance_material_name(self, instance_name):
+        instance_data = self.scene_description['instances'][instance_name]
+        return instance_data['material_name']
     
     def get_instance_center_bbox(self, instances=None):
         if instances is None:
@@ -1264,10 +1093,10 @@ class Renderpy:
         if depthmap_instances is None:
             depthmap_instances = self.scene_description['depthmap_instances']
         
-        glUseProgram(self.gl_data['textured_depthmap_shader']['program'])
+        self.shader_library.use_program('textured_depthmap_shader')
         try:
-            location_data = (
-                    self.gl_data['textured_depthmap_shader']['locations'])
+            location_data = self.shader_library.get_shader_locations(
+                    'textured_depthmap_shader')
             
             # set the camera's pose
             camera_pose = self.scene_description['camera']['pose']
@@ -1305,28 +1134,31 @@ class Renderpy:
         
         textured_shader_instances = []
         vertex_color_shader_instances = []
+        flat_color_shader_instances = []
         for instance in instances:
-            instance_mesh = (
-                    self.scene_description['instances'][instance]['mesh_name'])
-            mesh_data = self.loaded_data['meshes'][instance_mesh]
-            if len(mesh_data['uvs']):
+            instance_mesh = self.get_instance_mesh_name(instance)
+            mesh_color_mode = self.get_mesh_color_mode(instance_mesh)
+            if mesh_color_mode == 'textured':
                 textured_shader_instances.append(instance)
-            else:
+            elif mesh_color_mode == 'vertex_color':
                 vertex_color_shader_instances.append(instance)
+            elif mesh_color_mode == 'flat':
+                flat_color_shader_instances.append(instance)
         
         for shader_name, shader_instances in (
                 ('textured_shader', textured_shader_instances),
-                ('vertex_color_shader', vertex_color_shader_instances)):
+                ('vertex_color_shader', vertex_color_shader_instances),
+                ('flat_color_shader', flat_color_shader_instances)):
             
             if len(shader_instances) == 0:
                 continue
             
             # turn on the shader
-            glUseProgram(self.gl_data[shader_name]['program'])
+            self.shader_library.use_program(shader_name)
             
             try:
-                
-                location_data = self.gl_data[shader_name]['locations']
+                location_data = self.shader_library.get_shader_locations(
+                        shader_name)
                 
                 # set the camera's pose
                 camera_pose = self.scene_description['camera']['pose']
@@ -1445,21 +1277,21 @@ class Renderpy:
                 
                 mesh_instances = {}
                 for instance_name in shader_instances:
-                    instance_data = (
-                            self.scene_description['instances'][instance_name])
-                    if instance_data['hidden']:
+                    if self.instance_hidden(instance_name):
                         continue
-                    mesh_name = instance_data['mesh_name']
+                    mesh_name = self.get_instance_mesh_name(instance_name)
                     try:
                         mesh_instances[mesh_name].append(instance_name)
                     except KeyError:
                         mesh_instances[mesh_name] = [instance_name]
                 
                 for mesh_name, instance_names in mesh_instances.items():
-                    self.color_render_instance(instance_names[0])
+                    self.color_render_instance(instance_names[0], shader_name)
                     for instance_name in instance_names[1:]:
                         self.color_render_instance(
-                                instance_name, set_mesh_attrib_pointers=False)
+                                instance_name,
+                                shader_name,
+                                set_mesh_attrib_pointers=False)
                 
             finally:
                 glUseProgram(0)
@@ -1469,6 +1301,7 @@ class Renderpy:
     
     def color_render_instance(self,
             instance_name,
+            shader_name,
             set_mesh_attrib_pointers=True):
         instance_data = self.scene_description['instances'][instance_name]
         if instance_data['hidden']:
@@ -1496,12 +1329,7 @@ class Renderpy:
         mesh_data = self.loaded_data['meshes'][instance_mesh]
         num_triangles = len(mesh_data['faces'])
         
-        do_textured_mesh = len(mesh_data['uvs']) > 0
-        
-        if do_textured_mesh:
-            location_data = self.gl_data['textured_shader']['locations']
-        else:
-            location_data = self.gl_data['vertex_color_shader']['locations']
+        location_data = self.shader_library.get_shader_locations(shader_name)
         
         glUniformMatrix4fv(
                 location_data['model_pose'],
@@ -1519,45 +1347,46 @@ class Renderpy:
         mesh_buffers['face_buffer'].bind()
         mesh_buffers['vertex_buffer'].bind()
         
-        if do_textured_mesh:
+        if shader_name == 'textured_shader':
             glActiveTexture(GL_TEXTURE0)
             glBindTexture(GL_TEXTURE_2D, material_buffers['texture'])
+        
+        if shader_name == 'flat_color_shader':
+            flat_color = self.get_material_flat_color(instance_material)
+            glUniform3fv(
+                    location_data['flat_color'],
+                    1, numpy.array(flat_color, dtype=numpy.float32))
         
         try:
             # SOMETHING BETWEEN HERE...
             if set_mesh_attrib_pointers:
                 glEnableVertexAttribArray(location_data['vertex_position'])
                 glEnableVertexAttribArray(location_data['vertex_normal'])
-                if do_textured_mesh:
+                if shader_name == 'textured_shader':
                     glEnableVertexAttribArray(location_data['vertex_uv'])
-                    stride = (3+3+2) * 4
-                    glVertexAttribPointer(
-                            location_data['vertex_position'],
-                            3, GL_FLOAT, False, stride,
-                            mesh_buffers['vertex_buffer'])
-                    glVertexAttribPointer(
-                            location_data['vertex_normal'],
-                            3, GL_FLOAT, False, stride,
-                            mesh_buffers['vertex_buffer']+((3)*4))
+                elif shader_name == 'vertex_color_shader':
+                    glEnableVertexAttribArray(location_data['vertex_color'])
+                
+                stride = self.get_mesh_stride(instance_mesh)
+                glVertexAttribPointer(
+                        location_data['vertex_position'],
+                        3, GL_FLOAT, False, stride,
+                        mesh_buffers['vertex_buffer'])
+                glVertexAttribPointer(
+                        location_data['vertex_normal'],
+                        3, GL_FLOAT, False, stride,
+                        mesh_buffers['vertex_buffer']+((3)*4))
+                if shader_name == 'textured_shader':
                     glVertexAttribPointer(
                             location_data['vertex_uv'],
                             2, GL_FLOAT, False, stride,
                             mesh_buffers['vertex_buffer']+((3+3)*4))
-                else:
-                    glEnableVertexAttribArray(location_data['vertex_color'])
-                    stride = (3+3+3) * 4
-                    glVertexAttribPointer(
-                            location_data['vertex_position'],
-                            3, GL_FLOAT, False, stride,
-                            mesh_buffers['vertex_buffer'])
-                    glVertexAttribPointer(
-                            location_data['vertex_normal'],
-                            3, GL_FLOAT, False, stride,
-                            mesh_buffers['vertex_buffer']+((3)*4))
+                elif shader_name == 'vertex_color_shader':
                     glVertexAttribPointer(
                             location_data['vertex_color'],
                             3, GL_FLOAT, False, stride,
                             mesh_buffers['vertex_buffer']+((3+3)*4))
+                    
             # AND HERE TAKES ~40% of the rendering time
             
             glDrawElements(
@@ -1581,7 +1410,8 @@ class Renderpy:
         depthmap_buffers = self.gl_data['depthmap_buffers'][instance_depthmap]
         material_buffers = self.gl_data['material_buffers'][instance_material]
         depth_data = self.loaded_data['depthmaps'][instance_depthmap]
-        location_data = self.gl_data['textured_depthmap_shader']['locations']
+        location_data = self.shader_library.get_shader_locations(
+                'textured_depthmap_shader')
         
         glUniformMatrix4fv(
                 location_data['model_pose'],
@@ -1628,13 +1458,14 @@ class Renderpy:
             glBindTexture(GL_TEXTURE_2D, 0)
     
     def render_background(self, image_light_name, flip_y=True):
-        glUseProgram(self.gl_data['background_shader']['program'])
+        self.shader_library.use_program('background_shader')
         
         mesh_buffers = self.gl_data['mesh_buffers']['BACKGROUND']
         light_buffers = self.gl_data['light_buffers'][image_light_name]
         num_triangles = 2
         
-        location_data = self.gl_data['background_shader']['locations']
+        location_data = self.shader_library.get_shader_locations(
+                'background_shader')
         
         # set the camera's pose
         camera_pose = self.scene_description['camera']['pose']
@@ -1670,7 +1501,6 @@ class Renderpy:
         # set the blur
         blur = light_data['blur']
         glUniform1f(location_data['blur'], blur)
-        #glUniform1f(location_data['blur'], 0)
         
         mesh_buffers['face_buffer'].bind()
         mesh_buffers['vertex_buffer'].bind()
@@ -1708,11 +1538,11 @@ class Renderpy:
         self.clear_frame()
         
         # turn on the shader
-        glUseProgram(self.gl_data['mask_shader']['program'])
+        self.shader_library.use_program('mask_shader')
         
         try:
-            
-            location_data = self.gl_data['mask_shader']['locations']
+            location_data = self.shader_library.get_shader_locations(
+                    'mask_shader')
             
             # set the camera's pose
             camera_pose = self.scene_description['camera']['pose']
@@ -1757,7 +1587,8 @@ class Renderpy:
         mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
         mesh = self.loaded_data['meshes'][instance_mesh]
         
-        location_data = self.gl_data['mask_shader']['locations']
+        location_data = self.shader_library.get_shader_locations(
+                'mask_shader')
         
         glUniformMatrix4fv(
                 location_data['model_pose'],
@@ -1774,7 +1605,8 @@ class Renderpy:
         try:
             glEnableVertexAttribArray(location_data['vertex_position'])
             
-            stride = (3+3+2) * 4
+            stride = self.get_mesh_stride(instance_mesh)
+            
             glVertexAttribPointer(
                     location_data['vertex_position'],
                     3, GL_FLOAT, False, stride,
@@ -1799,10 +1631,11 @@ class Renderpy:
         self.clear_frame()
         
         # turn on the shader
-        glUseProgram(self.gl_data['coord_shader']['program'])
+        self.shader_library.use_program('coord_shader')
         
         try:
-            location_data = self.gl_data['coord_shader']['locations']
+            location_data = self.shader_library.get_shader_locations(
+                    'coord_shader')
             camera_pose = self.scene_description['camera']['pose']
             glUniformMatrix4fv(
                     location_data['camera_pose'],
@@ -1844,7 +1677,8 @@ class Renderpy:
         mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
         mesh = self.loaded_data['meshes'][instance_mesh]
         
-        location_data = self.gl_data['coord_shader']['locations']
+        location_data = self.shader_library.get_shader_locations(
+                'coord_shader')
         
         glUniformMatrix4fv(
                 location_data['model_pose'],
@@ -1865,7 +1699,7 @@ class Renderpy:
         try:
             glEnableVertexAttribArray(location_data['vertex_position'])
             
-            stride = (3+3+2) * 4
+            stride = self.get_mesh_stride(instance_mesh)
             glVertexAttribPointer(
                     location_data['vertex_position'],
                     3, GL_FLOAT, False, stride,
