@@ -17,7 +17,6 @@ import renderpy.image as image
 def panorama_to_cube(panorama_image, cube_width, panorama_filter='linear'):
     
     # initialize the buffer manager
-    #manager = buffer_manager.initialize_shared_buffer_manager()
     manager = buffer_manager.initialize_shared_buffer_manager()
     
     frame_buffer = FrameBufferWrapper(cube_width, cube_width)
