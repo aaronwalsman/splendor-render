@@ -52,8 +52,8 @@ out vec3 color;
 
 uniform float blur;
 layout(binding=3) uniform samplerCube cubemap_sampler;
-uniform mat4 offset_matrix;
-''' + skybox_fn + '''
+uniform mat4 offset_matrix;''' + f'''
+{skybox_fn}''' + '''
 void main(){
     vec4 offset_direction = offset_matrix *
             vec4(fragment_direction, 0.);

@@ -1,7 +1,10 @@
 from renderpy.shaders.utils import softish_step_fn, intensity_fn
 from renderpy.shaders.skybox import skybox_fn
 
-image_light_diffuse_fn = softish_step_fn + intensity_fn + skybox_fn + '''
+image_light_diffuse_fn = f'''
+{softish_step_fn}
+{intensity_fn}
+{skybox_fn}''' + '''
 vec3 image_light_diffuse(
         float diffuse_contribution,
         vec3 fragment_normal,

@@ -44,7 +44,9 @@ layout(binding=0) uniform sampler2D texture_sampler;
 
 layout(binding=2) uniform samplerCube diffuse_sampler;
 layout(binding=3) uniform samplerCube reflect_sampler;
-''' + phong_fn + image_light_diffuse_fn + '''
+''' + f'''
+{phong_fn}
+{image_light_diffuse_fn}''' + '''
 
 void main(){
     
