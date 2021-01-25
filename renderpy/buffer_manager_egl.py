@@ -121,7 +121,7 @@ class BufferManagerEGL:
                 eglGetDisplay, eglInitialize, eglChooseConfig,
                 eglBindAPI, eglCreateContext, EGLConfig)
 
-        config_attributes = arrays.GLintArray.asArray([
+        config_attributes = GL.arrays.GLintArray.asArray([
                 EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
                 EGL_BLUE_SIZE, 8,
                 EGL_RED_SIZE, 8,
@@ -132,7 +132,7 @@ class BufferManagerEGL:
                 EGL_CONFORMANT, EGL_OPENGL_BIT,
                 EGL_NONE])
 
-        context_attributes = arrays.GLintArray.asArray([
+        context_attributes = GL.arrays.GLintArray.asArray([
                 EGL_CONTEXT_MAJOR_VERSION, 3,
                 EGL_CONTEXT_MINOR_VERSION, 1,
                 EGL_CONTEXT_OPENGL_PROFILE_MASK,

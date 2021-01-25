@@ -636,7 +636,11 @@ class Renderpy:
                     GL.GL_RGB, GL.GL_UNSIGNED_BYTE, image)
 
             # GL.GL_NEAREST?
-            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+            GL.glTexParameteri(
+                    GL.GL_TEXTURE_2D,
+                    GL.GL_TEXTURE_MAG_FILTER,
+                    GL.GL_LINEAR,
+            )
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER,
                     GL.GL_LINEAR_MIPMAP_LINEAR)
             GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
@@ -728,7 +732,10 @@ class Renderpy:
             light_description['reflection_mipmaps'] = -1
 
         light_buffers = self.gl_data['light_buffers'][name]
-        GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, light_buffers['diffuse_texture'])
+        GL.glBindTexture(
+                GL.GL_TEXTURE_CUBE_MAP,
+                light_buffers['diffuse_texture'],
+        )
         try:
             diffuse_min = float('inf')
             diffuse_max = -float('inf')
@@ -753,17 +760,29 @@ class Renderpy:
             light_description['diffuse_max'] = diffuse_max / 255.
 
             GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+                    GL.GL_TEXTURE_CUBE_MAP,
+                    GL.GL_TEXTURE_MAG_FILTER,
+                    GL.GL_LINEAR,
+            )
             GL.glTexParameteri(
                     GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_MIN_FILTER,
                     GL.GL_LINEAR_MIPMAP_LINEAR)
             GL.glGenerateMipmap(GL.GL_TEXTURE_CUBE_MAP)
             GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
+                    GL.GL_TEXTURE_CUBE_MAP,
+                    GL.GL_TEXTURE_WRAP_S,
+                    GL.GL_CLAMP_TO_EDGE,
+            )
             GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
+                    GL.GL_TEXTURE_CUBE_MAP,
+                    GL.GL_TEXTURE_WRAP_T,
+                    GL.GL_CLAMP_TO_EDGE,
+            )
             GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_WRAP_R, GL.GL_CLAMP_TO_EDGE)
+                    GL.GL_TEXTURE_CUBE_MAP,
+                    GL.GL_TEXTURE_WRAP_R,
+                    GL.GL_CLAMP_TO_EDGE,
+            )
         finally:
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
 
@@ -789,7 +808,10 @@ class Renderpy:
                                 0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, mipmap)
 
             GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+                    GL.GL_TEXTURE_CUBE_MAP,
+                    GL.GL_TEXTURE_MAG_FILTER,
+                    GL.GL_LINEAR,
+            )
             GL.glTexParameteri(
                     GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_MIN_FILTER,
                     GL.GL_LINEAR_MIPMAP_LINEAR)
@@ -801,11 +823,20 @@ class Renderpy:
                         GL.GL_TEXTURE_MAX_LEVEL,
                         len(reflection_mipmaps[0]))
             GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
+                    GL.GL_TEXTURE_CUBE_MAP,
+                    GL.GL_TEXTURE_WRAP_S,
+                    GL.GL_CLAMP_TO_EDGE,
+            )
             GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
+                    GL.GL_TEXTURE_CUBE_MAP,
+                    GL.GL_TEXTURE_WRAP_T,
+                    GL.GL_CLAMP_TO_EDGE,
+            )
             GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_WRAP_R, GL.GL_CLAMP_TO_EDGE)
+                    GL.GL_TEXTURE_CUBE_MAP,
+                    GL.GL_TEXTURE_WRAP_R,
+                    GL.GL_CLAMP_TO_EDGE,
+            )
         finally:
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
 

@@ -31,7 +31,11 @@ class FrameBufferWrapper:
         self.depth_buffer = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.depth_buffer)
         GL.glRenderbufferStorage(
-                GL.GL_RENDERBUFFER, GL.GL_DEPTH_COMPONENT24, self.width, self.height)
+                GL.GL_RENDERBUFFER,
+                GL.GL_DEPTH_COMPONENT24,
+                self.width,
+                self.height,
+        )
         GL.glFramebufferRenderbuffer(
                 GL.GL_FRAMEBUFFER,
                 GL.GL_DEPTH_ATTACHMENT,
@@ -41,7 +45,10 @@ class FrameBufferWrapper:
         if self.anti_alias:
             # multi-sample frame buffer
             self.frame_buffer_multi = GL.glGenFramebuffers(1)
-            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.frame_buffer_multi)
+            GL.glBindFramebuffer(
+                    GL.GL_DRAW_FRAMEBUFFER,
+                    self.frame_buffer_multi,
+            )
 
             # color multi-sample renderbuffer
             self.render_buffer_multi = GL.glGenRenderbuffers(1)
@@ -87,7 +94,10 @@ class FrameBufferWrapper:
             projection = None):
 
         if self.anti_alias:
-            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.frame_buffer_multi)
+            GL.glBindFramebuffer(
+                    GL.GL_READ_FRAMEBUFFER,
+                    self.frame_buffer_multi,
+            )
             GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.frame_buffer)
             GL.glBlitFramebuffer(
                     0, 0, self.width, self.height,
@@ -109,7 +119,13 @@ class FrameBufferWrapper:
             image = 2.0 * near * far / (far + near - image * (far - near))
         else:
             pixels = GL.glReadPixels(
-                    0, 0, self.width, self.height, GL.GL_RGB, GL.GL_UNSIGNED_BYTE)
+                    0,
+                    0,
+                    self.width,
+                    self.height,
+                    GL.GL_RGB,
+                    GL.GL_UNSIGNED_BYTE
+            )
             image = numpy.frombuffer(pixels, dtype=numpy.uint8).reshape(
                     self.height, self.width, 3)
 

@@ -115,7 +115,13 @@ class BufferManagerGLUT:
         if read_depth:
             near, far = camera.clip_from_projection(projection)
             pixels = GL.glReadPixels(
-                    0, 0, width, height, GL.GL_DEPTH_COMPONENT, GL.GL_UNSIGNED_SHORT)
+                    0,
+                    0,
+                    width,
+                    height,
+                    GL.GL_DEPTH_COMPONENT,
+                    GL.GL_UNSIGNED_SHORT,
+            )
             image = numpy.frombuffer(pixels, dtype=numpy.ushort).reshape(
                     height, width, 1)
             image = image.astype(numpy.float) / (2**16-1)

@@ -63,18 +63,34 @@ def panorama_to_cube(panorama_image, cube_width, panorama_filter='linear'):
             GL.GL_RGB, GL.GL_UNSIGNED_BYTE, panorama_image)
 
     if panorama_filter == 'linear':
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+        GL.glTexParameteri(
+            GL.GL_TEXTURE_2D,
+            GL.GL_TEXTURE_MAG_FILTER,
+            GL.GL_LINEAR,
+        )
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER,
                 GL.GL_LINEAR_MIPMAP_LINEAR)
         GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
     elif panorama_filter == 'nearest':
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+        GL.glTexParameteri(
+                GL.GL_TEXTURE_2D,
+                GL.GL_TEXTURE_MAG_FILTER,
+                GL.GL_NEAREST,
+        )
+        GL.glTexParameteri(
+                GL.GL_TEXTURE_2D,
+                GL.GL_TEXTURE_MIN_FILTER,
+                GL.GL_NEAREST,
+        )
     else:
         raise ValueError('Unknown filter: %s'%panorama_filter)
 
     GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)
-    GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_MIRRORED_REPEAT)
+    GL.glTexParameteri(
+            GL.GL_TEXTURE_2D,
+            GL.GL_TEXTURE_WRAP_T,
+            GL.GL_MIRRORED_REPEAT,
+    )
 
     # cameras
     projection_matrix = camera.projection_matrix(
@@ -112,7 +128,12 @@ def panorama_to_cube(panorama_image, cube_width, panorama_filter='linear'):
                 [ 0, 1, 0, 0],
                 [ 0, 0, 0, 1]])}
 
-    GL.glUniformMatrix4fv(projection_location, 1, GL.GL_TRUE, projection_matrix)
+    GL.glUniformMatrix4fv(
+            projection_location,
+            1,
+            GL.GL_TRUE,
+            projection_matrix,
+    )
 
     output_images = {}
 
