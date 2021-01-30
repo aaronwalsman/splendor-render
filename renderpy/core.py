@@ -294,6 +294,8 @@ class Renderpy:
             create_uvs = False,
             color_mode = 'textured'):
         
+        assert color_mode in ('textured', 'vertex_colors', 'flat')
+        
         # if a mesh asset name was provided, load that
         if mesh_asset is not None:
             mesh_path = self.asset_library['meshes'][mesh_asset]
@@ -1303,6 +1305,7 @@ class Renderpy:
             instance_name,
             shader_name,
             set_mesh_attrib_pointers=True):
+        
         instance_data = self.scene_description['instances'][instance_name]
         if instance_data['hidden']:
             return
