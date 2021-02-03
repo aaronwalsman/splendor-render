@@ -2,6 +2,7 @@ from setuptools import setup
 
 setup(  name = 'renderpy',
         version = '0.2',
+        install_requires = ['numpy', 'PyOpenGL'],
         description = 'Bare-bones python OpenGL renderer for textured meshes',
         url = 'https://gitlab.cs.washington.edu/awalsman/renderpy',
         author = 'Aaron Walsman',
