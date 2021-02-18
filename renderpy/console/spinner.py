@@ -11,20 +11,20 @@ def spin(
         width = 512,
         height = 512,
         poll_frequency = 1024):
-    
+
     manager = buffer_manager.initialize_shared_buffer_manager(width, height)
     renderer = core.Renderpy()
-    
+
     manager.show_window()
     manager.enable_window()
-    
+
     render_state = {
         'static_camera_pose' : numpy.eye(4),
         'camera_pose_delta' : None,
         'integrated_camera_pose_delta' : numpy.eye(4),
         'recent_change_time' : -1
     }
-    
+
     def reload_scene():
         while True:
             try:
@@ -47,10 +47,10 @@ def spin(
                 raise
             else:
                 break
-    
+
     def render():
         renderer.color_render(flip_y = False)
-    
+
     steps = 0
     pose_delta = numpy.eye(4)
     integrated_pose_delta = numpy.eye(4)
@@ -63,7 +63,7 @@ def spin(
             print(poll_frequency/(new_time - recent_time))
             recent_time = new_time
         steps += 1
-        
+
         if render_state['camera_pose_delta'] is not None:
             render_state['integrated_camera_pose_delta'] = numpy.dot(
                     render_state['integrated_camera_pose_delta'],
@@ -72,18 +72,18 @@ def spin(
                 render_state['integrated_camera_pose_delta'],
                 render_state['static_camera_pose'])
         renderer.set_camera_pose(numpy.linalg.inv(camera_pose))
-        
+
         render()
 
-if __name__ == '__main__':
+def run():
     width = 512
     height = 512
-    
+
     if len(sys.argv) < 2:
         raise Exception('Please specify one scene file')
-    
+
     scene_file = sys.argv[1]
-    
+
     spin(   scene_file,
             width=width,
             height=height)

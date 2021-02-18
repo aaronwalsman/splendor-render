@@ -15,12 +15,12 @@ from renderpy.reflection_to_diffuse import reflection_to_diffuse
 def sample_color(
         intensity_range,
         color_offset_range):
-    
+
     intensity = random.uniform(*intensity_range)
     offset = random.uniform(*color_offset_range)
     color = [min(max(intensity + random.uniform(-1,1) * offset, 0), 1)
             for _ in range(3)]
-    
+
     return color
 
 def sample_window(
@@ -28,7 +28,7 @@ def sample_window(
         scale_range = (0.1, 0.5),
         intensity_range = (0.8, 1.0),
         color_offset_range = (0, 0.2)):
-    
+
     is_disc = random.random() < p_disc
     if is_disc:
         light_type = 'disc'
@@ -37,13 +37,13 @@ def sample_window(
     else:
         light_type = 'rect'
         scale = [random.uniform(*scale_range) for _ in range(3)]
-    
+
     direction = random.choice(((-1,0,0),(1,0,0),(0,0,-1),(0,0,1)))
     if direction == (-1, 0, 0) or direction == (1, 0, 0):
         position = (-direction[0], random.uniform(-1,1), random.uniform(-1,1))
     else:
         position = (random.uniform(-1,1), random.uniform(-1,1), -direction[2])
-    
+
     light = {
         'type' : light_type,
         'position' : position,
@@ -52,7 +52,7 @@ def sample_window(
         'scale' : scale,
         'color' : sample_color(intensity_range, color_offset_range)
     }
-    
+
     return light
 
 def sample_overhead_light(
@@ -60,7 +60,7 @@ def sample_overhead_light(
         scale_range = (0.01, 0.1),
         intensity_range = (0.8, 1.0),
         color_offset_range = (0, 0.2)):
-    
+
     is_disc = random.random() < p_disc
     if is_disc:
         light_type = 'disc'
@@ -69,9 +69,9 @@ def sample_overhead_light(
     else:
         light_type = 'rect'
         scale = [random.uniform(*scale_range) for _ in range(3)]
-    
+
     position = [random.uniform(-1, 1), 1.0, random.uniform(-1, 1)]
-    
+
     light = {
         'type' : light_type,
         'position' : position,
@@ -80,7 +80,7 @@ def sample_overhead_light(
         'scale' : scale,
         'color' : sample_color(intensity_range, color_offset_range)
     }
-    
+
     return light
 
 def sample_room(
@@ -88,26 +88,26 @@ def sample_room(
         window_range = (0,4),
         background_intensity_range = (0.1, 0.4),
         background_color_offset_range = (0.0, 0.1)):
-    
+
     total_lights = 0
     while total_lights == 0:
         num_overhead_lights = random.randint(*overhead_light_range)
         num_windows = random.randint(*window_range)
         total_lights = num_overhead_lights + num_windows
-    
+
     background_color = sample_color(
             background_intensity_range, background_color_offset_range)
-    
+
     lights = [
             sample_overhead_light() for _ in range(num_overhead_lights)] + [
             sample_window() for _ in range(num_windows)]
-    
+
     return make_light_room(lights, background_color)
 
 def sample_and_export_rooms(
         num_rooms,
         destination):
-    
+
     for i in tqdm.tqdm(range(num_rooms)):
         scene = sample_room()
         reflection_maps = reflection_maps_from_scene(
@@ -116,15 +116,15 @@ def sample_and_export_rooms(
                 512,
                 512,
                 fake_hdri=False)
-        
+
         diffuse_maps = reflection_to_diffuse(
                 reflection_maps,
                 128)
-        
+
         out_dir = os.path.join(destination, 'room_%i'%i)
         if not os.path.isdir(out_dir):
             os.makedirs(out_dir)
-        
+
         for name, reflection_map in reflection_maps.items():
             diffuse_map = diffuse_maps[name]
             save_image(reflection_map, os.path.join(out_dir, '%s_ref.png'%name))
@@ -133,21 +133,21 @@ def sample_and_export_rooms(
 def make_light_room(
         lights = (),
         background_color = (0,0,0)):
-    
+
     scene_description = {
         'meshes' : {},
         'materials' : {},
         'instances' : {},
         'background_color' : background_color,
     }
-    
+
     scene_description['meshes']['disc'] = {
         'mesh_path' : './example_meshes/disc.obj'
     }
     scene_description['meshes']['rect'] = {
         'mesh_path' : './example_meshes/rect.obj'
     }
-    
+
     for i, light in enumerate(lights):
         sx, sy, sz = light['scale']
         scale_transform = numpy.array([
@@ -184,8 +184,8 @@ def make_light_room(
         scene_description['materials']['mat_%i'%i] = {
             'texture' : texture
         }
-    
+
     return scene_description
 
-if __name__ == '__main__':
+def run():
     sample_and_export_rooms(int(sys.argv[1]), sys.argv[2])
