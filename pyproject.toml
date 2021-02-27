@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "renderpy"
+version = "0.1.0"
+description = "A Python rendering library for visual machine learning"
+authors = ["Aaron Walsman <awalsman@cs.washington.edu>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+numpy = "^1.20.0"
+PyOpenGL = "^3.1.5"
+Pillow = "^8.1.0"
+
+[tool.poetry.dev-dependencies]
+ipython = "^7.20.0"
+
+[tool.poetry.scripts]
+drpy-render = "renderpy.console.drpy_render:run"
+drpy-viewer = "renderpy.console.drpy_viewer:run"
+drpy-mask-viewer = "renderpy.console.drpy_mask_viewer:run"
+panorama-to-cube = "renderpy.console.panorama_to_cube:run"
+reflection-to-diffuse = "renderpy.console.reflection_to_diffuse:run"
+gibson-environment-maps = "renderpy.console.gibson_environment_maps:run"
+light-room = "renderpy.console.light_room:run"
+matterport-environment-maps = "renderpy.console.matterport_environment_maps:run"
+reflection-maps-from-scene = "renderpy.console.reflection_maps_from_scene:run"
+spinner = "renderpy.console.spinner:run"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
