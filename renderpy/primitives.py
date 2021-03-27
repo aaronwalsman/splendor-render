@@ -275,7 +275,9 @@ def barrel(
 def multi_cylinder(
         start_height = 0,
         sections = ((1, 1),),
-        radial_resolution = 16):
+        radial_resolution = 16,
+        start_cap = False,
+        end_cap = False):
     
     previous_height = start_height
     barrel_segments = []
@@ -287,15 +289,20 @@ def multi_cylinder(
         barrel_segments.append(barrel_segment)
         previous_height = height
     
-    return merge_meshes(barrel_segments)
-
-def cylinder(
-        height_extents = (-1, 1),
-        radius = 1,
-        theta_extents = (0, math.pi*2),
-        height_divisions = 0,
-        radial_resolution = 16,
-        make_bottom_cap = True,
-        make_top_cap = True):
-   
-    pass
+    caps = []
+    if start_cap:
+        cap = disk(
+                radius = sections[0][0],
+                radial_resolution = radial_resolution,
+                flip_normals = False)
+        cap['vertices'][:,1] = start_height
+        caps.append(cap)
+    if end_cap:
+        cap = disk(
+                radius = sections[-1][0],
+                radial_resolution = radial_resolution,
+                flip_normals = True)
+        cap['vertices'][:,1] = previous_height
+        caps.append(cap)
+    
+    return merge_meshes(barrel_segments + caps)
