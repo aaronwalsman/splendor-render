@@ -14,7 +14,7 @@ from renderpy.shaders.background import (
 from renderpy.shaders.depthmap import (
         textured_depthmap_vertex_shader, textured_depthmap_fragment_shader)
 
-shader_code = {
+default_shader_code = {
     'textured_shader' :
         (textured_vertex_shader, textured_fragment_shader),
     'vertex_color_shader' :
@@ -32,7 +32,10 @@ shader_code = {
 }
 
 class ShaderLibrary:
-    def __init__(self):
+    def __init__(self, shader_code=None):
+        if shader_code is None:
+            shader_code = default_shader_code
+        
         self.gl_data = {}
         for shader_name, (vertex_code, fragment_code) in shader_code.items():
             self.gl_data[shader_name] = {}
