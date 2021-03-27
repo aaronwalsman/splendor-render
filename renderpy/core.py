@@ -275,10 +275,10 @@ class Renderpy:
     def get_camera_pose(self):
         return self.scene_description['camera']['pose']
 
-    def camera_frame_scene(self, *args, **kwargs):
+    def camera_frame_scene(self, multiplier=3.0, *args, **kwargs):
         bbox = self.get_instance_center_bbox()
         camera_matrix = camera.frame_bbox(
-                bbox, self.get_projection(), 3.0,
+                bbox, self.get_projection(), multiplier,
                 *args, **kwargs)
         self.set_camera_pose(camera_matrix)
 
@@ -495,11 +495,13 @@ class Renderpy:
     #===========================================================================
     def load_image_light(self,
             name,
-            diffuse_textures = None,
-            example_diffuse_textures = None,
-            reflection_textures = None,
-            texture_directory = None,
-            reflection_mipmaps = None,
+            #diffuse_textures = None,
+            #example_diffuse_textures = None,
+            #reflect_textures = None,
+            #texture_directory = None,
+            diffuse_texture,
+            reflect_texture,
+            reflect_mipmaps = None,
             offset_matrix = numpy.eye(4),
             blur = 0.0,
             diffuse_contrast = 1.,
@@ -512,7 +514,8 @@ class Renderpy:
             render_background = True,
             crop = None,
             set_active = False):
-
+        
+        '''
         if texture_directory is None:
             if diffuse_textures is not None:
                 pass
@@ -522,22 +525,23 @@ class Renderpy:
                         'diffuse_texture or a texture_directory'
                         'when loading an image_light')
 
-            if reflection_textures is not None:
+            if reflect_textures is not None:
                 pass
 
             else:
                 raise RenderpyException('Must specify a '
-                        'reflection_texture or a texture directory'
+                        'reflect_texture or a texture directory'
                         'when loading an image_light')
-
+        '''
+        
         if name in self.gl_data['light_buffers']:
             GL.glDeleteTextures([
                     self.gl_data['light_buffers'][name]['diffuse_texture'],
-                    self.gl_data['light_buffers'][name]['reflection_texture']])
+                    self.gl_data['light_buffers'][name]['reflect_texture']])
 
         light_buffers = {}
         light_buffers['diffuse_texture'] = GL.glGenTextures(1)
-        light_buffers['reflection_texture'] = GL.glGenTextures(1)
+        light_buffers['reflect_texture'] = GL.glGenTextures(1)
         self.gl_data['light_buffers'][name] = light_buffers
 
         image_light_data = {}
@@ -557,10 +561,10 @@ class Renderpy:
         self.scene_description['image_lights'][name] = image_light_data
         self.replace_image_light_textures(
                 name,
-                diffuse_textures,
-                reflection_textures,
-                texture_directory,
-                reflection_mipmaps)
+                diffuse_texture,
+                reflect_texture,
+                #texture_directory,
+                reflect_mipmaps)
 
         self.load_background_mesh()
 
@@ -571,7 +575,7 @@ class Renderpy:
         GL.glDeleteTextures(
                 self.gl_data['light_buffers'][name]['diffuse_texture'])
         GL.glDeleteTextures(
-                self.gl_data['light_buffers'][name]['reflection_texture'])
+                self.gl_data['light_buffers'][name]['reflect_texture'])
         del(self.gl_data['light_buffers'][name])
         del(self.loaded_data['textures'][name + '_diffuse'])
         del(self.loaded_data['textures'][name + '_reflect'])
@@ -652,12 +656,13 @@ class Renderpy:
 
     def replace_image_light_textures(self,
             name,
-            diffuse_textures = None,
-            reflection_textures = None,
-            texture_directory = None,
-            reflection_mipmaps = None):
-
-        # make sure that either diffuse and reflection textures were provided
+            diffuse_texture,
+            reflect_texture,
+            #texture_directory = None,
+            reflect_mipmaps = None):
+        
+        '''
+        # make sure that either diffuse and reflect textures were provided
         # or an image directory was provided
         if texture_directory is not None:
             texture_directory = (
@@ -671,19 +676,20 @@ class Renderpy:
             diffuse_textures = [
                     os.path.join(texture_directory, diffuse_file)
                     for diffuse_file in diffuse_files]
-            reflection_files = sorted(
+            reflect_files = sorted(
                     [image for image in all_images if '_ref.' in image],
                     key = lambda x : cube_order[x[:2]])
-            reflection_textures = [
-                    os.path.join(texture_directory, reflection_file)
-                    for reflection_file in reflection_files]
+            reflect_textures = [
+                    os.path.join(texture_directory, reflect_file)
+                    for reflect_file in reflect_files]
 
-        elif diffuse_textures is None or reflection_textures is None:
-            raise Exception('Must provide either diffuse and reflection'
+        elif diffuse_textures is None or reflect_textures is None:
+            raise Exception('Must provide either diffuse and reflect'
                     'textures, or an image directory')
-
+        '''
         light_description = self.scene_description['image_lights'][name]
-
+        
+        '''
         try:
             diffuse_textures = [
                     diffuse_textures['px'],
@@ -696,43 +702,46 @@ class Renderpy:
             pass
 
         try:
-            reflection_textures = [
-                    reflection_textures['px'],
-                    reflection_textures['nx'],
-                    reflection_textures['py'],
-                    reflection_textures['ny'],
-                    reflection_textures['pz'],
-                    reflection_textures['nz']]
+            reflect_textures = [
+                    reflect_textures['px'],
+                    reflect_textures['nx'],
+                    reflect_textures['py'],
+                    reflect_textures['ny'],
+                    reflect_textures['pz'],
+                    reflect_textures['nz']]
         except TypeError:
             pass
-
-        if isinstance(diffuse_textures[0], str):
-            light_description['diffuse_textures'] = diffuse_textures
-            diffuse_images = [load_image(diffuse_texture)
-                    for diffuse_texture in diffuse_textures]
+        '''
+        
+        if isinstance(diffuse_texture, str):
+            diffuse_texture = self.asset_library['image_lights'][
+                    diffuse_texture]
+            light_description['diffuse_texture'] = diffuse_texture
+            diffuse_image = load_image(diffuse_texture)
         else:
-            light_description['diffuse_textures'] = -1
-            diffuse_images = diffuse_textures
+            light_description['diffuse_texture'] = -1
+            diffuse_image = diffuse_texture
 
-        if isinstance(reflection_textures[0], str):
-            light_description['reflection_textures'] = reflection_textures
-            reflection_images = [load_image(reflection_texture)
-                    for reflection_texture in reflection_textures]
+        if isinstance(reflect_texture, str):
+            reflect_texture = self.asset_library['image_lights'][
+                    reflect_texture]
+            light_description['reflect_texture'] = reflect_texture
+            reflect_image = load_image(reflect_texture)
         else:
-            light_description['reflection_textures'] = -1
-            reflection_images = reflection_textures
+            light_description['reflect_texture'] = -1
+            reflect_image = reflect_texture
 
-        if reflection_mipmaps:
-            if isinstance(reflection_mipmaps[0][0], str):
-                light_description['reflection_mipmaps'] = reflection_mipmaps
-                reflection_mipmaps = [
+        if reflect_mipmaps:
+            if isinstance(reflect_mipmaps[0][0], str):
+                light_description['reflect_mipmaps'] = reflect_mipmaps
+                reflect_mipmaps = [
                         [load_image(mipmap) for mipmap in mipmaps]
-                        for mipmaps in reflection_mipmaps]
+                        for mipmaps in reflect_mipmaps]
             else:
-                light_description['reflection_mipmaps'] = -1
+                light_description['reflect_mipmaps'] = -1
         else:
-            light_description['reflection_mipmaps'] = -1
-
+            light_description['reflect_mipmaps'] = -1
+        
         light_buffers = self.gl_data['light_buffers'][name]
         GL.glBindTexture(
                 GL.GL_TEXTURE_CUBE_MAP,
@@ -741,14 +750,19 @@ class Renderpy:
         try:
             diffuse_min = float('inf')
             diffuse_max = -float('inf')
-            for i, diffuse_image in enumerate(diffuse_images):
-                diffuse_image = numpy.array(diffuse_image)
-                self.validate_texture(diffuse_image)
+            diffuse_image = numpy.array(diffuse_image)
+            height, strip_width = diffuse_image.shape[:2]
+            assert strip_width == height * 6
+            #for i, diffuse_image in enumerate(diffuse_images):
+            for i in range(6):
+                #diffuse_image = numpy.array(diffuse_image)
+                face_image = diffuse_image[:,i*height:(i+1)*height]
+                self.validate_texture(face_image)
                 GL.glTexImage2D(
                         GL.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
                         0, GL.GL_RGB,
-                        diffuse_image.shape[1], diffuse_image.shape[0],
-                        0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, diffuse_image)
+                        face_image.shape[1], face_image.shape[0],
+                        0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, face_image)
 
                 diffuse_intensity = (
                         diffuse_image[:,:,0] * 0.2989 +
@@ -789,18 +803,22 @@ class Renderpy:
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
 
         GL.glBindTexture(
-                GL.GL_TEXTURE_CUBE_MAP, light_buffers['reflection_texture'])
+                GL.GL_TEXTURE_CUBE_MAP, light_buffers['reflect_texture'])
         try:
-            for i, reflection_image in enumerate(reflection_images):
-                reflection_image = numpy.array(reflection_image)
-                self.validate_texture(reflection_image)
+            reflect_image = numpy.array(reflect_image)
+            height, strip_width = reflect_image.shape[:2]
+            assert strip_width == height * 6
+            #for i, reflect_image in enumerate(reflect_images):
+            for i in range(6):
+                face_image = reflect_image[:,i*height:(i+1)*height]
+                self.validate_texture(face_image)
                 GL.glTexImage2D(
                         GL.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
                         0, GL.GL_RGB,
-                        reflection_image.shape[1], reflection_image.shape[0],
-                        0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, reflection_image)
-                if reflection_mipmaps is not None:
-                    for j, mipmap in enumerate(reflection_mipmaps[i]):
+                        face_image.shape[1], face_image.shape[0],
+                        0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, face_image)
+                if reflect_mipmaps is not None:
+                    for j, mipmap in enumerate(reflect_mipmaps[i]):
                         mipmap = numpy.array(mipmap)
                         self.validate_texture(mipmap)
                         GL.glTexImage2D(
@@ -808,7 +826,7 @@ class Renderpy:
                                 j+1, GL.GL_RGB,
                                 mipmap.shape[1], mipmap.shape[0],
                                 0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, mipmap)
-
+            
             GL.glTexParameteri(
                     GL.GL_TEXTURE_CUBE_MAP,
                     GL.GL_TEXTURE_MAG_FILTER,
@@ -817,13 +835,13 @@ class Renderpy:
             GL.glTexParameteri(
                     GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_MIN_FILTER,
                     GL.GL_LINEAR_MIPMAP_LINEAR)
-            if reflection_mipmaps is None:
+            if reflect_mipmaps is None:
                 GL.glGenerateMipmap(GL.GL_TEXTURE_CUBE_MAP)
             else:
                 GL.glTexParameteri(
                         GL.GL_TEXTURE_CUBE_MAP,
                         GL.GL_TEXTURE_MAX_LEVEL,
-                        len(reflection_mipmaps[0]))
+                        len(reflect_mipmaps[0]))
             GL.glTexParameteri(
                     GL.GL_TEXTURE_CUBE_MAP,
                     GL.GL_TEXTURE_WRAP_S,
@@ -842,8 +860,8 @@ class Renderpy:
         finally:
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
 
-        self.loaded_data['textures'][name + '_diffuse'] = diffuse_images
-        self.loaded_data['textures'][name + '_reflect'] = reflection_images
+        self.loaded_data['textures'][name + '_diffuse'] = diffuse_image
+        self.loaded_data['textures'][name + '_reflect'] = reflect_image
 
     def get_texture(self, texture_name):
         return self.loaded_data['textures'][texture_name]
@@ -1120,7 +1138,7 @@ class Renderpy:
                     'light_buffers'][image_light_name]['diffuse_texture'])
             GL.glActiveTexture(GL.GL_TEXTURE3)
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, self.gl_data[
-                    'light_buffers'][image_light_name]['reflection_texture'])
+                    'light_buffers'][image_light_name]['reflect_texture'])
 
         # depthmap_instances
         if depthmap_instances is None:
@@ -1542,7 +1560,7 @@ class Renderpy:
         GL.glActiveTexture(GL.GL_TEXTURE0)
         GL.glBindTexture(
                 GL.GL_TEXTURE_CUBE_MAP,
-                light_buffers['reflection_texture'])
+                light_buffers['reflect_texture'])
         #GL.glTexParameterf(
         #        GL.GL_TEXTURE_CUBE_MAP,
         #        GL.GL_TEXTURE_MIN_LOD,
