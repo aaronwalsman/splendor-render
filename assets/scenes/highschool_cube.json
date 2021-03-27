@@ -1,12 +1,13 @@
 {
     "image_lights":{
         "background_1": {
-            "texture_directory": "high_school",
-            "reflection_mipmaps": null,
+            "diffuse_texture": "highschool_dif.png",
+            "reflect_texture": "highschool_ref.png",
+            "reflect_mipmaps": null,
             "blur":0,
             "render_background":1,
             "diffuse_contrast":1,
-            "rescale_diffuse_intensity":true,
+            "rescale_diffuse_intensity":false,
             "diffuse_intensity_target_lo":0.0,
             "diffuse_intensity_target_hi":1.0,
             "diffuse_tint_lo":[0.0,0.0,0.0],
