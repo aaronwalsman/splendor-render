@@ -75,11 +75,7 @@ void main(){
             continue;
         }
         float d = dot(fragment_direction_n, sample_direction);
-        //if(d < 0.){
-        //    continue;
-        //}
         vec3 flipped_sample = sample_direction * sign(d);
-        //vec3 flipped_sample = sample_direction;
         
         vec4 reflect_sample = texture(reflect_sampler, flipped_sample);
         vec3 sample_color = vec3(reflect_sample);
@@ -88,54 +84,5 @@ void main(){
         color += sample_color * abs(d) * sample_intensity * importance_ratio;
     }
     color /= NUM_SAMPLES;
-}
-'''
-
-def reflection_to_diffuse_fragment_shader_old(num_samples=512):
-    return f'''#version 460 core
-#define NUM_SAMPLES {num_samples}''' + '''
-in vec3 fragment_direction;
-in vec2 fragment_uv;
-out vec3 color;
-
-uniform float brightness;
-uniform float contrast;
-uniform float color_scale;
-uniform samplerCube reflect_sampler;
-uniform vec3 sphere_samples[NUM_SAMPLES];
-uniform int num_importance_samples;
-uniform float importance_sample_gain;
-uniform float random_sample_gain;
-
-void main(){
-    vec3 importance_color = vec3(0,0,0);
-    vec3 random_color = vec3(0,0,0);
-    vec3 fragment_direction_n = normalize(fragment_direction);
-    for(int i = 0; i < NUM_SAMPLES; ++i){
-        float d = dot(fragment_direction_n, sphere_samples[i]);
-        vec3 flipped_sample = sphere_samples[i] * sign(d);
-        vec3 sample_color = vec3(texture(reflect_sampler, flipped_sample));
-        
-        // brightness
-        sample_color += brightness;
-        // contrast
-        sample_color = (sample_color + 0.5) * contrast - 0.5;
-        
-        if(i >= num_importance_samples){ // || d < 0.){
-            random_color += sample_color * abs(d);
-        }
-        else{
-            if(d > 0.){
-                importance_color += sample_color * abs(d);
-            }
-        }
-    }
-    importance_color /= num_importance_samples;
-    random_color /= (NUM_SAMPLES - num_importance_samples);
-    
-    color = (importance_sample_gain * importance_color +
-            random_sample_gain * random_color) /
-            (importance_sample_gain + random_sample_gain);
-    color *= color_scale;
 }
 '''
