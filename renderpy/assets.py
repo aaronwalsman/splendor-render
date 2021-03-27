@@ -14,7 +14,7 @@ asset_types = (
         'panoramas',
         'scenes')
 asset_extensions = {
-        'image_lights' : (),
+        'image_lights' : ('.jpg', '.png'),
         'meshes' : ('.obj',),
         'textures' : ('.jpg', '.png'),
         'materials' : (),
