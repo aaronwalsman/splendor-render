@@ -2,22 +2,21 @@
 import os
 import argparse
 
+from renderpy.assets import AssetLibrary
 import renderpy.image_light.panorama as panorama
-import renderpy.image as image
+from renderpy.image import load_image, save_image
 
 parser = argparse.ArgumentParser()
 parser.add_argument('panorama', type=str)
 parser.add_argument('output', type=str)
 parser.add_argument('--size', type=int, default=512)
 parser.add_argument('--filter', type=str, default='linear')
+parser.add_argument('--assets', type=str, default=None)
 
 args = parser.parse_args()
 
-if not os.path.isdir(args.output):
-    os.makedirs(args.output)
-
-panorama_image = image.load_image(args.panorama)
-out_images = panorama.panorama_to_cube(panorama_image, args.size, args.filter)
-for cube_face in out_images:
-    face_path = os.path.join(args.output, '%s_ref.png'%cube_face)
-    image.save_image(out_images[cube_face], face_path)
+asset_library = AssetLibrary(args.assets)
+panorama_path = asset_library['panoramas'][args.panorama]
+panorama_image = load_image(panorama_path)
+out_image = panorama.panorama_to_strip(panorama_image, args.size, args.filter)
+save_image(out_image, args.output)
