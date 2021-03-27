@@ -15,7 +15,7 @@ in vec2 fragment_uv;
 in vec3 fragment_color;
 #endif
 
-out vec3 color;
+out vec4 color;
 
 uniform vec4 material_properties;
 
@@ -159,11 +159,12 @@ void main(){
                 diffuse_intensity - 1.0);
     }
     
-    color = vec3(
+    vec3 color_rgb = vec3(
             ambient_color * diffuse_color * ka +
             diffuse_contribution * diffuse_color * kd +
             specular_contribution * ks +
             image_light_diffuse_color * diffuse_color +
             image_light_reflection);
+    color = vec4(color_rgb, 1.);
 }
 '''

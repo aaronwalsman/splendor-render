@@ -1,0 +1,61 @@
+{
+    "image_lights":{
+        "background_1": {
+            "reflect_texture": "rainbox_ref",
+            "diffuse_texture": "rainbox_dif",
+            "reflect_mipmaps": null,
+            "blur":0,
+            "render_background":1,
+            "diffuse_contrast":1,
+            "rescale_diffuse_intensity":false,
+            "diffuse_intensity_target_lo":0.0,
+            "diffuse_intensity_target_hi":1.0,
+            "diffuse_tint_lo":[0.0,0.0,0.0],
+            "diffuse_tint_hi":[0.0,0.0,0.0],
+            "reflect_tint":[0.0,0.0,0.0]
+        }
+    },
+    "active_image_light" : "background_1",
+    "meshes": {
+        "cube": {
+            "mesh_asset" : "cube",
+            "scale":1.0
+        }
+    },
+    "materials": {
+        "cube": {
+            "texture": "cube",
+            "ka":1.0,
+            "kd":0.5,
+            "ks":0.5,
+            "shine":1.0,
+            "image_light_kd":1.0,
+            "image_light_ks":0.0,
+            "image_light_blur_reflection":3.0
+        }
+    },
+    "instances": {
+        "cracker_1": {
+            "mesh_name": "cube",
+            "material_name": "cube",
+            "transform": [
+                [1,0,0,0],
+                [0,1,0,0],
+                [0,0,1,0],
+                [0,0,0,1]],
+            "mask_color": [1,1,1]
+        }
+    },
+    "ambient_color": [0,0,0],
+    "point_lights": {},
+    "direction_lights": {},
+    "camera":{
+        "pose":[0.0, 0.0, 0, 6.02, 0, 0],
+        "projection":[
+            [ 1.73205081,  0.0       ,  0.0       ,  0.0       ],
+            [ 0.0       ,  1.73205081,  0.0       ,  0.0       ],
+            [ 0.0       ,  0.0       , -1.002002  , -0.1001001 ],
+            [ 0.0       ,  0.0       , -1.0       ,  0.0       ]],
+        "pose_delta":[0.0004,0,0,0,0,0]
+    }
+}

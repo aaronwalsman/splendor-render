@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import math
 
 from OpenGL import GL
@@ -13,6 +12,22 @@ from renderpy.frame_buffer import FrameBufferWrapper
 import renderpy.buffer_manager_egl as buffer_manager
 import renderpy.camera as camera
 import renderpy.image as image
+
+def cube_to_strip(cube):
+    strip = numpy.concatenate([
+            cube['px'],
+            cube['nx'],
+            cube['py'],
+            cube['ny'],
+            cube['pz'],
+            cube['nz']], axis=1)
+    
+    return strip
+
+def panorama_to_strip(*args, **kwargs):
+    cube = panorama_to_cube(*args, **kwargs)
+    strip = cube_to_strip(cube)
+    return strip
 
 def panorama_to_cube(panorama_image, cube_width, panorama_filter='linear'):
 
