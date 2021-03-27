@@ -31,3 +31,13 @@ def save_depth(depth, path):
     '''
     with open(path, 'wb') as f:
         numpy.save(f, depth)
+
+def intensity(image):
+    return (0.2989 * image[...,0] +
+            0.5870 * image[...,1] +
+            0.1141 * image[...,2])
+
+def even_intensity(image):
+    return (0.3334 * image[...,0] +
+            0.3333 * image[...,1] +
+            0.3333 * image[...,2])
