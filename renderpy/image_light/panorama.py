@@ -9,7 +9,7 @@ import numpy
 from renderpy.shaders.background import background_vertex_shader
 from renderpy.shaders.skybox import panorama_to_cube_fragment_shader
 from renderpy.frame_buffer import FrameBufferWrapper
-import renderpy.buffer_manager_egl as buffer_manager
+from renderpy.contexts import egl
 import renderpy.camera as camera
 import renderpy.image as image
 
@@ -29,10 +29,15 @@ def panorama_to_strip(*args, **kwargs):
     strip = cube_to_strip(cube)
     return strip
 
-def panorama_to_cube(panorama_image, cube_width, panorama_filter='linear'):
+def panorama_to_cube(
+        panorama_image,
+        cube_width,
+        panorama_filter='linear',
+        device=None):
 
-    # initialize the buffer manager
-    manager = buffer_manager.initialize_shared_buffer_manager()
+    # initialize egl
+    egl.initialize_plugin()
+    egl.initialize_device(device)
 
     frame_buffer = FrameBufferWrapper(cube_width, cube_width)
     frame_buffer.enable()

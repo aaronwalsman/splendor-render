@@ -13,6 +13,7 @@ setup(  name = 'renderpy',
                 'bin/drpy_mask_viewer',
                 'bin/drpy_render',
                 'bin/panorama_to_strip',
-                'bin/reflection_to_diffuse'
+                'bin/panorama_to_image_light',
+                'bin/reflect_to_diffuse'
         ],
         zip_safe = False)

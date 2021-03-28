@@ -6,27 +6,26 @@ import OpenGL.GLUT as GLUT
 import numpy
 
 import renderpy.camera as camera
+from renderpy.contexts.initialization import (
+        initialization_state, register_context)
 
-glut_state = {
-    'initialized' : False
-}
-
-def initialize_glut(x_authority = None):
-    if glut_state['initialized'] == False:
+def initialize(x_authority = None, display=None):
+    new_context = register_context('glut')
+    if new_context:
         if x_authority is not None:
             os.environ['XAUTHORITY'] = x_authority
             os.environ['DISPLAY'] = display
-
+        
         GLUT.glutInit([])
-        glut_state['initialized'] = True
 
+'''
 def finish():
     GL.glFlush()
     GL.glFinish()
     GLUT.glutPostRedisplay()
     GLUT.glutSwapBuffers()
     GLUT.glutLeaveMainLoop()
-    glut_state['initializer'] = None
+'''
 
 class GlutWindowWrapper:
     def __init__(self,
@@ -35,14 +34,17 @@ class GlutWindowWrapper:
             height = 128,
             anti_alias = True,
             anti_alias_samples = 8):
-
+        
+        initialized, mode = initialization_state()
+        assert initialized and mode == 'glut'
+        
         self.name = name
         self.width = width
         self.height = height
         self.anti_alias = anti_alias
         self.anti_alias_samples = anti_alias_samples
-
-        GLUT.glutInit([])
+        
+        #GLUT.glutInit([])
         if self.anti_alias:
             GLUT.glutInitDisplayMode(
                     GLUT.GLUT_RGBA |
