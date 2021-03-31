@@ -1,3 +1,15 @@
+'''
+Manages and creates a glut window/context.
+Rendering with GLUT requires an active window (currently only one is supported)
+but also allows for offscreen rendering using a FrameBufferWrapper.
+
+Use this module if you want to use renderpy to draw to an active window and
+one or more offscreen frame buffers.  On the other hand, if all you want is
+offscreen rendering, see egl.py instead.
+
+This module requires a physical display to be connected to the rendering
+machine, if no display is present, use egl.py instead.
+'''
 import os
 
 from OpenGL import GL
@@ -9,7 +21,21 @@ import renderpy.camera as camera
 from renderpy.contexts.initialization import (
         initialization_state, register_context)
 
+_glut_state = {
+    'initialized' : False,
+    'window' : None,
+}
+
 def initialize(x_authority = None, display=None):
+    '''
+    Set glut to be the active context manager for this rendering session.
+    Once initialized, other context managers (egl) may not be used.
+    
+    x_authority : may be used to set the x_authority for remote rendering on
+        machines with physical displays attached.
+    display : may be used to set the display for remote rendering on machines
+        with phyiscal displays attached.
+    '''
     new_context = register_context('glut')
     if new_context:
         if x_authority is not None:
@@ -17,17 +43,12 @@ def initialize(x_authority = None, display=None):
             os.environ['DISPLAY'] = display
         
         GLUT.glutInit([])
-
-'''
-def finish():
-    GL.glFlush()
-    GL.glFinish()
-    GLUT.glutPostRedisplay()
-    GLUT.glutSwapBuffers()
-    GLUT.glutLeaveMainLoop()
-'''
+        _glut_state['initialized'] = True
 
 class GlutWindowWrapper:
+    '''
+    Wraps a single GLUT window.
+    '''
     def __init__(self,
             name = 'RENDERPY',
             width = 128,
@@ -38,13 +59,15 @@ class GlutWindowWrapper:
         initialized, mode = initialization_state()
         assert initialized and mode == 'glut'
         
+        # multiple windows not supported
+        assert _glut_state['initialized'] and _glut_state['window'] is None
+        
         self.name = name
         self.width = width
         self.height = height
         self.anti_alias = anti_alias
         self.anti_alias_samples = anti_alias_samples
         
-        #GLUT.glutInit([])
         if self.anti_alias:
             GLUT.glutInitDisplayMode(
                     GLUT.GLUT_RGBA |
@@ -56,6 +79,8 @@ class GlutWindowWrapper:
         GLUT.glutInitWindowSize(self.width, self.height)
         self.window_id = GLUT.glutCreateWindow(name)
         self.set_active()
+        
+        _glut_state['window'] = self.window_id
 
     def hide_window(self):
         GLUT.glutHideWindow(self.window_id)
@@ -70,6 +95,9 @@ class GlutWindowWrapper:
             GLUT.glutReshapeWindow(width, height)
 
     def set_active(self):
+        '''
+        Sets this window active
+        '''
         GLUT.glutSetWindow(self.window_id)
 
     def enable_window(self):
@@ -111,9 +139,11 @@ class GlutWindowWrapper:
 
         GL.glViewport(0, 0, width, height)
         return image
-
-    def start_main_loop(self, **callbacks):
+    
+    def register_callbacks(self, **callbacks):
         self.set_active()
         for callback_name, callback_function in callbacks.items():
             getattr(GLUT, callback_name)(callback_function)
-        GLUT.glutMainLoop()
+
+def start_main_loop():
+    GLUT.glutMainLoop()
