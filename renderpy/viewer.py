@@ -16,17 +16,17 @@ def start_double_viewer(
         height = 512,
         poll_frequency = 1024):
     
-    glut.initialize_glut()
+    glut.initialize()
     color_window = glut.GlutWindowWrapper(
             'Color', width, height)
+    color_renderer = core.Renderpy()
     mask_window = glut.GlutWindowWrapper(
             'Mask', width, height)
+    mask_renderer = core.Renderpy()
     
-    renderer = core.Renderpy()
+    file_path = color_renderer.asset_library['scenes'][file_path]
     
-    file_path = renderer.asset_library['scenes'][file_path]
-    
-    camera_control = InteractiveCamera(color_window, renderer)
+    camera_control = InteractiveCamera(color_window, color_renderer)
     
     state = {
         'steps' : 0,
@@ -38,10 +38,12 @@ def start_double_viewer(
             try:
                 change_time = os.stat(file_path).st_mtime
                 if change_time != state['recent_file_change_time']:
-                    camera_pose = renderer.get_camera_pose()
-                    renderer.load_scene(file_path, clear_scene=True)
+                    camera_pose = color_renderer.get_camera_pose()
+                    color_renderer.load_scene(file_path, clear_scene=True)
+                    mask_renderer.load_scene(file_path, clear_scene=True)
                     if state['recent_file_change_time'] != -1:
-                        renderer.set_camera_pose(camera_pose)
+                        color_renderer.set_camera_pose(camera_pose)
+                        mask_renderer.set_camera_pose(camera_pose)
                     state['recent_file_change_time'] = change_time
                     print('Loaded: %s'%file_path)
             except:
@@ -52,22 +54,38 @@ def start_double_viewer(
             else:
                 break
     
-    def render():
+    def render_color():
         if state['steps'] % poll_frequency == 0:
             reload_scene()
         state['steps'] += 1
         color_window.set_active()
-        color_window.enable_window()
-        renderer.color_render(flip_y=False)
+        #color_window.enable_window()
+        color_renderer.color_render(flip_y=False)
         
         #mask_window.enable_window()
         #renderer.mask_render(flip_Y=False)
-
-    color_window.start_main_loop(
-            glutDisplayFunc = render,
-            glutIdleFunc = render,
+    
+    def render_mask():
+        if state['steps'] % poll_frequency == 0:
+            reload_scene()
+        state['steps'] += 1
+        mask_window.set_active()
+        #mask_window.enable_window()
+        mask_renderer.mask_render(flip_y=False)
+    
+    color_window.register_callbacks(
+            glutDisplayFunc = render_color,
+            glutIdleFunc = render_color,
             glutMouseFunc = camera_control.mouse_button,
-            glutMotionFunc = camera_control.mouse_move)
+            glutMotionFunc = camera_control.mouse_move,
+    )
+    mask_window.register_callbacks(
+            glutDisplayFunc = render_mask,
+            glutIdleFunc = render_mask,
+            #glutMouseFunc = camera_control.mouse_button,
+            #glutMotionFunc = camera_control.mouse_move,
+    )
+    glut.start_main_loop()
 
 def start_viewer(
         file_path,
@@ -119,9 +137,11 @@ def start_viewer(
             reload_scene()
         state['steps'] += 1
         renderer.color_render(flip_y=False)
-
-    window.start_main_loop(
+    
+    window.register_callbacks(
             glutDisplayFunc = render,
             glutIdleFunc = render,
             glutMouseFunc = camera_control.mouse_button,
             glutMotionFunc = camera_control.mouse_move)
+    
+    glut.start_main_loop()
