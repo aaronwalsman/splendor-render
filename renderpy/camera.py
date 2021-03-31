@@ -156,6 +156,9 @@ def camera_pose_to_matrix(pose):
     elif len(pose) == 6:
         return azimuthal_pose_to_matrix(pose)
     
+    elif len(pose) == 9:
+        return azimuthal_pose_to_matrix(pose[:6], pose[6:])
+    
     # unknown
     else:
         raise ValueError('camera pose should be a 4x4 matrix or 6 elements '
