@@ -509,6 +509,11 @@ class Renderpy:
         
         Parameters:
         -----------
+        color_mode : {"textured", "vertex_color", "flat"}
+            Describes the color mode of the surface.  Can be one of:
+            "textured" : requires uvs
+            "vertex_color" : requires specified vertex colors
+            "flat" : the entire surface will be a single flat color
         name : str
         
         Returns:
@@ -1022,7 +1027,17 @@ class Renderpy:
         self.loaded_data['textures'][name + '_diffuse'] = diffuse_image
         self.loaded_data['textures'][name + '_reflect'] = reflect_image
 
-    def get_texture(self, texture_name):
+    def get_texture(self, name):
+        """
+        Parameters:
+        -----------
+        name : str
+        
+        Returns:
+        --------
+        array :
+            The named loaded texture.
+        """
         return self.loaded_data['textures'][texture_name]
 
     # material methods =========================================================
@@ -1039,6 +1054,25 @@ class Renderpy:
             image_light_ks = 0.15,
             image_light_blur_reflection = 2.0,
             crop = None):
+        """
+        Load a material.
+        
+        Loads a material into memory but it is not used until an instance is
+        created that references it.
+        
+        Parameters:
+        -----------
+        name : str
+            Name of the material, must be unique to this scene among
+            other materials
+        texture : str or array-like, optional
+            Either an asset, path or image data
+            (must specify either texture or flat_color)
+        flat_color : tuple, optional
+            A flat color for this material
+            (must specify either texture or flat_color)
+        TODO: Fill in the rest of this once material parameters stabilize
+        """
 
         self.scene_description['materials'][name] = {
                 'ka' : ka,
@@ -1058,15 +1092,18 @@ class Renderpy:
         material_buffers = {}
         material_buffers['texture'] = GL.glGenTextures(1)
         self.gl_data['material_buffers'][name] = material_buffers
-        '''
-        if color is not None:
-            texture = numpy.zeros((16,16,3), dtype=numpy.uint8)
-            texture[:] = color
-        '''
+        
         if texture is not None:
             self.replace_texture(name, texture, crop)
 
     def remove_material(self, name):
+        """
+        Deletes a material from the scene.
+        
+        Parameters:
+        -----------
+        name : str
+        """
         GL.glDeleteTextures(self.gl_data['material_buffers'][name]['texture'])
         if name in self.loaded_data['textures']:
             del(self.loaded_data['textures'][name])
@@ -1074,32 +1111,94 @@ class Renderpy:
         del(self.scene_description['materials'][name])
 
     def clear_materials(self):
+        """
+        Deletes all materials.
+        """
         for name in list(self.scene_description['materials'].keys()):
             self.remove_material(name)
 
     def list_materials(self):
+        """
+        Returns:
+        --------
+        list :
+            All material names in the scene.
+        """
         return list(self.scene_description['materials'].keys())
 
-    def material_exists(self, material):
-        return material in self.scene_description['materials']
+    def material_exists(self, name):
+        """
+        Parameters:
+        -----------
+        name : str
+        
+        Returns:
+        --------
+        bool
+        """
+        return name in self.scene_description['materials']
 
     def get_material(self, material_name):
+        """
+        Parameters:
+        -----------
+        name : str
+        
+        Returns:
+        --------
+        str :
+            The serialized description of the material.
+        """
         return self.scene_description['materials'][material_name]
 
-    def get_material_flat_color(self, material_name):
+    def get_material_flat_color(self, name):
+        """
+        Parameters:
+        -----------
+        name : str
+        
+        Returns:
+        --------
+        str or None :
+            The flat color associated with a material or None if not present
+        """
         return self.scene_description['materials'][material_name]['flat_color']
 
-    #===========================================================================
-    # instance methods
-    #===========================================================================
+    # instance methods =========================================================
+    
     def add_instance(self,
-            instance_name,
+            name,
             mesh_name,
             material_name,
             transform = numpy.eye(4),
-            mask_color = numpy.array([0,0,0]),
+            mask_color = (0,0,0),
             coord_box = ((0,0,0),(0,0,0)),
             hidden = False):
+        """
+        Add an instance to the scene.
+        
+        Each instance is a combination of a mesh and a material with an
+        additional transform and mask color.  May also have a coordinate box
+        for coordinate rendering.
+        
+        Parameters:
+        -----------
+        name : str
+            Name of the new instance, must be unique to this scene among
+            other instances
+        mesh_name : str
+            The mesh associated with this instance
+        material_name : str
+            The material associated with this instance
+        transform : 4x4 array-like, default=numpy.eye(4)
+            The 3D transform of this mesh in the scene
+        mask_color : array-like, default=(0,0,0)
+            The color to be applied to the mesh when rendering masks
+        coord_box : tuple, default=((0,0,0),(0,0,0))
+            Bounding box corners used for coordinate rendering
+        hidden : bool, default=False
+            If True, this instance will not be rendered
+        """
 
         instance_data = {}
         instance_data['mesh_name'] = mesh_name
@@ -1108,39 +1207,124 @@ class Renderpy:
         instance_data['mask_color'] = numpy.array(mask_color)
         instance_data['coord_box'] = numpy.array(coord_box)
         instance_data['hidden'] = hidden
-        self.scene_description['instances'][instance_name] = instance_data
+        self.scene_description['instances'][name] = instance_data
 
-    def remove_instance(self, instance_name):
-        del(self.scene_description['instances'][instance_name])
+    def remove_instance(self, name):
+        """    
+        Deletes an instance from the scene. 
+         
+        Parameters: 
+        ----------- 
+        name : str 
+        """
+        del(self.scene_description['instances'][name])
 
     def clear_instances(self):
+        """
+        Deletes all instances.
+        """
         self.scene_description['instances'] = {}
 
-    def get_instance_transform(self, instance_name):
-        return self.scene_description['instances'][instance_name]['transform']
+    def get_instance_transform(self, name):
+        """
+        Gets the 3D transform of an instance
+        
+        Parameters:
+        -----------
+        name : str
+        
+        Returns:
+        --------
+        4x4 array : the instance's transform
+        """
+        return self.scene_description['instances'][name]['transform']
 
-    def set_instance_transform(self, instance_name, transform):
-        self.scene_description['instances'][instance_name]['transform'] = (
+    def set_instance_transform(self, name, transform):
+        """
+        Sets the 3D transform of an instance
+        
+        Parameters:
+        -----------
+        name : str
+        transform : 4x4 array-like
+        """
+        self.scene_description['instances'][name]['transform'] = (
                 numpy.array(transform))
 
-    def set_instance_material(self, instance_name, material_name):
-        self.scene_description['instances'][instance_name]['material_name'] = (
+    def set_instance_material(self, name, material_name):
+        """
+        Sets the material of an instance
+        
+        Parameters:
+        -----------
+        name : str
+        material_name : str
+        """
+        self.scene_description['instances'][name]['material_name'] = (
                 material_name)
 
-    def hide_instance(self, instance_name):
-        self.scene_description['instances'][instance_name]['hidden'] = True
+    def hide_instance(self, name):
+        """
+        Hides an instance so that it will not render in any render modes
+        
+        Parameters:
+        -----------
+        name : str
+        """
+        self.scene_description['instances'][name]['hidden'] = True
 
-    def show_instance(self, instance_name):
-        self.scene_description['instances'][instance_name]['hidden'] = False
+    def show_instance(self, name):
+        """
+        Makes an instance visible in all render modes
+        
+        Parameters:
+        -----------
+        name : str
+        """
+        self.scene_description['instances'][name]['hidden'] = False
 
-    def get_instance_mesh_name(self, instance_name):
-        return self.scene_description['instances'][instance_name]['mesh_name']
+    def get_instance_mesh_name(self, name):
+        """
+        Returns the mesh associated with an instance
+        
+        Parameters:
+        -----------
+        name : str
+        
+        Returns:
+        --------
+        str : the name of the associated mesh
+        """
+        return self.scene_description['instances'][name]['mesh_name']
 
-    def get_instance_material_name(self, instance_name):
-        instance_data = self.scene_description['instances'][instance_name]
+    def get_instance_material_name(self, name):
+        """
+        Returns the material associated with an instance
+        
+        Parameters:
+        -----------
+        name : str
+        
+        Returns:
+        --------
+        str : the name of the associated material
+        """
+        instance_data = self.scene_description['instances'][name]
         return instance_data['material_name']
 
     def get_instance_center_bbox(self, instances=None):
+        """
+        Returns a bounding box of a list of instances
+        
+        Parameters:
+        -----------
+        instances : list-like, optional
+            A list of instances to compute the bounding box for.  If not
+            specified, this uses all instances in the scene.
+        
+        Returns:
+        tuple : ((min_x, min_y, min_z), (max_x, max_y, max_z))
+        """
         if instances is None:
             instances = self.scene_description['instances'].keys()
         if len(instances) > 1:
@@ -1154,11 +1338,35 @@ class Renderpy:
         return bbox_min, bbox_max
 
     def set_instance_masks_to_instance_indices(self, instance_indices):
+        """
+        Use the masks library to assign a unique mask color to a set
+        of instances.
+        
+        Parameters:
+        -----------
+        instances_indices : dict
+            A ditionary mapping instance names to integers.  Each integer will
+            be assigned a unique color using the masks module.
+        """
         for instance_name, index in instance_indices.items():
             instance_data = self.scene_description['instances'][instance_name]
             instance_data['mask_color'] = masks.color_index_to_float(index)
 
     def set_instance_masks_to_mesh_indices(self, mesh_indices, instances=None):
+        """
+        Use the masks library to assign a mask color to a set of instances
+        based on the mesh associated with each instance.
+        
+        Parameters:
+        -----------
+        mesh_indices : dict
+            A dictionary mapping mesh names to integers.  Each integer will
+            be assigned a uniqe color using the masks module.
+        instances : list-like, optional
+            A list of instances to assign mask colors.  If not specified, all
+            instances in the scene will be assigned if the associated mesh name
+            exists as a key in mesh_indices.
+        """
         if instances is None:
             instances = self.scene_description['instances'].keys()
         for instance in instances:
@@ -1172,111 +1380,263 @@ class Renderpy:
                     masks.color_index_to_float(mesh_index))
 
     def list_instances(self):
+        """
+        Returns:
+        --------
+        list :
+            All instance names in the scene.
+        """
         return list(self.scene_description['instances'].keys())
 
-    def instance_exists(self, instance):
-        return instance in self.scene_description['instances']
+    def instance_exists(self, name):
+        """
+        Parameters:
+        -----------
+        name : str
+        
+        Returns:
+        --------
+        bool
+        """
+        return name in self.scene_description['instances']
 
-    def instance_hidden(self, instance):
-        return self.scene_description['instances'][instance]['hidden']
+    def instance_hidden(self, name):
+        """
+        Parameters:
+        -----------
+        name : str
+        
+        Returns:
+        --------
+        bool
+        """
+        return self.scene_description['instances'][name]['hidden']
 
-    #===========================================================================
-    # depthmap_instance methods
-    #===========================================================================
+    # depthmap_instance methods ================================================
+    
     def add_depthmap_instance(self,
-            depthmap_instance_name,
+            name,
             depthmap_name,
             material_name,
             transform = numpy.eye(4),
             point_size = 1):
-
+        """
+        Add a depthmap instance to the scene.
+        
+        Each depthmap instance is a combination of a depthmap and a material
+        with an additional transform and point_size attribute for display
+        purposes.
+        
+        TODO: Material should be a texture if we break textures out as separate
+        assets.
+        
+        Parameters:
+        -----------
+        name : str
+            Name of the new depthmap instance, must be unique to this scene
+            among other depthmap instances
+        depthmap_name : str
+            The depthmap associated with this instance
+        material_name : str
+            The material associated with this instance
+        transform : 4x4 array-like, default=numpy.eye(4)
+            The 3D transform of this mesh in the scene
+        point_size : int, default=1
+            The 2D size of the rendered points
+        """
         depthmap_instance_data = {}
         depthmap_instance_data['depthmap_name'] = depthmap_name
         depthmap_instance_data['material_name'] = material_name
         depthmap_instance_data['transform'] = numpy.array(transform)
         depthmap_instance_data['point_size'] = point_size
-        self.scene_description['depthmap_instances'][depthmap_instance_name] = (
+        self.scene_description['depthmap_instances'][name] = (
                 depthmap_instance_data)
 
     def remove_depthmap_instance(self, depthmap_instance_name):
+        """    
+        Deletes a depthmap instance from the scene. 
+         
+        Parameters: 
+        ----------- 
+        name : str 
+        """
         del(self.scene_description['depthmap_instances'][
                 depthmap_instance_name])
 
     def clear_depthmap_instances(self):
+        """
+        Deletes all depthmap instances.
+        """
         self.scene_description['depthmap_instances'] = {}
 
-    def set_depthmap_instance_material(self,
-            depthmap_instance_name, material_name):
-        self.scene_description['depthmap_instances'][depthmap_instance_name][
+    def set_depthmap_instance_material(self, name, material_name):
+        """
+        Sets the material of a depthmap instance
+        
+        Parameters:
+        -----------
+        name : str
+        material_name : str
+        """
+        self.scene_description['depthmap_instances'][name][
                 'material_name'] = material_name
 
-    def set_depthmap_instance_transform(self,
-            depthmap_instance_name, transform):
-        self.scene_description['depthmap_instances'][depthmap_instance_name][
+    def set_depthmap_instance_transform(self, name, transform):
+        """
+        Sets the 3D transform of a depthmap instance
+        
+        Parameters:
+        -----------
+        name : str
+        transform : 4x4 array-like
+        """
+        self.scene_description['depthmap_instances'][name][
                 'transform'] = numpy.array(transform)
 
-    def get_depthmap_instance_transform(self, depthmap_instance_name):
-        return self.scene_description['depthmap_instances'][
-                depthmap_instance_name]['transform']
+    def get_depthmap_instance_transform(self, name):
+        """
+        Gets the 3D transform of a depthmap instance
+        
+        Parameters:
+        -----------
+        name : str
+        
+        Returns:
+        --------
+        4x4 array : the instance's transform
+        """
+        return self.scene_description['depthmap_instances'][name]['transform']
 
-    def depthmap_instance_exists(self, depthmap_instance):
-        return depthmap_instance in self.scene_description['depthmap_instances']
+    def depthmap_instance_exists(self, name):
+        """
+        Parameters:
+        -----------
+        name : str
+        
+        Returns:
+        --------
+        bool
+        """
+        return name in self.scene_description['depthmap_instances']
 
-    #===========================================================================
-    # point_light methods
-    #===========================================================================
+    # point_light methods ======================================================
+    
     def add_point_light(self, name, position, color):
+        """
+        Add a point light to the scene.
+        
+        Parameters:
+        -----------
+        name : str
+            Name of the new point light, must be unique to this scene among
+            other point lights.
+        position : array-like
+            3-value array representing the position of the point light.
+        color : array-like
+            3-value color of the point light
+        """
         self.scene_description['point_lights'][name] = {
                 'position' : numpy.array(position),
                 'color' : numpy.array(color)}
-
+    
     def remove_point_light(self, name):
+        """    
+        Deletes a point light from the scene. 
+         
+        Parameters: 
+        ----------- 
+        name : str 
+        """
         del(self.scene_description['point_lights'][name])
-
+    
     def clear_point_lights(self):
+        """
+        Deletes all point lights.
+        """
         self.scene_description['point_lights'] = {}
-
-    #===========================================================================
-    # direction_light methods
-    #===========================================================================
+    
+    # direction_light methods ==================================================
+    
     def add_direction_light(self,
             name,
             direction,
             color):
-            #use_shadows = False,
-            #shadow_matrix = None,
-            #shadow_resolution = None):
-
+        """
+        Add a direction light to the scene.
+        
+        Parameters:
+        -----------
+        name : str
+            Name of the new direction light, must be unique to this scene among
+            other direction lights.
+        direction : array-like
+            3-value array representing the direction of the light.
+        color : array-like
+            3-value color of the direction light
+        """
         self.scene_description['direction_lights'][name] = {
                 'direction' : numpy.array(direction),
                 'color' : numpy.array(color)}
 
     def remove_direction_light(self, name):
+        """    
+        Deletes a direction light from the scene. 
+         
+        Parameters: 
+        ----------- 
+        name : str 
+        """
         del(self.scene_description['direction_lights'][name])
 
     def clear_direction_lights(self):
+        """
+        Deletes all direction lights.
+        """
         self.scene_description['direction_lights'] = {}
 
-    #===========================================================================
-    # render methods
-    #===========================================================================
+    # render methods ===========================================================
+    
     def clear_frame(self):
+        """
+        Clears the frame.
+        """
         GL.glClearColor(*self.scene_description['background_color'])
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
     def finish_frame(self):
+        """
+        Force opengl to finish rendering before continuing.
+        """
         GL.glFinish()
 
-    #---------------------------------------------------------------------------
-    # color_render methods
-    #---------------------------------------------------------------------------
+    # color_render methods -----------------------------------------------------
+    
     def color_render(self,
             instances = None,
             depthmap_instances = None,
             flip_y = True,
             clear = True,
             finish = True):
-
+        """
+        Renders instances and depthmap instances using the color program.
+        
+        Parameters:
+        -----------
+        instances : list, optional
+            A list of instances to render.  If not specified, all instances will
+            be rendered.
+        depthmap_instances : list, optional
+            A list of depthmap instances to render.  If not specified, all
+            depthmap instances will be rendered.
+        flip_y : bool, default=True
+            Whether or not to flip the image in Y when rendering.  This is to
+            correct for the difference between rendering to windows and
+            framebuffers.
+        clear : bool, default=True
+            Whether or not to clear the frame before rendering.
+        finish = True
+            Whether or not to finish the frame using glFinish
+        """
         # clear
         if clear:
             self.clear_frame()
@@ -1512,6 +1872,20 @@ class Renderpy:
             instance_name,
             shader_name,
             set_mesh_attrib_pointers=True):
+        """
+        Render a single instance using the color program.
+        
+        Parameters:
+        -----------
+        instance_name : str
+            The instance to render
+        shader_name : str
+            {"textured_shader", "vertex_color_shader", "flat_color_shader"}
+            The specific version of the color program to use.
+        set_mesh_attrib_pointers : bool, default=True
+            An optimization.  If the same mesh was rendered previously, there
+            is no need to copy certain data to the GPU again.
+        """
         
         instance_data = self.scene_description['instances'][instance_name]
         if instance_data['hidden']:
@@ -1530,10 +1904,6 @@ class Renderpy:
                 material_data['image_light_kd'],
                 material_data['image_light_ks'],
                 material_data['image_light_blur_reflection']])
-        #GL.glTexParameterf(
-        #        GL.GL_TEXTURE_CUBE_MAP,
-        #        GL.GL_TEXTURE_MIN_LOD,
-        #        material_data['image_light_blur_reflection'])
         mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
         material_buffers = self.gl_data['material_buffers'][instance_material]
         mesh_data = self.loaded_data['meshes'][instance_mesh]
@@ -1611,6 +1981,14 @@ class Renderpy:
             GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
 
     def color_render_depthmap_instance(self, depthmap_instance_name):
+        """
+        Render a single depthmap instance using the color program.
+        
+        Parameters:
+        -----------
+        depthmap_instance_name : str
+            The depthmap instance to render
+        """
         depthmap_instance_data = self.scene_description['depthmap_instances'][
                 depthmap_instance_name]
         instance_depthmap = depthmap_instance_data['depthmap_name']
@@ -1668,6 +2046,18 @@ class Renderpy:
             GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
 
     def render_background(self, image_light_name, flip_y=True):
+        """
+        Renders the background (reflection map)
+        
+        Parameters:
+        -----------
+        image_light_name : str
+            The image light with the reflection map we wish to render.
+        flip_y : bool, default=True
+            Whether or not to flip the image in Y when rendering.  This is to
+            correct for the difference between rendering to windows and
+            framebuffers.
+        """
         self.shader_library.use_program('background_shader')
 
         mesh_buffers = self.gl_data['mesh_buffers']['BACKGROUND']
@@ -1739,13 +2129,30 @@ class Renderpy:
             mesh_buffers['vertex_buffer'].unbind()
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
 
-    #---------------------------------------------------------------------------
-    # mask_render methods
-    #---------------------------------------------------------------------------
-    def mask_render(self, instances=None, flip_y=True):
+    # mask_render methods ------------------------------------------------------
+    
+    def mask_render(self, instances=None, flip_y=True, clear=True, finish=True):
+        """
+        Renders instances using the mask program.
+        
+        Parameters:
+        -----------
+        instances : list, optional
+            A list of instances to render.  If not specified, all instances will
+            be rendered.
+        flip_y : bool, default=True
+            Whether or not to flip the image in Y when rendering.  This is to
+            correct for the difference between rendering to windows and
+            framebuffers.
+        clear : bool, default=True
+            Whether or not to clear the frame before rendering.
+        finish = True
+            Whether or not to finish the frame using glFinish
+        """
 
         # clear
-        self.clear_frame()
+        if clear:
+            self.clear_frame()
 
         # turn on the shader
         self.shader_library.use_program('mask_shader')
@@ -1784,10 +2191,23 @@ class Renderpy:
 
         finally:
             GL.glUseProgram(0)
-
-        GL.glFinish()
+        
+        if finish:
+            GL.glFinish()
 
     def mask_render_instance(self, instance_name):
+        """
+        Render a single instance using the mask program.
+        
+        Parameters:
+        -----------
+        instance_name : str
+            The instance to render
+        TODO (figure out large scene optimizations first):
+        set_mesh_attrib_pointers : bool, default=True
+            An optimization.  If the same mesh was rendered previously, there
+            is no need to copy certain data to the GPU again.
+        """
         instance_data = self.scene_description['instances'][instance_name]
         if instance_data['hidden']:
             return
@@ -1832,13 +2252,35 @@ class Renderpy:
             mesh_buffers['face_buffer'].unbind()
             mesh_buffers['vertex_buffer'].unbind()
 
-    #---------------------------------------------------------------------------
-    # coord_render methods
-    #---------------------------------------------------------------------------
-    def coord_render(self, instances=None, flip_y=True):
-
+    # coord_render methods -----------------------------------------------------
+    
+    def coord_render(self,
+            instances=None,
+            flip_y=True,
+            clear=True,
+            finish=True,
+    ):
+        """
+        Renders instances using the coord program.
+        
+        Parameters:
+        -----------
+        instances : list, optional
+            A list of instances to render.  If not specified, all instances will
+            be rendered.
+        flip_y : bool, default=True
+            Whether or not to flip the image in Y when rendering.  This is to
+            correct for the difference between rendering to windows and
+            framebuffers.
+        clear : bool, default=True
+            Whether or not to clear the frame before rendering.
+        finish = True
+            Whether or not to finish the frame using glFinish
+        """
+        
         #clear
-        self.clear_frame()
+        if clear:
+            self.clear_frame()
 
         # turn on the shader
         self.shader_library.use_program('coord_shader')
@@ -1874,10 +2316,23 @@ class Renderpy:
 
         finally:
             GL.glUseProgram(0)
-
-        GL.glFinish()
+        
+        if finish:
+            GL.glFinish()
 
     def coord_render_instance(self, instance_name):
+        """
+        Render a single instance using the coord program.
+        
+        Parameters:
+        -----------
+        instance_name : str
+            The instance to render
+        TODO (figure out large scene optimizations first):
+        set_mesh_attrib_pointers : bool, default=True
+            An optimization.  If the same mesh was rendered previously, there
+            is no need to copy certain data to the GPU again.
+        """
         instance_data = self.scene_description['instances'][instance_name]
         if instance_data['hidden']:
             return
@@ -1925,9 +2380,9 @@ class Renderpy:
             mesh_buffers['face_buffer'].unbind()
             mesh_buffers['vertex_buffer'].unbind()
 
-    #---------------------------------------------------------------------------
-    # misc render methods
-    #---------------------------------------------------------------------------
+    # misc render methods ------------------------------------------------------
+    # TODO Figure out what to do about these.
+    
     def render_points(self, points, color, point_size = 1, flip_y = True):
         GL.glPushMatrix()
         try:

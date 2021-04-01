@@ -74,7 +74,7 @@ def reflect_to_diffuse(
     if debug:
         debug_strip = numpy.repeat(intensity_strip, 3, 2).astype(numpy.uint8)
         debug_strip[y,strip_x] = (255,0,0)
-        save_image(debug_strip, './debug.png')
+        save_image(debug_strip, debug)
     
     x = strip_x % reflect_width
     face = strip_x // reflect_width
