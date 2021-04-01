@@ -17,7 +17,8 @@ in vec3 fragment_color;
 
 out vec4 color;
 
-uniform vec4 material_properties;
+//uniform vec4 material_properties;
+uniform vec3 material_properties;
 
 #ifdef COMPILE_FLAT_COLOR
 uniform vec3 flat_color;
@@ -32,7 +33,7 @@ uniform vec3 image_light_diffuse_rescale;
 uniform vec3 image_light_diffuse_tint_lo;
 uniform vec3 image_light_diffuse_tint_hi;
 uniform vec3 image_light_reflect_tint;
-uniform vec3 image_light_material_properties;
+//uniform vec3 image_light_material_properties;
 uniform vec3 point_light_data[2*MAX_NUM_LIGHTS];
 uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
@@ -50,6 +51,7 @@ layout(binding=3) uniform samplerCube reflect_sampler;
 
 void main(){
     
+    /*
     float ka = material_properties.x;
     float kd = material_properties.y;
     float ks = material_properties.z;
@@ -58,6 +60,12 @@ void main(){
     float k_image_light_diffuse = image_light_material_properties.x;
     float k_image_light_reflect = image_light_material_properties.y;
     float k_image_light_reflect_blur = image_light_material_properties.z;
+    */
+    
+    float ambient = material_properties.x;
+    float metal = material_properties.y;
+    float rough = material_properties.z;
+    float diffuse = 1. - metal;
     
     float k_image_light_contrast = image_light_diffuse_rescale.x;
     float k_image_light_target_lo = image_light_diffuse_rescale.y;
@@ -68,14 +76,14 @@ void main(){
     vec3 specular_contribution = vec3(0.0);
     
     vec3 eye_direction = normalize(vec3(-fragment_position));
-    
     vec3 fragment_normal_n = normalize(vec3(fragment_normal));
     
     // image light
     vec3 camera_fragment_normal =
             vec3(inverse(camera_pose) * vec4(fragment_normal_n,0));
     vec3 image_light_diffuse_color = image_light_diffuse(
-            k_image_light_diffuse,
+            //k_image_light_diffuse,
+            diffuse,
             camera_fragment_normal,
             image_light_offset_matrix,
             image_light_diffuse_minmax.x,
@@ -94,11 +102,15 @@ void main(){
     vec3 reflected_color = vec3(skybox_texture(
             reflect_sampler,
             vec3(offset_reflected_direction),
-            k_image_light_reflect_blur)) + image_light_reflect_tint;
+            //k_image_light_reflect_blur
+            rough * 8.0)) + image_light_reflect_tint;
             
-    reflected_color = pow(reflected_color, vec3(shine, shine, shine));
-    vec3 image_light_reflection = k_image_light_reflect * reflected_color;
+    //reflected_color = pow(reflected_color, vec3(shine, shine, shine));
+    //vec3 image_light_reflection = k_image_light_reflect * reflected_color;
+    vec3 image_light_reflection = metal * reflected_color;
     
+    // TODO: DO PBR
+    /*
     // point lights
     for(int i = 0; i < num_point_lights; ++i){
         
@@ -109,11 +121,13 @@ void main(){
         float light_distance = length(light_direction);
         light_direction = light_direction / light_distance;
         
+        //TODO: PBR
         vec2 light_phong = phong(
                 fragment_normal_n,
                 light_direction,
                 eye_direction,
-                shine);
+                rough);
+                //shine);
         
         diffuse_contribution += light_color * light_phong.x;
         specular_contribution += light_color * light_phong.y;
@@ -130,11 +144,13 @@ void main(){
                 fragment_normal_n,
                 light_direction,
                 eye_direction,
-                shine);
+                rough):
+                //shine);
         
         diffuse_contribution += light_color * light_phong.x;
         specular_contribution += light_color * light_phong.y;
     }
+    */
     
     #ifdef COMPILE_TEXTURE
     vec3 diffuse_color = texture(texture_sampler, fragment_uv).rgb;
@@ -159,10 +175,18 @@ void main(){
                 diffuse_intensity - 1.0);
     }
     
+    /*
     vec3 color_rgb = vec3(
             ambient_color * diffuse_color * ka +
             diffuse_contribution * diffuse_color * kd +
             specular_contribution * ks +
+            image_light_diffuse_color * diffuse_color +
+            image_light_reflection);
+    */
+    vec3 color_rgb = vec3(
+            ambient_color * diffuse_color * ambient +
+            diffuse_contribution * diffuse_color * diffuse +
+            specular_contribution * metal +
             image_light_diffuse_color * diffuse_color +
             image_light_reflection);
     color = vec4(color_rgb, 1.);
