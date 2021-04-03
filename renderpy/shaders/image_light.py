@@ -2,6 +2,7 @@ from renderpy.shaders.utils import softish_step_fn, intensity_fn
 from renderpy.shaders.skybox import skybox_fn
 
 image_light_diffuse_fn = f'''
+// DEPRECATED
 {softish_step_fn}
 {intensity_fn}
 {skybox_fn}''' + '''

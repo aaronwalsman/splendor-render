@@ -4,7 +4,7 @@ layout(location=0) in float vertex_depth;
 
 uniform mat4 projection_matrix;
 uniform mat4 model_pose;
-uniform mat4 camera_pose;
+uniform mat4 camera_matrix;
 
 uniform vec2 focal_length;
 uniform int width;
@@ -13,7 +13,7 @@ uniform int height;
 out vec2 fragment_uv;
 
 void main() {
-    mat4 vm = camera_pose * model_pose;
+    mat4 vm = camera_matrix * model_pose;
     mat4 pvm = projection_matrix * vm;
     
     int u_pixel = gl_VertexID % width;
