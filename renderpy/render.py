@@ -1,4 +1,4 @@
-import renderpy.buffer_manager_egl as buffer_manager
+import renderpy.contexts.egl as egl
 import renderpy.core as core
 from renderpy.image import save_image, save_depth
 from renderpy.frame_buffer import FrameBufferWrapper
@@ -11,15 +11,18 @@ def render_scene(
         output_file = None,
         anti_alias = True,
         anti_alias_samples = 8,
-        render_mode = 'color'):
+        render_mode = 'color',
+        device = None):
     
-    manager = buffer_manager.initialize_shared_buffer_manager()
+    egl.initialize_plugin()
+    egl.initialize_device(device)
+    
     framebuffer = FrameBufferWrapper(
             width, height, anti_alias, anti_alias_samples)
     framebuffer.enable()
     renderer = core.Renderpy(assets=assets)
-    
     renderer.load_scene(scene, clear_scene=True)
+        
     if render_mode == 'color' or render_mode == 'depth':
         renderer.color_render(flip_y=True)
     elif render_mode == 'mask':

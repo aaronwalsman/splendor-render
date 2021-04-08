@@ -17,6 +17,8 @@ parser.add_argument('--anti-alias-samples', type=int, default = 8,
             'set to 0 to turn off anti-aliasing')
 parser.add_argument('--render-mode', type=str, default='color',
         help='should be either "color", "mask" or "depth"')
+parser.add_argument('--device', type=int, default=0,
+        help='which device to use for rendering using EGL')
 
 args = parser.parse_args()
 
@@ -31,4 +33,5 @@ render.render_scene(
         output_file = args.output,
         anti_alias = anti_alias,
         anti_alias_samples = args.anti_alias_samples,
-        render_mode = args.render_mode)
+        render_mode = args.render_mode,
+        device = args.device)

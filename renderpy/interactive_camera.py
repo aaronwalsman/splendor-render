@@ -2,8 +2,8 @@ import numpy
 from . import camera
 
 class InteractiveCamera(object):
-    def __init__(self, manager, renderer):
-        self.manager = manager
+    def __init__(self, window, renderer):
+        self.window = window
         self.renderer = renderer
         self.button = -1
         self.mouse_click_position = (0,0)
@@ -12,12 +12,12 @@ class InteractiveCamera(object):
     def mouse_button(self, button, button_state, x, y):
         if button in (0,2,3,4):
             if button_state == 0:
-                depth = self.manager.read_pixels(
+                depth = self.window.read_pixels(
                         read_depth = True,
                         projection = self.renderer.get_projection())
                 self.button = button
                 self.mouse_click_position = (x,y)
-                self.mouse_click_depth = depth[self.manager.height-y,x]
+                self.mouse_click_depth = depth[self.window.height-y,x]
 
                 if button in (3,4):
                     camera_pose = self.renderer.get_camera_pose()
@@ -40,9 +40,9 @@ class InteractiveCamera(object):
         if self.button == 0:
             # orbit
             delta_x = (
-                    x - self.mouse_click_position[0])/self.manager.width
+                    x - self.mouse_click_position[0])/self.window.width
             delta_y = (
-                    y - self.mouse_click_position[1])/self.manager.height
+                    y - self.mouse_click_position[1])/self.window.height
             camera_pose = self.renderer.get_camera_pose()
             camera_pose = numpy.linalg.inv(camera_pose)
             
@@ -64,9 +64,9 @@ class InteractiveCamera(object):
         if self.button == 2:
             # pan
             delta_x = (
-                    x - self.mouse_click_position[0])/self.manager.width
+                    x - self.mouse_click_position[0])/self.window.width
             delta_y = (
-                    y - self.mouse_click_position[1])/self.manager.height
+                    y - self.mouse_click_position[1])/self.window.height
             camera_pose = self.renderer.get_camera_pose()
             x_direction = camera_pose[0,0:3]
             y_direction = camera_pose[1,0:3]

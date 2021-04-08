@@ -1,62 +1,86 @@
-# system
+'''
+Manages and creates a glut window/context.
+Rendering with GLUT requires an active window (currently only one is supported)
+but also allows for offscreen rendering using a FrameBufferWrapper.
+
+Use this module if you want to use renderpy to draw to an active window and
+one or more offscreen frame buffers.  On the other hand, if all you want is
+offscreen rendering, see egl.py instead.
+
+This module requires a physical display to be connected to the rendering
+machine, if no display is present, use egl.py instead.
+'''
 import os
 
-# opengl
 from OpenGL import GL
 import OpenGL.GLUT as GLUT
 
-# numpy
 import numpy
 
-# renderpy
 import renderpy.camera as camera
+from renderpy.contexts.initialization import (
+        initialization_state, register_context)
 
-default_window_size = 128
-
-glut_state = {
-    'buffer_manager' : None
+_glut_state = {
+    'initialized' : False,
+    'window' : None,
 }
 
-def initialize_shared_buffer_manager(*args, **kwargs):
-    if glut_state['buffer_manager'] is None:
-        glut_state['buffer_manager'] = BufferManagerGLUT(*args, **kwargs)
-    return glut_state['buffer_manager']
+def initialize(x_authority = None, display=None):
+    '''
+    Set glut to be the active context manager for this rendering session.
+    Once initialized, other context managers (egl) may not be used.
+    
+    x_authority : may be used to set the x_authority for remote rendering on
+        machines with physical displays attached.
+    display : may be used to set the display for remote rendering on machines
+        with phyiscal displays attached.
+    '''
+    new_context = register_context('glut')
+    if new_context:
+        if x_authority is not None:
+            os.environ['XAUTHORITY'] = x_authority
+            os.environ['DISPLAY'] = display
+        
+        GLUT.glutInit([])
+        _glut_state['initialized'] = True
 
-class BufferManagerGLUT:
+class GlutWindowWrapper:
+    '''
+    Wraps a single GLUT window.
+    '''
     def __init__(self,
-            width = default_window_size,
-            height = default_window_size,
+            name = 'RENDERPY',
+            width = 128,
+            height = 128,
             anti_alias = True,
-            anti_alias_samples = 8,
-            hide_window = False,
-            x_authority = None,
-            display = None):
-
+            anti_alias_samples = 8):
+        
+        initialized, mode = initialization_state()
+        assert initialized and mode == 'glut'
+        
+        # multiple windows not supported
+        assert _glut_state['initialized'] and _glut_state['window'] is None
+        
+        self.name = name
         self.width = width
         self.height = height
         self.anti_alias = anti_alias
         self.anti_alias_samples = anti_alias_samples
-
-        if x_authority is not None:
-            os.environ['XAUTHORITY'] = x_authority
-            os.environ['DISPLAY'] = display
-
-        GLUT.glutInit([])
+        
         if self.anti_alias:
             GLUT.glutInitDisplayMode(
                     GLUT.GLUT_RGBA |
                     GLUT.GLUT_DEPTH |
                     GLUT.GLUT_MULTISAMPLE)
-            GL.glEnable(GL.GL_MULTISAMPLE)
             GLUT.glutSetOption(GLUT.GLUT_MULTISAMPLE, self.anti_alias_samples)
         else:
             GLUT.glutInitDisplayMode(GLUT.GLUT_RGBA | GLUT.GLUT_DEPTH)
         GLUT.glutInitWindowSize(self.width, self.height)
-        self.window_id = GLUT.glutCreateWindow('RENDERPY')
+        self.window_id = GLUT.glutCreateWindow(name)
         self.set_active()
-
-        if hide_window:
-            self.hide_window()
+        
+        _glut_state['window'] = self.window_id
 
     def hide_window(self):
         GLUT.glutHideWindow(self.window_id)
@@ -71,6 +95,9 @@ class BufferManagerGLUT:
             GLUT.glutReshapeWindow(width, height)
 
     def set_active(self):
+        '''
+        Sets this window active
+        '''
         GLUT.glutSetWindow(self.window_id)
 
     def enable_window(self):
@@ -81,38 +108,15 @@ class BufferManagerGLUT:
         else:
             GL.glDisable(GL.GL_MULTISAMPLE)
 
-    def read_pixels(self,
-            read_depth = False,
-            projection = None):
-
-        #if frame is None:
+    def read_pixels(self, read_depth = False, projection=None):
         self.enable_window()
         width = self.width
         height = self.height
         anti_alias = self.anti_alias
-        '''
-        else:
-            width = self.framebuffer_data[frame]['width']
-            height = self.framebuffer_data[frame]['height']
-            anti_alias = self.framebuffer_data[frame]['anti_alias']
-            if anti_alias:
-                GL.glBindFramebuffer(
-                        GL.GL_READ_FRAMEBUFFER,
-                        self.framebuffer_data[frame]['framebuffermulti'])
-                GL.glBindFramebuffer(
-                        GL.GL_DRAW_FRAMEBUFFER,
-                        self.framebuffer_data[frame]['framebuffer'])
-                GL.glBlitFramebuffer(
-                        0, 0, width, height,
-                        0, 0, width, height,
-                        GL.GL_COLOR_BUFFER_BIT, GL.GL_NEAREST)
-                GL.glBindFramebuffer(
-                        GL.GL_FRAMEBUFFER,
-                        self.framebuffer_data[frame]['framebuffer'])
-            else:
-                self.enable_frame(frame)
-        '''
+
         if read_depth:
+            if projection is None:
+                raise ValueError('Must specify a projection when reading depth')
             near, far = camera.clip_from_projection(projection)
             pixels = GL.glReadPixels(
                     0,
@@ -133,25 +137,13 @@ class BufferManagerGLUT:
             image = numpy.frombuffer(pixels, dtype=numpy.uint8).reshape(
                     height, width, 3)
 
-        '''
-        # re-enable the multibuffer for future drawing
-        if anti_alias and frame is not None:
-            glBindFramebuffer(
-                    GL_FRAMEBUFFER,
-                    self.framebuffer_data[frame]['framebuffermulti'])
-            GL.glEnable(GL.GL_MULTISAMPLE)
-        '''
         GL.glViewport(0, 0, width, height)
         return image
-
-    def start_main_loop(self, **callbacks):
+    
+    def register_callbacks(self, **callbacks):
+        self.set_active()
         for callback_name, callback_function in callbacks.items():
             getattr(GLUT, callback_name)(callback_function)
-        GLUT.glutMainLoop()
 
-    def finish(self):
-        GL.glFlush()
-        GL.glFinish()
-        GLUT.glutPostRedisplay()
-        GLUT.glutSwapBuffers()
-        GLUT.glutLeaveMainLoop()
+def start_main_loop():
+    GLUT.glutMainLoop()

@@ -8,11 +8,14 @@ from OpenGL.arrays import vbo
 
 # numpy
 import numpy
+
+# renderpy
 from renderpy.shaders import image_light, background
 from renderpy.shader_library import ShaderLibrary
-from renderpy import buffer_manager_egl as buffer_manager
+from renderpy.contexts import egl
 from renderpy import camera
 from renderpy.frame_buffer import FrameBufferWrapper
+from renderpy.image import save_image
 
 MAX_SAMPLES_PER_STEP = 512
 
@@ -20,9 +23,13 @@ def reflect_to_diffuse(
         diffuse_width,
         reflect_strip,
         intensity_strip,
-        num_samples=512):
+        num_samples=512,
+        debug=False,
+        device=None):
     
-    manager = buffer_manager.initialize_shared_buffer_manager()
+    # initialize egl and frame_buffer
+    egl.initialize_plugin()
+    new = egl.initialize_device(device)
     frame_buffer = FrameBufferWrapper(
             diffuse_width, diffuse_width, color_format=GL.GL_RGBA32F)
     frame_buffer.enable()
@@ -34,6 +41,10 @@ def reflect_to_diffuse(
             image_light.reflect_to_diffuse_fragment_shader(shader_samples))})
     shader_library.use_program('reflect_to_diffuse')
     locations = shader_library.get_shader_locations('reflect_to_diffuse')
+    
+    # process the inputs
+    if len(intensity_strip.shape) == 2:
+        intensity_strip = numpy.expand_dims(intensity_strip, -1)
     
     # load mesh
     vertex_floats = numpy.array([
@@ -60,10 +71,10 @@ def reflect_to_diffuse(
     y, strip_x = numpy.unravel_index(
             samples, (reflect_width, strip_width))
     
-    debug = reflect_strip.copy()
-    debug[y,strip_x] = (0,0,0)
-    from renderpy.image import save_image
-    save_image(debug, './debug.png')
+    if debug:
+        debug_strip = numpy.repeat(intensity_strip, 3, 2).astype(numpy.uint8)
+        debug_strip[y,strip_x] = (255,0,0)
+        save_image(debug_strip, './debug.png')
     
     x = strip_x % reflect_width
     face = strip_x // reflect_width
@@ -118,8 +129,6 @@ def reflect_to_diffuse(
     
     # textures
     GL.glUniform1i(locations['reflect_sampler'], 0)
-    if len(intensity_strip.shape) == 2:
-        intensity_strip = numpy.expand_dims(intensity_strip, -1)
     reflect_intensity_strip = numpy.concatenate(
             (reflect_strip, intensity_strip), axis=-1)
     texture_buffer = GL.glGenTextures(1)
