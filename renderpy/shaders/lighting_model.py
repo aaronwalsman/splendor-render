@@ -1,7 +1,8 @@
 from renderpy.shaders.utils import phong_fn
 from renderpy.shaders.image_light import image_light_diffuse_fn
-from renderpy.shaders.cook_torrance import cook_torrance_fn
+from renderpy.shaders.pbr import pbr_fns
 from renderpy.shaders.skybox import skybox_fn
+from renderpy.shaders.utils import softish_step_fn
 
 lighting_model_fragment_shader = '''
 const int MAX_NUM_LIGHTS = 8;
@@ -20,7 +21,7 @@ in vec3 fragment_color;
 out vec4 color;
 
 uniform vec4 material_properties;
-uniform vec3 reflect_color;
+uniform vec4 image_light_properties;
 
 #ifdef COMPILE_FLAT_COLOR
 uniform vec3 flat_color;
@@ -41,11 +42,13 @@ uniform mat4 camera_matrix;
 layout(binding=0) uniform sampler2D texture_sampler;
 #endif
 
-layout(binding=1) uniform sampler2D brdf_lut;
 layout(binding=2) uniform samplerCube diffuse_sampler;
 layout(binding=3) uniform samplerCube reflect_sampler;
+
+const float MAX_MIPMAP = 4.;
+
 ''' + f'''
-{cook_torrance_fn}
+{pbr_fns}
 {image_light_diffuse_fn}''' + '''
 void main(){
     
@@ -53,7 +56,12 @@ void main(){
     float ambient = material_properties.x;
     float metal = material_properties.y;
     float rough = material_properties.z;
-    float reflect_gamma = material_properties.w;
+    float base_reflect = material_properties.w;
+    
+    float diffuse_gamma = image_light_properties.x;
+    float diffuse_bias = image_light_properties.y;
+    float reflect_gamma = image_light_properties.z;
+    float reflect_bias = image_light_properties.w;
     
     vec3 eye = normalize(vec3(-fragment_position));
     vec3 normal = normalize(vec3(fragment_normal));
@@ -62,7 +70,6 @@ void main(){
     // albedo ==================================================================
     #ifdef COMPILE_TEXTURE
     vec3 albedo = texture(texture_sampler, fragment_uv).rgb;
-    //vec3 albedo = texture(brdf_lut, fragment_uv).rgb;
     #endif
     
     #ifdef COMPILE_VERTEX_COLORS
@@ -72,6 +79,8 @@ void main(){
     #ifdef COMPILE_FLAT_COLOR
     vec3 albedo = flat_color;
     #endif
+    
+    vec3 f0 = mix(vec3(base_reflect), albedo, metal);
     
     color = vec4(0., 0., 0., 1.);
     
@@ -89,14 +98,13 @@ void main(){
         vec3 light_contribution = cook_torrance(
             rough,
             metal,
+            f0,
             albedo,
             eye,
             normal,
             half_direction,
             light_direction,
-            light_color,
-            reflect_color,
-            false);
+            light_color);
         
         color += vec4(light_contribution, 0.);
     }
@@ -111,34 +119,26 @@ void main(){
         vec3 light_contribution = cook_torrance(
             rough,
             metal,
+            f0,
             albedo,
             eye,
             normal,
             half_direction,
             light_direction,
-            light_color,
-            reflect_color,
-            false);
+            light_color);
     }
     
     // image light =============================================================
-    vec3 f0 = mix(reflect_color, albedo, metal);
     vec3 ks = fresnel_schlick_rough(normal, eye, f0, rough);
     vec3 kd = (1. - ks) * (1. - metal);
     
-    
-    /*
-    vec3 f0 = mix(vec3(1.,1.,1.), albedo, metal);
-    float kks = fresnel_schlick_simple(normal, eye, reflect_color.x, rough);
-    kks = kks + (1. - kks) * metal;
-    vec3 ks = kks * f0;
-    float kd = (1. - kks) * (1. - metal);
-    */
     vec3 offset_fragment_normal = vec3(
             image_light_offset_matrix * vec4(camera_normal, 1.));
     
     vec3 diffuse_color = vec3(skybox_texture(
             diffuse_sampler, offset_fragment_normal));
+    diffuse_color =
+            pow(diffuse_color, vec3(diffuse_gamma)) + vec3(diffuse_bias);
     
     color += vec4(kd * diffuse_color * albedo, 0.);
     
@@ -146,20 +146,21 @@ void main(){
             inverse(camera_matrix) *
             vec4(reflect(-eye, normal), 0.);
     reflected_direction = image_light_offset_matrix * reflected_direction;
-    vec3 specular_color = vec3(skybox_texture(
-            reflect_sampler, reflected_direction, rough*4));
-    //specular_color = specular_color * 0.00001 + vec3(0,0,1);
-    specular_color = pow(specular_color, vec3(reflect_gamma));
+    vec3 reflect_color = vec3(skybox_texture(
+            reflect_sampler, reflected_direction, rough*MAX_MIPMAP));
+    reflect_color =
+            pow(reflect_color, vec3(reflect_gamma)) + vec3(reflect_bias);
     
-    vec2 brdf = texture(
-        brdf_lut, vec2(max(dot(normal, eye), 0.), rough), 0).rg;
-    //brdf.x = brdf.x * 0.0000001 + 1.;
-    //brdf.x = brdf.x + (1. - brdf.x); // MAYBE JUST ADJUST THIS FOR METAL?
-    //brdf.y = brdf.y * 0.0000001 + 0.;
-    specular_color = specular_color * (ks * brdf.x + brdf.y);
-    color += vec4(specular_color, 0.);
+    reflect_color = reflect_color * ks;
+    color += vec4(reflect_color, 0.);
     
     // ambient light ===========================================================
     color += vec4(ambient_color * albedo, 0.);
+    
+    // HDR tonemapping
+    //color = color / (color + vec4(1.0, 1.0, 1.0, 0.0));
+    // gamma correct
+    //float g = 1./2.2;
+    //color = pow(color, vec4(g,g,g,1.));
 }
 '''

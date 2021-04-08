@@ -5,7 +5,7 @@ Much of this follows a series of articles that starts here:
 https://learnopengl.com/PBR/Theory
 '''
 
-cook_torrance_fn = '''
+pbr_fns = '''
 const float PI = 3.14159265359;
 
 float distribution_trowbridge_reitz(
@@ -58,15 +58,11 @@ float obstruction_smith(
 }
 
 vec3 fresnel_schlick(
-    vec3 half_direction,
-    vec3 eye,
+    float cos_theta,
     vec3 f0,
-    vec3 albedo,
     float metal){
-    f0 = mix(f0, albedo, metal);
     
-    float half_eye = clamp(dot(half_direction, eye), 0., 1.);
-    return f0 + (1. - f0) * pow(1. - half_eye, 5.);
+    return f0 + (1. - f0) * pow(1. - cos_theta, 5.);
 }
 
 vec3 fresnel_schlick_rough(
@@ -75,50 +71,29 @@ vec3 fresnel_schlick_rough(
     vec3 f0,
     float rough){
     
-    float incidence = clamp(dot(normal, eye), 0., 1.);
+    // the 0.2 clamp here is to prevent fresnel chattering around the edges
+    float incidence = clamp(dot(normal, eye), 0.2, 1.);
     return f0 + (max(vec3(1. - rough), f0) - f0) * pow(1. - incidence, 5.);
-    //return f0 + (1. - f0) * pow(1. - incidence, 5.);
 }
-
-float fresnel_schlick_simple(
-    vec3 normal,
-    vec3 eye,
-    float base_reflect,
-    float rough){
-    float incidence = clamp(dot(normal, eye), 0., 1.);
-    return base_reflect + (max((1. - rough), base_reflect) - base_reflect) *
-            pow(1. - incidence, 5.);
-}
-
-/*
-float fresnel_schlick_rough2(
-    vec3 normal,
-    vec3 eye,
-    float rough){
-    
-    float incidence = clamp(dot(normal, eye), 0., 1.);
-    return 1. + 
-}
-*/
 
 vec3 cook_torrance(
     float rough,
     float metal,
+    vec3 f0,
     vec3 albedo,
     vec3 eye,
     vec3 normal,
     vec3 half_direction,
     vec3 light_direction,
-    vec3 light_color,
-    vec3 reflect_color,
-    bool image_based_light){
+    vec3 light_color){
     
     float specular_distribution = distribution_trowbridge_reitz(
         rough, normal, half_direction);
     float specular_obstruction = obstruction_smith(
-            rough, normal, light_direction, eye, image_based_light);
-    vec3 fresnel = fresnel_schlick(
-        half_direction, eye, reflect_color, albedo, metal);
+            rough, normal, light_direction, eye, false);
+    float cos_theta = clamp(dot(half_direction, eye), 0., 1.);
+    
+    vec3 fresnel = fresnel_schlick(cos_theta, f0, metal);
     
     float eye_incidence = max(dot(eye, normal), 0.);
     float light_incidence = max(dot(light_direction, normal), 0.);
@@ -127,8 +102,11 @@ vec3 cook_torrance(
     vec3 specular = numerator / max(denominator, 0.001);
     
     vec3 diffuse = (vec3(1.) - fresnel) * (1. - metal);
-    float lambert = max(dot(normal, light_direction), 0.0);
     
-    return (diffuse * albedo /* / PI*/ + specular) * light_color * lambert;
+    float lambert = max(dot(normal, light_direction), 0.0);
+    lambert = lambert;
+    
+    vec3 result = (diffuse * albedo / PI + specular) * light_color * lambert;
+    return result;
 }
 '''
