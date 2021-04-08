@@ -1,7 +1,8 @@
 '''
 Notes:
 ------
-Much of this follows a series of articles that starts here:
+Much of this follows a series of articles that starts here
+with my own tweaks and hacks sprinkled liberally throughout:
 https://learnopengl.com/PBR/Theory
 '''
 
@@ -59,21 +60,21 @@ float obstruction_smith(
 
 vec3 fresnel_schlick(
     float cos_theta,
-    vec3 f0,
-    float metal){
+    vec3 f0){
     
+    // the 0.2 clamp here is to prevent fresnel chattering around the edges
+    cos_theta = clamp(cos_theta, 0.2, 1.);
     return f0 + (1. - f0) * pow(1. - cos_theta, 5.);
 }
 
 vec3 fresnel_schlick_rough(
-    vec3 normal,
-    vec3 eye,
+    float cos_theta,
     vec3 f0,
     float rough){
     
     // the 0.2 clamp here is to prevent fresnel chattering around the edges
-    float incidence = clamp(dot(normal, eye), 0.2, 1.);
-    return f0 + (max(vec3(1. - rough), f0) - f0) * pow(1. - incidence, 5.);
+    cos_theta = clamp(cos_theta, 0.2, 1.);
+    return f0 + (max(vec3(1. - rough), f0) - f0) * pow(1. - cos_theta, 5.);
 }
 
 vec3 cook_torrance(
@@ -93,7 +94,7 @@ vec3 cook_torrance(
             rough, normal, light_direction, eye, false);
     float cos_theta = clamp(dot(half_direction, eye), 0., 1.);
     
-    vec3 fresnel = fresnel_schlick(cos_theta, f0, metal);
+    vec3 fresnel = fresnel_schlick(cos_theta, f0);
     
     float eye_incidence = max(dot(eye, normal), 0.);
     float light_incidence = max(dot(light_direction, normal), 0.);

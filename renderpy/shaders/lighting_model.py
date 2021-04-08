@@ -129,7 +129,8 @@ void main(){
     }
     
     // image light =============================================================
-    vec3 ks = fresnel_schlick_rough(normal, eye, f0, rough);
+    float cos_theta = dot(normal, eye);
+    vec3 ks = fresnel_schlick_rough(cos_theta, f0, rough);
     vec3 kd = (1. - ks) * (1. - metal);
     
     vec3 offset_fragment_normal = vec3(
@@ -138,7 +139,16 @@ void main(){
     vec3 diffuse_color = vec3(skybox_texture(
             diffuse_sampler, offset_fragment_normal));
     diffuse_color =
-            pow(diffuse_color, vec3(diffuse_gamma)) + vec3(diffuse_bias);
+            pow(diffuse_color, vec3(diffuse_gamma));
+    
+    // This correction is based on the very crude approximation that
+    // the distribution of intensities in the reflection image is uniform
+    // which means the area under the intensity curve (from 0 to 1) would be
+    // 1/2.  If we apply a gamma exponent to this, the new area will be
+    // 1/(gamma+1).  A multiplicative correction is then (gamma+1)/2.
+    float diffuse_correction = (diffuse_gamma+1)/2;
+    diffuse_color *= diffuse_correction;
+    diffuse_color += vec3(diffuse_bias);
     
     color += vec4(kd * diffuse_color * albedo, 0.);
     
@@ -149,18 +159,17 @@ void main(){
     vec3 reflect_color = vec3(skybox_texture(
             reflect_sampler, reflected_direction, rough*MAX_MIPMAP));
     reflect_color =
-            pow(reflect_color, vec3(reflect_gamma)) + vec3(reflect_bias);
+            pow(reflect_color, vec3(reflect_gamma));
+    
+    // See note above about diffuse correction
+    float reflect_correction = (reflect_gamma+1)/2;
+    reflect_color *= reflect_correction;
+    reflect_color += vec3(reflect_bias);
     
     reflect_color = reflect_color * ks;
     color += vec4(reflect_color, 0.);
     
     // ambient light ===========================================================
     color += vec4(ambient_color * albedo, 0.);
-    
-    // HDR tonemapping
-    //color = color / (color + vec4(1.0, 1.0, 1.0, 0.0));
-    // gamma correct
-    //float g = 1./2.2;
-    //color = pow(color, vec4(g,g,g,1.));
 }
 '''
