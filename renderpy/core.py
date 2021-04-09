@@ -1,12 +1,3 @@
-# Sources
-
-# https://github.com/BerkeleyAutomation/meshrender
-# (I didn't use this because it has too many dependencies
-# and no textured meshes)
-
-# https://github.com/rbmj/SimpleRender
-# (I didn't use this because it is too simple for my needs)
-
 # system
 import math
 import json
