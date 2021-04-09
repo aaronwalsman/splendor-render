@@ -22,6 +22,8 @@ out vec4 color;
 
 uniform vec4 material_properties;
 uniform vec4 image_light_properties;
+uniform bool image_light_active;
+uniform vec3 background_color;
 
 #ifdef COMPILE_FLAT_COLOR
 uniform vec3 flat_color;
@@ -89,7 +91,7 @@ void main(){
         
         vec3 light_color = point_light_data[2*i];
         vec3 light_position = point_light_data[2*i+1];
-        light_position = vec3(camera_matrix * vec4(light_position,1));
+        light_position = vec3(camera_matrix * vec4(light_position, 1.));
         vec3 light_direction = light_position - vec3(fragment_position);
         light_direction = normalize(light_direction);
         
@@ -113,7 +115,8 @@ void main(){
     for(int i = 0; i < num_direction_lights; ++i){
         
         vec3 light_color = vec3(direction_light_data[2*i]);
-        vec3 light_direction = direction_light_data[2*i+1];
+        vec3 light_direction = -direction_light_data[2*i+1];
+        light_direction = vec3(camera_matrix * vec4(light_direction, 0.));
         vec3 half_direction = normalize(eye + light_direction);
         
         vec3 light_contribution = cook_torrance(
@@ -126,50 +129,58 @@ void main(){
             half_direction,
             light_direction,
             light_color);
+        
+        color += vec4(light_contribution, 0.);
     }
     
-    // image light =============================================================
+    // reflect =================================================================
     float cos_theta = dot(normal, eye);
     vec3 ks = fresnel_schlick_rough(cos_theta, f0, rough);
     vec3 kd = (1. - ks) * (1. - metal);
     
-    vec3 offset_fragment_normal = vec3(
-            image_light_offset_matrix * vec4(camera_normal, 1.));
+    // image light =============================================================
+    if(image_light_active){
+        
+        vec3 offset_fragment_normal = vec3(
+                image_light_offset_matrix * vec4(camera_normal, 1.));
+        
+        vec3 diffuse_color = vec3(skybox_texture(
+                diffuse_sampler, offset_fragment_normal));
+        diffuse_color =
+                pow(diffuse_color, vec3(diffuse_gamma));
+        
+        // This correction is based on the very crude approximation that
+        // the distribution of intensities in the reflection image is uniform
+        // which means the area under the intensity curve (from 0 to 1) would
+        // be 1/2.  If we apply a gamma exponent to this, the new area will be
+        // 1/(gamma+1).  A multiplicative correction is then (gamma+1)/2.
+        float diffuse_correction = (diffuse_gamma+1)/2;
+        diffuse_color *= diffuse_correction;
+        diffuse_color += vec3(diffuse_bias);
+        
+        color += vec4(kd * diffuse_color * albedo, 0.);
+        
+        vec4 reflected_direction =
+                inverse(camera_matrix) *
+                vec4(reflect(-eye, normal), 0.);
+        reflected_direction = image_light_offset_matrix * reflected_direction;
+        vec3 reflect_color = vec3(skybox_texture(
+                reflect_sampler, reflected_direction, rough*MAX_MIPMAP));
+        reflect_color =
+                pow(reflect_color, vec3(reflect_gamma));
+        
+        // See note above about diffuse correction
+        float reflect_correction = (reflect_gamma+1)/2;
+        reflect_color *= reflect_correction;
+        reflect_color += vec3(reflect_bias);
+        
+        reflect_color = reflect_color * ks;
+        color += vec4(reflect_color, 0.);
+    }
     
-    vec3 diffuse_color = vec3(skybox_texture(
-            diffuse_sampler, offset_fragment_normal));
-    diffuse_color =
-            pow(diffuse_color, vec3(diffuse_gamma));
+    // ambient and background ==================================================
+    color += vec4(kd * ambient_color * albedo, 0.);
+    color += vec4(ks * background_color, 0.);
     
-    // This correction is based on the very crude approximation that
-    // the distribution of intensities in the reflection image is uniform
-    // which means the area under the intensity curve (from 0 to 1) would be
-    // 1/2.  If we apply a gamma exponent to this, the new area will be
-    // 1/(gamma+1).  A multiplicative correction is then (gamma+1)/2.
-    float diffuse_correction = (diffuse_gamma+1)/2;
-    diffuse_color *= diffuse_correction;
-    diffuse_color += vec3(diffuse_bias);
-    
-    color += vec4(kd * diffuse_color * albedo, 0.);
-    
-    vec4 reflected_direction =
-            inverse(camera_matrix) *
-            vec4(reflect(-eye, normal), 0.);
-    reflected_direction = image_light_offset_matrix * reflected_direction;
-    vec3 reflect_color = vec3(skybox_texture(
-            reflect_sampler, reflected_direction, rough*MAX_MIPMAP));
-    reflect_color =
-            pow(reflect_color, vec3(reflect_gamma));
-    
-    // See note above about diffuse correction
-    float reflect_correction = (reflect_gamma+1)/2;
-    reflect_color *= reflect_correction;
-    reflect_color += vec3(reflect_bias);
-    
-    reflect_color = reflect_color * ks;
-    color += vec4(reflect_color, 0.);
-    
-    // ambient light ===========================================================
-    color += vec4(ambient_color * albedo, 0.);
 }
 '''

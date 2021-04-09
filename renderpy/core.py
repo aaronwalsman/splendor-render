@@ -52,7 +52,8 @@ class Renderpy:
     _instance_types = (
             ('instance', 'instances'),
             ('depthmap_instance', 'depthmap_instances'),
-            ('point_light', 'point_lights'))
+            ('point_light', 'point_lights'),
+            ('direction_light', 'direction_lights'))
 
     def __init__(self,
             assets=None,
@@ -233,14 +234,24 @@ class Renderpy:
             of all lit objects.
         """
         self.scene_description['ambient_color'] = numpy.array(color)
+    
+    def get_ambient_color(self):
+        return self.scene_description['ambient_color']
 
     def set_background_color(self, background_color):
         if len(background_color) == 3:
             background_color = tuple(background_color) + (1,)
-        self.scene_description['background_color'] = background_color
-
+        self.scene_description['background_color'] = numpy.array(
+                background_color)
+    
+    def get_background_color(self):
+        return self.scene_description['background_color']
+    
     def set_active_image_light(self, image_light):
         self.scene_description['active_image_light'] = image_light
+    
+    def get_active_image_light(self):
+        return self.scene_description['active_image_light']
 
     # camera methods ===========================================================
     
@@ -1677,7 +1688,7 @@ class Renderpy:
             if image_light_description['render_background']:
                 self.render_background(image_light_name, flip_y = flip_y)
 
-        # set image light maps
+        # set image light active/maps
         if image_light_name is not None:
             GL.glActiveTexture(GL.GL_TEXTURE2)
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, self.gl_data[
@@ -1801,7 +1812,6 @@ class Renderpy:
                         location_data['point_light_data'], max_num_lights*2,
                         point_light_data.astype(numpy.float32))
                 
-                '''
                 # set the direction light data
                 GL.glUniform1i(
                         location_data['num_direction_lights'],
@@ -1816,8 +1826,10 @@ class Renderpy:
                 GL.glUniform3fv(
                         location_data['direction_light_data'], max_num_lights*2,
                         direction_light_data.astype(numpy.float32))
-                '''
+                
                 # set the image light parameters
+                GL.glUniform1i(location_data['image_light_active'],
+                        image_light_name is not None)
                 if image_light_name is not None:
                     image_light_data = self.get_image_light(image_light_name)
                     
@@ -1836,55 +1848,11 @@ class Renderpy:
                     GL.glUniform4fv(
                             location_data['image_light_properties'],
                             1, image_light_properties.astype(numpy.float32))
-                    
-                    '''
-                    diffuse_minmax = numpy.array(
-                            [image_light_data['diffuse_min'],
-                             image_light_data['diffuse_max']],
-                            dtype=numpy.float32)
-                    if image_light_data['rescale_diffuse_intensity']:
-                        diffuse_intensity_target_lo = (
-                                image_light_data['diffuse_intensity_target_lo'])
-                        diffuse_intensity_target_hi = (
-                                image_light_data['diffuse_intensity_target_hi'])
-                    else:
-                        diffuse_intensity_target_lo = (
-                                image_light_data['diffuse_min'])
-                        diffuse_intensity_target_hi = (
-                                image_light_data['diffuse_max'])
-                    diffuse_rescale = numpy.array(
-                            [image_light_data['diffuse_contrast'],
-                             diffuse_intensity_target_lo,
-                             diffuse_intensity_target_hi],
-                             #image_light_data['diffuse_lo_rescale'],
-                             #image_light_data['diffuse_hi_rescale']],
-                            dtype=numpy.float32)
-                    diffuse_tint_lo = numpy.array(
-                            image_light_data['diffuse_tint_lo'],
-                            dtype=numpy.float32)
-                    diffuse_tint_hi = numpy.array(
-                            image_light_data['diffuse_tint_hi'],
-                            dtype=numpy.float32)
-                    reflect_tint = numpy.array(
-                            image_light_data['reflect_tint'],
-                            dtype=numpy.float32)
-                    GL.glUniform2fv(
-                            location_data['image_light_diffuse_minmax'],
-                            1, diffuse_minmax)
-                    GL.glUniform3fv(
-                            location_data['image_light_diffuse_rescale'],
-                            1, diffuse_rescale)
-                    GL.glUniform3fv(
-                            location_data['image_light_diffuse_tint_lo'],
-                            1, diffuse_tint_lo)
-                    GL.glUniform3fv(
-                            location_data['image_light_diffuse_tint_hi'],
-                            1, diffuse_tint_hi)
-                    GL.glUniform3fv(
-                            location_data['image_light_reflect_tint'],
-                            1, reflect_tint)
-                    '''
-
+                
+                # set the background color
+                GL.glUniform3fv(location_data['background_color'], 1,
+                        self.get_background_color()[:3].astype(numpy.float32))
+                
                 mesh_instances = {}
                 for instance_name in shader_instances:
                     if self.instance_hidden(instance_name):
