@@ -1768,11 +1768,42 @@ class Renderpy:
         # figure out which programs we need (color/vertex_color)
         if instances is None:
             instances = self.scene_description['instances']
-
+        
+        textured_shader_instances = {}
+        vertex_color_shader_instances = {}
+        flat_color_shader_instances = {}
+        for instance in instances:
+            if self.instance_hidden(instance):
+                continue
+            instance_material = self.get_instance_material_name(instance)
+            instance_mesh = self.get_instance_mesh_name(instance)
+            mesh_color_mode = self.get_mesh_color_mode(instance_mesh)
+            if mesh_color_mode == 'textured':
+                shader_instances = textured_shader_instances
+            elif mesh_color_mode == 'vertex_color':
+                shader_instances = vertex_color_shader_instances
+            elif mesh_color_mode == 'flat_color':
+                shader_instances = flat_color_shader_instances
+            
+            try:
+                shader_instances[instance_material][instance_mesh].append(
+                        instance)
+            except KeyError:
+                try:
+                    shader_instances[instance_material][instance_mesh] = [
+                            instance]
+                except KeyError:
+                    shader_instances[instance_material] = {
+                            instance_mesh:[instance]}
+        
+        '''
         textured_shader_instances = []
         vertex_color_shader_instances = []
         flat_color_shader_instances = []
         for instance in instances:
+            if self.instance_hidden(instance):
+                continue
+            instance_material = self.get_instance_material_name(instance)
             instance_mesh = self.get_instance_mesh_name(instance)
             mesh_color_mode = self.get_mesh_color_mode(instance_mesh)
             if mesh_color_mode == 'textured':
@@ -1781,7 +1812,8 @@ class Renderpy:
                 vertex_color_shader_instances.append(instance)
             elif mesh_color_mode == 'flat_color':
                 flat_color_shader_instances.append(instance)
-
+        '''
+        
         for shader_name, shader_instances in (
                 ('textured_shader', textured_shader_instances),
                 ('vertex_color_shader', vertex_color_shader_instances),
@@ -1882,6 +1914,17 @@ class Renderpy:
                 GL.glUniform3fv(location_data['background_color'], 1,
                         self.get_background_color()[:3].astype(numpy.float32))
                 
+                for material_name in shader_instances:
+                    self.load_material_shader_data(material_name, shader_name)
+                    for mesh_name in shader_instances[material_name]:
+                        self.load_mesh_color_shader_data(mesh_name, shader_name)
+                        instances = shader_instances[material_name][mesh_name]
+                        for instance in instances:
+                            self.color_render_instance_light(
+                                    instance, shader_name)
+                        self.unload_mesh_shader_data(mesh_name)
+                
+                '''
                 mesh_instances = {}
                 for instance_name in shader_instances:
                     if self.instance_hidden(instance_name):
@@ -1899,13 +1942,109 @@ class Renderpy:
                                 instance_name,
                                 shader_name,
                                 set_mesh_attrib_pointers=False)
+                '''
 
             finally:
                 GL.glUseProgram(0)
 
         if finish:
             self.finish_frame()
-
+    
+    def load_mesh_color_shader_data(self, mesh_name, shader_name):
+        
+        # bind mesh buffers
+        mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
+        mesh_buffers['face_buffer'].bind()
+        mesh_buffers['vertex_buffer'].bind()
+        
+        # get the shader variable locations
+        location_data = self.shader_library.get_shader_locations(shader_name)
+        
+        # enable the attribute arrays
+        GL.glEnableVertexAttribArray(location_data['vertex_position'])
+        GL.glEnableVertexAttribArray(location_data['vertex_normal'])
+        if shader_name == 'textured_shader':
+            GL.glEnableVertexAttribArray(location_data['vertex_uv'])
+        elif shader_name == 'vertex_color_shader':
+            GL.glEnableVertexAttribArray(location_data['vertex_color'])
+        
+        # load the pointers to the vertex, normal, uv and vertex color data
+        stride = self.get_mesh_stride(mesh_name)
+        GL.glVertexAttribPointer(
+                location_data['vertex_position'],
+                3, GL.GL_FLOAT, False, stride,
+                mesh_buffers['vertex_buffer'])
+        GL.glVertexAttribPointer(
+                location_data['vertex_normal'],
+                3, GL.GL_FLOAT, False, stride,
+                mesh_buffers['vertex_buffer']+((3)*4))
+        if shader_name == 'textured_shader':
+            GL.glVertexAttribPointer(
+                    location_data['vertex_uv'],
+                    2, GL.GL_FLOAT, False, stride,
+                    mesh_buffers['vertex_buffer']+((3+3)*4))
+        elif shader_name == 'vertex_color_shader':
+            GL.glVertexAttribPointer(
+                    location_data['vertex_color'],
+                    3, GL.GL_FLOAT, False, stride,
+                    mesh_buffers['vertex_buffer']+((3+3)*4))
+    
+    def unload_mesh_shader_data(self, mesh_name):
+        mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
+        mesh_buffers['face_buffer'].unbind()
+        mesh_buffers['vertex_buffer'].unbind()
+    
+    def load_material_shader_data(self, material_name, shader_name):
+        material_buffers = self.gl_data['material_buffers'][material_name]
+        material_data = (
+                self.scene_description['materials'][material_name])
+        
+        # get the shader variable locations
+        location_data = self.shader_library.get_shader_locations(shader_name)
+        
+        # set the material properties
+        material_properties = numpy.array([
+                material_data['ambient'],
+                material_data['metal'],
+                material_data['rough'],
+                material_data['base_reflect']])
+        GL.glUniform4fv(
+                location_data['material_properties'],
+                1, material_properties.astype(numpy.float32))
+        
+        # apply the albedo based on the shader type
+        if shader_name == 'textured_shader':
+            GL.glActiveTexture(GL.GL_TEXTURE0)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, material_buffers['texture'])
+        
+        if shader_name == 'flat_color_shader':
+            flat_color = self.get_material_flat_color(material_name)
+            GL.glUniform3fv(
+                    location_data['flat_color'],
+                    1, numpy.array(flat_color, dtype=numpy.float32))
+    
+    def color_render_instance_light(self, instance_name, shader_name):
+        # get instance data
+        instance_data = self.scene_description['instances'][instance_name]
+        instance_mesh = instance_data['mesh_name']
+        mesh_data = self.loaded_data['meshes'][instance_mesh]
+        num_triangles = len(mesh_data['faces'])
+        
+        # get the shader variable locations
+        location_data = self.shader_library.get_shader_locations(shader_name)
+        
+        # set the model pose
+        GL.glUniformMatrix4fv(
+                location_data['model_pose'],
+                1, GL.GL_TRUE,
+                instance_data['transform'].astype(numpy.float32))
+        
+        GL.glDrawElements(
+                GL.GL_TRIANGLES,
+                num_triangles*3,
+                GL.GL_UNSIGNED_INT,
+                None)
+    
     def color_render_instance(self,
             instance_name,
             shader_name,
@@ -2223,19 +2362,74 @@ class Renderpy:
                     location_data['projection_matrix'],
                     1, GL.GL_TRUE,
                     projection_matrix.astype(numpy.float32))
-
-            # render all instances
+            
             if instances is None:
-                instances = self.scene_description['instances']
+                instances = self.scene_description['instances'].keys()
+            '''
             for instance_name in instances:
                 self.mask_render_instance(instance_name)
+            '''
+            
+            # sort the instances
+            mesh_instances = {}
+            for instance in instances:
+                if self.instance_hidden(instance):
+                    continue
+                instance_mesh = self.get_instance_mesh_name(instance)
+                try:
+                    mesh_instances[instance_mesh].append(instance)
+                except KeyError:
+                    mesh_instances[instance_mesh] = [instance]
+            
+            # render the instances
+            for mesh_name in mesh_instances:
+                self.load_mesh_mask_shader_data(mesh_name)
+                instances = mesh_instances[mesh_name]
+                for instance in instances:
+                    self.mask_render_instance_lite(instance)
+                self.unload_mesh_shader_data(mesh_name)
 
         finally:
             GL.glUseProgram(0)
         
         if finish:
             GL.glFinish()
-
+    
+    def load_mesh_mask_shader_data(self, mesh_name):
+        
+        # bind mesh buffers
+        mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
+        mesh_buffers['face_buffer'].bind()
+        mesh_buffers['vertex_buffer'].bind()
+        
+        # get the shader variable locations
+        location_data = self.shader_library.get_shader_locations('mask_shader')
+        
+        GL.glEnableVertexAttribArray(location_data['vertex_position'])
+        stride = self.get_mesh_stride(mesh_name)
+        GL.glVertexAttribPointer(
+                location_data['vertex_position'],
+                3, GL.GL_FLOAT, False, stride,
+                mesh_buffers['vertex_buffer'])
+    
+    def mask_render_instance_lite(self, instance_name):
+        instance_data = self.scene_description['instances'][instance_name]
+        location_data = self.shader_library.get_shader_locations('mask_shader')
+        GL.glUniformMatrix4fv(
+                location_data['model_pose'],
+                1, GL.GL_TRUE,
+                numpy.array(instance_data['transform'], dtype=numpy.float32))
+        mask_color = instance_data['mask_color']
+        GL.glUniform3fv(
+                location_data['mask_color'],
+                1, numpy.array(mask_color, dtype=numpy.float32))
+        mesh = self.loaded_data['meshes'][instance_data['mesh_name']]
+        GL.glDrawElements(
+                GL.GL_TRIANGLES,
+                len(mesh['faces'])*3,
+                GL.GL_UNSIGNED_INT,
+                None)
+    
     def mask_render_instance(self, instance_name):
         """
         Render a single instance using the mask program.
@@ -2258,8 +2452,7 @@ class Renderpy:
         mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
         mesh = self.loaded_data['meshes'][instance_mesh]
 
-        location_data = self.shader_library.get_shader_locations(
-                'mask_shader')
+        location_data = self.shader_library.get_shader_locations('mask_shader')
 
         GL.glUniformMatrix4fv(
                 location_data['model_pose'],

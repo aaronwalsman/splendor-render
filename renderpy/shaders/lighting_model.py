@@ -114,7 +114,7 @@ void main(){
     for(int i = 0; i < num_direction_lights; ++i){
         
         vec3 light_color = vec3(direction_light_data[2*i]);
-        vec3 light_direction = -direction_light_data[2*i+1];
+        vec3 light_direction = -normalize(direction_light_data[2*i+1]);
         light_direction = vec3(camera_matrix * vec4(light_direction, 0.));
         vec3 half_direction = normalize(eye + light_direction);
         
