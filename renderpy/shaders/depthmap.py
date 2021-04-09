@@ -28,10 +28,10 @@ void main() {
     fragment_uv.y = v * height_ratio;
     
     float x = (u * 2.0 - 1.0) * vertex_depth / focal_length.x;
-    float y = ((1. - v) * 2.0 - 1.0) * height_ratio * vertex_depth /            focal_length.y;
+    float y = ((1. - v) * 2.0 - 1.0) * height_ratio * vertex_depth /
+            focal_length.y;
 
     gl_Position = pvm * vec4(x, y, -vertex_depth, 1);
-    //gl_Position = pvm * vec4(vertex_depth, 1);
 }
 '''
 
@@ -42,6 +42,5 @@ out vec3 color;
 
 void main() {
     color = texture(texture_sampler, fragment_uv).rgb;
-    //color = vec3(1,1,0);
 }
 '''
