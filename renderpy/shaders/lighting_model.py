@@ -87,7 +87,7 @@ void main(){
     // point lights ============================================================
     for(int i = 0; i < num_point_lights; ++i){
         
-        vec3 light_color = vec3(point_light_data[2*i]);
+        vec3 light_color = point_light_data[2*i];
         vec3 light_position = point_light_data[2*i+1];
         light_position = vec3(camera_matrix * vec4(light_position,1));
         vec3 light_direction = light_position - vec3(fragment_position);
