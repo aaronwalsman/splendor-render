@@ -3,6 +3,17 @@ import copy
 
 import numpy
 
+def make_primitive(shape, **kwargs):
+    primitive_functions = {
+        'mesh_grid' : mesh_grid,
+        'disk' : disk,
+        'cube' : cube,
+        'barrel' : barrel,
+        'multi_cylinder' : multi_cylinder,
+        'sphere' : sphere}
+    
+    return primitive_functions[shape](**kwargs)
+
 def merge_meshes(meshes):
     merged_mesh = copy.deepcopy(meshes[0])
     for mesh in meshes[1:]:
@@ -41,7 +52,7 @@ def mesh_grid(
         x_range = x_spacing[-1] - x_spacing[0]
     else:
         raise Exception(
-                'Either x_range or x_spacing argument must be supplied')
+                'Either x_extents or x_spacing argument must be supplied')
 
     if y_extents is not None:
         y_range = y_extents[1] - y_extents[0]
@@ -51,7 +62,7 @@ def mesh_grid(
         y_range = y_spacing[-1] - y_spacing[0]
     else:
         raise Exception(
-                'Either y_range or y_spacing argument must be supplied')
+                'Either y_extents or y_spacing argument must be supplied')
 
     x_quads = x_divisions+1
     y_quads = y_divisions+1
@@ -294,15 +305,46 @@ def multi_cylinder(
         cap = disk(
                 radius = sections[0][0],
                 radial_resolution = radial_resolution,
-                flip_normals = False)
+                flip_normals = True)
         cap['vertices'][:,1] = start_height
         caps.append(cap)
     if end_cap:
         cap = disk(
                 radius = sections[-1][0],
                 radial_resolution = radial_resolution,
-                flip_normals = True)
+                flip_normals = False)
         cap['vertices'][:,1] = previous_height
         caps.append(cap)
     
     return merge_meshes(barrel_segments + caps)
+
+def sphere(
+        height_extents = (-1, 1),
+        radius = 1,
+        theta_extents = (0, math.pi*2),
+        height_divisions = 16,
+        radial_resolution = 16):
+    
+    mesh = barrel(
+        height_extents = height_extents,
+        radius = 1,
+        theta_extents = theta_extents,
+        height_divisions = height_divisions,
+        radial_resolution = radial_resolution)
+    
+    row_vertices = height_divisions + 2
+    for r in range(row_vertices):
+        theta = r/(row_vertices-1) * math.pi
+        xz = math.sin(theta)
+        y = math.cos(theta)
+        
+        mesh['vertices'][r::row_vertices,0] *= xz
+        mesh['vertices'][r::row_vertices,1] = y
+        mesh['vertices'][r::row_vertices,2] *= xz
+        
+        mesh['normals'][r::row_vertices,0] = mesh['vertices'][r::row_vertices,0]
+        mesh['normals'][r::row_vertices,1] = mesh['vertices'][r::row_vertices,1]
+        mesh['normals'][r::row_vertices,2] = mesh['vertices'][r::row_vertices,2]
+        
+    
+    return mesh

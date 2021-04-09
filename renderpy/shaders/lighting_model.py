@@ -1,5 +1,7 @@
 from renderpy.shaders.utils import phong_fn
-from renderpy.shaders.image_light import image_light_diffuse_fn
+from renderpy.shaders.pbr import pbr_fns
+from renderpy.shaders.skybox import skybox_fn
+from renderpy.shaders.utils import softish_step_fn
 
 lighting_model_fragment_shader = '''
 const int MAX_NUM_LIGHTS = 8;
@@ -18,6 +20,9 @@ in vec3 fragment_color;
 out vec4 color;
 
 uniform vec4 material_properties;
+uniform vec4 image_light_properties;
+uniform bool image_light_active;
+uniform vec3 background_color;
 
 #ifdef COMPILE_FLAT_COLOR
 uniform vec3 flat_color;
@@ -26,17 +31,13 @@ uniform vec3 flat_color;
 uniform vec3 ambient_color;
 uniform int num_point_lights;
 uniform int num_direction_lights;
+
 uniform mat4 image_light_offset_matrix;
-uniform vec2 image_light_diffuse_minmax;
-uniform vec3 image_light_diffuse_rescale;
-uniform vec3 image_light_diffuse_tint_lo;
-uniform vec3 image_light_diffuse_tint_hi;
-uniform vec3 image_light_reflect_tint;
-uniform vec3 image_light_material_properties;
+
 uniform vec3 point_light_data[2*MAX_NUM_LIGHTS];
 uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
-uniform mat4 camera_pose;
+uniform mat4 camera_matrix;
 
 #ifdef COMPILE_TEXTURE
 layout(binding=0) uniform sampler2D texture_sampler;
@@ -44,127 +45,141 @@ layout(binding=0) uniform sampler2D texture_sampler;
 
 layout(binding=2) uniform samplerCube diffuse_sampler;
 layout(binding=3) uniform samplerCube reflect_sampler;
-''' + f'''
-{phong_fn}
-{image_light_diffuse_fn}''' + '''
 
+const float MAX_MIPMAP = 4.;
+
+''' + f'''
+{pbr_fns}
+{skybox_fn}''' + '''
 void main(){
     
-    float ka = material_properties.x;
-    float kd = material_properties.y;
-    float ks = material_properties.z;
-    float shine = material_properties.w;
+    // material properties =====================================================
+    float ambient = material_properties.x;
+    float metal = material_properties.y;
+    float rough = material_properties.z;
+    float base_reflect = material_properties.w;
     
-    float k_image_light_diffuse = image_light_material_properties.x;
-    float k_image_light_reflect = image_light_material_properties.y;
-    float k_image_light_reflect_blur = image_light_material_properties.z;
+    float diffuse_gamma = image_light_properties.x;
+    float diffuse_bias = image_light_properties.y;
+    float reflect_gamma = image_light_properties.z;
+    float reflect_bias = image_light_properties.w;
     
-    float k_image_light_contrast = image_light_diffuse_rescale.x;
-    float k_image_light_target_lo = image_light_diffuse_rescale.y;
-    float k_image_light_target_hi = image_light_diffuse_rescale.z;
+    vec3 eye = normalize(vec3(-fragment_position));
+    vec3 normal = normalize(vec3(fragment_normal));
+    vec3 camera_normal = vec3(inverse(camera_matrix) * vec4(normal, 0.));
     
-    vec3 ambient_contribution = ambient_color;
-    vec3 diffuse_contribution = vec3(0.0);
-    vec3 specular_contribution = vec3(0.0);
-    
-    vec3 eye_direction = normalize(vec3(-fragment_position));
-    
-    vec3 fragment_normal_n = normalize(vec3(fragment_normal));
-    
-    // image light
-    vec3 camera_fragment_normal =
-            vec3(inverse(camera_pose) * vec4(fragment_normal_n,0));
-    vec3 image_light_diffuse_color = image_light_diffuse(
-            k_image_light_diffuse,
-            camera_fragment_normal,
-            image_light_offset_matrix,
-            image_light_diffuse_minmax.x,
-            image_light_diffuse_minmax.y,
-            k_image_light_contrast,
-            k_image_light_target_lo,
-            k_image_light_target_hi,
-            image_light_diffuse_tint_lo,
-            image_light_diffuse_tint_hi);
-    
-    vec3 reflected_direction = vec3(
-            inverse(camera_pose) *
-            vec4(reflect(-eye_direction, fragment_normal_n),0));
-    vec4 offset_reflected_direction = image_light_offset_matrix *
-            vec4(reflected_direction, 0.);
-    vec3 reflected_color = vec3(skybox_texture(
-            reflect_sampler,
-            vec3(offset_reflected_direction),
-            k_image_light_reflect_blur)) + image_light_reflect_tint;
-            
-    reflected_color = pow(reflected_color, vec3(shine, shine, shine));
-    vec3 image_light_reflection = k_image_light_reflect * reflected_color;
-    
-    // point lights
-    for(int i = 0; i < num_point_lights; ++i){
-        
-        vec3 light_color = vec3(point_light_data[2*i]);
-        vec3 light_position = vec3(
-                camera_pose * vec4(point_light_data[2*i+1],1));
-        vec3 light_direction = vec3(fragment_position) - light_position;
-        float light_distance = length(light_direction);
-        light_direction = light_direction / light_distance;
-        
-        vec2 light_phong = phong(
-                fragment_normal_n,
-                light_direction,
-                eye_direction,
-                shine);
-        
-        diffuse_contribution += light_color * light_phong.x;
-        specular_contribution += light_color * light_phong.y;
-    }
-    
-    // direction lights
-    for(int i = 0; i < num_direction_lights; ++i){
-        
-        vec3 light_color = vec3(direction_light_data[2*i]);
-        vec3 light_direction = vec3(
-                camera_pose * vec4(direction_light_data[2*i+1],0));
-        
-        vec2 light_phong = phong(
-                fragment_normal_n,
-                light_direction,
-                eye_direction,
-                shine);
-        
-        diffuse_contribution += light_color * light_phong.x;
-        specular_contribution += light_color * light_phong.y;
-    }
-    
+    // albedo ==================================================================
     #ifdef COMPILE_TEXTURE
-    vec3 diffuse_color = texture(texture_sampler, fragment_uv).rgb;
+    vec3 albedo = texture(texture_sampler, fragment_uv).rgb;
     #endif
     
     #ifdef COMPILE_VERTEX_COLORS
-    vec3 diffuse_color = fragment_color;
+    vec3 albedo = fragment_color;
     #endif
     
     #ifdef COMPILE_FLAT_COLOR
-    vec3 diffuse_color = flat_color;
+    vec3 albedo = flat_color;
     #endif
     
-    float diffuse_intensity = intensity(image_light_diffuse_color);
+    vec3 f0 = mix(vec3(base_reflect), albedo, metal);
     
-    // if diffuse contribution is greater than one
-    // interpolate the texture color to white
-    // this is designed to simulate blow-out or over-exposure
-    // and correct for some bad artifacts that happen with blown-out lights
-    if(diffuse_intensity > 1.0){
-        diffuse_color = mix(diffuse_color, vec3(1.0,1.0,1.0),
-                diffuse_intensity - 1.0);
+    color = vec4(0., 0., 0., 1.);
+    
+    // point lights ============================================================
+    for(int i = 0; i < num_point_lights; ++i){
+        
+        vec3 light_color = point_light_data[2*i];
+        vec3 light_position = point_light_data[2*i+1];
+        light_position = vec3(camera_matrix * vec4(light_position, 1.));
+        vec3 light_direction = light_position - vec3(fragment_position);
+        light_direction = normalize(light_direction);
+        
+        vec3 half_direction = normalize(eye + light_direction);
+        
+        vec3 light_contribution = cook_torrance(
+            rough,
+            metal,
+            f0,
+            albedo,
+            eye,
+            normal,
+            half_direction,
+            light_direction,
+            light_color);
+        
+        color += vec4(light_contribution, 0.);
     }
     
-    vec3 color_rgb = vec3(
-            ambient_color * diffuse_color * ka +
-            diffuse_contribution * diffuse_color * kd +
-            specular_contribution * ks +
-            image_light_diffuse_color * diffuse_color +
-            image_light_reflection);
-    color = vec4(color_rgb, 1.);
+    // direction lights ========================================================
+    for(int i = 0; i < num_direction_lights; ++i){
+        
+        vec3 light_color = vec3(direction_light_data[2*i]);
+        vec3 light_direction = -direction_light_data[2*i+1];
+        light_direction = vec3(camera_matrix * vec4(light_direction, 0.));
+        vec3 half_direction = normalize(eye + light_direction);
+        
+        vec3 light_contribution = cook_torrance(
+            rough,
+            metal,
+            f0,
+            albedo,
+            eye,
+            normal,
+            half_direction,
+            light_direction,
+            light_color);
+        
+        color += vec4(light_contribution, 0.);
+    }
+    
+    // reflect =================================================================
+    float cos_theta = dot(normal, eye);
+    vec3 ks = fresnel_schlick_rough(cos_theta, f0, rough);
+    vec3 kd = (1. - ks) * (1. - metal);
+    
+    // image light =============================================================
+    if(image_light_active){
+        
+        vec3 offset_fragment_normal = vec3(
+                image_light_offset_matrix * vec4(camera_normal, 1.));
+        
+        vec3 diffuse_color = vec3(skybox_texture(
+                diffuse_sampler, offset_fragment_normal));
+        diffuse_color =
+                pow(diffuse_color, vec3(diffuse_gamma));
+        
+        // This correction is based on the very crude approximation that
+        // the distribution of intensities in the reflection image is uniform
+        // which means the area under the intensity curve (from 0 to 1) would
+        // be 1/2.  If we apply a gamma exponent to this, the new area will be
+        // 1/(gamma+1).  A multiplicative correction is then (gamma+1)/2.
+        float diffuse_correction = (diffuse_gamma+1)/2;
+        diffuse_color *= diffuse_correction;
+        diffuse_color += vec3(diffuse_bias);
+        
+        color += vec4(kd * diffuse_color * albedo, 0.);
+        
+        vec4 reflected_direction =
+                inverse(camera_matrix) *
+                vec4(reflect(-eye, normal), 0.);
+        reflected_direction = image_light_offset_matrix * reflected_direction;
+        vec3 reflect_color = vec3(skybox_texture(
+                reflect_sampler, reflected_direction, rough*MAX_MIPMAP));
+        reflect_color =
+                pow(reflect_color, vec3(reflect_gamma));
+        
+        // See note above about diffuse correction
+        float reflect_correction = (reflect_gamma+1)/2;
+        reflect_color *= reflect_correction;
+        reflect_color += vec3(reflect_bias);
+        
+        reflect_color = reflect_color * ks;
+        color += vec4(reflect_color, 0.);
+    }
+    
+    // ambient and background ==================================================
+    color += vec4(kd * ambient_color * albedo, 0.);
+    color += vec4(ks * background_color, 0.);
+    
 }
 '''

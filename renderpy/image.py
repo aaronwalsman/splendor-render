@@ -38,8 +38,8 @@ def intensity(image):
             0.1141 * image[...,2])
 
 def even_intensity(image):
-    return (0.3334 * image[...,0] +
-            0.3333 * image[...,1] +
+    return (0.3333 * image[...,0] +
+            0.3334 * image[...,1] +
             0.3333 * image[...,2])
 
 def validate_texture(image):

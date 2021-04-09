@@ -4,14 +4,14 @@ background_vertex_shader = '''#version 460 core
 #define FAR 1-(1e-4)
 
 uniform mat4 projection_matrix;
-uniform mat4 camera_pose;
+uniform mat4 camera_matrix;
 
 out vec3 fragment_direction;
 out vec2 fragment_uv;
 
 void main(){
-    mat4 inv_vp = inverse(projection_matrix * camera_pose);
-    vec4 p0 = inverse(camera_pose) * vec4(0,0,0,1);
+    mat4 inv_vp = inverse(projection_matrix * camera_matrix);
+    vec4 p0 = inverse(camera_matrix) * vec4(0,0,0,1);
     if(gl_VertexID == 0){
         gl_Position = vec4(-1,-1,FAR,1);
         fragment_uv = vec2(0,0);

@@ -28,6 +28,7 @@ import renderpy.obj_mesh as obj_mesh
 from renderpy.image import load_image, load_depth, validate_texture
 import renderpy.json_numpy as json_numpy
 from renderpy.exceptions import RenderpyException
+from renderpy.primitives import make_primitive
 
 max_num_lights = 8
 default_default_camera_pose = numpy.eye(4)
@@ -51,7 +52,8 @@ class Renderpy:
     _instance_types = (
             ('instance', 'instances'),
             ('depthmap_instance', 'depthmap_instances'),
-            ('point_light', 'point_lights'))
+            ('point_light', 'point_lights'),
+            ('direction_light', 'direction_lights'))
 
     def __init__(self,
             assets=None,
@@ -118,13 +120,13 @@ class Renderpy:
                 'depthmap_buffers':{},
                 'material_buffers':{},
                 'light_buffers':{},
-                'textured_shader':{},
-                'vertex_color_shader':{},
-                'mask_shader':{},
-                'coord_shader':{},
-                'background_shader':{}
+                #'textured_shader':{},
+                #'vertex_color_shader':{},
+                #'mask_shader':{},
+                #'coord_shader':{},
+                #'background_shader':{}
         }
-
+        
         self.opengl_init()
         self.shader_library = ShaderLibrary()
     
@@ -232,14 +234,24 @@ class Renderpy:
             of all lit objects.
         """
         self.scene_description['ambient_color'] = numpy.array(color)
+    
+    def get_ambient_color(self):
+        return self.scene_description['ambient_color']
 
     def set_background_color(self, background_color):
         if len(background_color) == 3:
             background_color = tuple(background_color) + (1,)
-        self.scene_description['background_color'] = background_color
-
+        self.scene_description['background_color'] = numpy.array(
+                background_color)
+    
+    def get_background_color(self):
+        return self.scene_description['background_color']
+    
     def set_active_image_light(self, image_light):
         self.scene_description['active_image_light'] = image_light
+    
+    def get_active_image_light(self):
+        return self.scene_description['active_image_light']
 
     # camera methods ===========================================================
     
@@ -309,6 +321,7 @@ class Renderpy:
             mesh_asset = None,
             mesh_path = None,
             mesh_data = None,
+            mesh_primitive = None,
             scale = 1.0,
             #create_uvs = False,
             color_mode = 'textured'):
@@ -328,6 +341,8 @@ class Renderpy:
             Full path to a mesh file
         mesh_data : dict, optional
             Dictionary containing the vertices, normals and faces of this mesh
+        mesh_primitive : dict, optional
+            Dictionary containing args to the primitives.make_primitive function
         scale : float, default=1.0
             Global scale for the mesh
         color_mode : {"textured", "vertex_color", "flat"}
@@ -360,11 +375,18 @@ class Renderpy:
             self.scene_description['meshes'][name] = {
                 'mesh_data':mesh_data
             }
-
+        
+        # otherwise if a primitive is provided, load that
+        elif mesh_primitive is not None:
+            mesh = make_primitive(**mesh_primitive)
+            self.scene_description['meshes'][name] = {
+                'mesh_primitive':mesh_primitive
+            }
+        
         else:
             raise RenderpyException(
-                    'Must supply a "mesh_asset", "mesh_path" or "mesh_data" '
-                    'argument when loading a mesh')
+                    'Must supply a "mesh_asset", "mesh_path", "mesh_data" '
+                    ' or "mesh_primitive" argument when loading a mesh')
 
         self.scene_description['meshes'][name]['color_mode'] = color_mode
 
@@ -670,16 +692,20 @@ class Renderpy:
             reflect_texture,
             reflect_mipmaps = None,
             offset_matrix = numpy.eye(4),
-            blur = 0.0,
-            diffuse_contrast = 1.,
-            rescale_diffuse_intensity = False,
-            diffuse_intensity_target_lo = 0.,
-            diffuse_intensity_target_hi = 1.,
-            diffuse_tint_lo = (0,0,0),
-            diffuse_tint_hi = (0,0,0),
-            reflect_tint = (0,0,0),
+            blur = 0.,
+            diffuse_gamma = 1.,
+            diffuse_bias = 0.,
+            reflect_gamma = 1.,
+            reflect_bias = 0.,
+            #diffuse_contrast = 1.,
+            #rescale_diffuse_intensity = False,
+            #diffuse_intensity_target_lo = 0.,
+            #diffuse_intensity_target_hi = 1.,
+            #diffuse_tint_lo = (0,0,0),
+            #diffuse_tint_hi = (0,0,0),
+            #reflect_tint = (0,0,0),
             render_background = True,
-            crop = None,
+            #crop = None,
             set_active = False):
         """
         Load an image light.
@@ -717,6 +743,11 @@ class Renderpy:
         image_light_data['offset_matrix'] = numpy.array(offset_matrix)
         image_light_data['blur'] = blur
         image_light_data['render_background'] = render_background
+        image_light_data['diffuse_gamma'] = diffuse_gamma
+        image_light_data['diffuse_bias'] = diffuse_bias
+        image_light_data['reflect_gamma'] = reflect_gamma
+        image_light_data['reflect_bias'] = reflect_bias
+        '''
         image_light_data['diffuse_contrast'] = diffuse_contrast
         image_light_data['rescale_diffuse_intensity'] = (
                 rescale_diffuse_intensity)
@@ -727,6 +758,7 @@ class Renderpy:
         image_light_data['diffuse_tint_lo'] = diffuse_tint_lo
         image_light_data['diffuse_tint_hi'] = diffuse_tint_hi
         image_light_data['reflect_tint'] = reflect_tint
+        '''
         self.scene_description['image_lights'][name] = image_light_data
         self.replace_image_light_textures(
                 name,
@@ -834,7 +866,6 @@ class Renderpy:
         if crop is not None:
             image = image[crop[0]:crop[2], crop[1]:crop[3]]
 
-        image = numpy.array(image)
         validate_texture(image)
         self.loaded_data['textures'][name] = image
 
@@ -858,7 +889,7 @@ class Renderpy:
 
         finally:
             GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
-
+    
     def replace_image_light_textures(self,
             name,
             diffuse_texture,
@@ -1026,7 +1057,7 @@ class Renderpy:
 
         self.loaded_data['textures'][name + '_diffuse'] = diffuse_image
         self.loaded_data['textures'][name + '_reflect'] = reflect_image
-
+    
     def get_texture(self, name):
         """
         Parameters:
@@ -1046,13 +1077,17 @@ class Renderpy:
             name,
             texture = None,
             flat_color = None,
-            ka = 1.0,
-            kd = 1.0,
-            ks = 0.5,
-            shine = 1.0,
-            image_light_kd = 0.85,
-            image_light_ks = 0.15,
-            image_light_blur_reflection = 2.0,
+            ambient = 1.0,
+            #kd = 1.0,
+            #ks = 0.5,
+            metal = 0.0,
+            #shine = 1.0,
+            rough = 0.3,
+            base_reflect = 0.04,
+            #reflect_color = (0.04, 0.04, 0.04),
+            #image_light_kd = 0.85,
+            #image_light_ks = 0.15,
+            #image_light_blur_reflection = 2.0,
             crop = None):
         """
         Load a material.
@@ -1075,14 +1110,18 @@ class Renderpy:
         """
 
         self.scene_description['materials'][name] = {
-                'ka' : ka,
-                'kd' : kd,
-                'ks' : ks,
-                'shine' : shine,
-                'image_light_kd' : image_light_kd,
-                'image_light_ks' : image_light_ks,
-                'image_light_blur_reflection' : image_light_blur_reflection,
-                'flat_color':flat_color}
+                #'ka' : ka,
+                #'kd' : kd,
+                #'ks' : ks,
+                #'shine' : shine,
+                #'image_light_kd' : image_light_kd,
+                #'image_light_ks' : image_light_ks,
+                #'image_light_blur_reflection' : image_light_blur_reflection,
+                'ambient':ambient,
+                'metal':metal,
+                'rough':rough,
+                'flat_color':flat_color,
+                'base_reflect':base_reflect}
 
         if name in self.gl_data['material_buffers']:
             GL.glBindTexture(GL.GL_TEXTURE_2D,0)
@@ -1162,7 +1201,7 @@ class Renderpy:
         str or None :
             The flat color associated with a material or None if not present
         """
-        return self.scene_description['materials'][material_name]['flat_color']
+        return self.scene_description['materials'][name]['flat_color']
 
     # instance methods =========================================================
     
@@ -1649,7 +1688,7 @@ class Renderpy:
             if image_light_description['render_background']:
                 self.render_background(image_light_name, flip_y = flip_y)
 
-        # set image light maps
+        # set image light active/maps
         if image_light_name is not None:
             GL.glActiveTexture(GL.GL_TEXTURE2)
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, self.gl_data[
@@ -1666,11 +1705,11 @@ class Renderpy:
         try:
             location_data = self.shader_library.get_shader_locations(
                     'textured_depthmap_shader')
-
+            
             # set the camera's pose
             camera_pose = self.scene_description['camera']['pose']
             GL.glUniformMatrix4fv(
-                    location_data['camera_pose'],
+                    location_data['camera_matrix'],
                     1, GL.GL_TRUE,
                     camera_pose.astype(numpy.float32))
 
@@ -1732,7 +1771,7 @@ class Renderpy:
                 # set the camera's pose
                 camera_pose = self.scene_description['camera']['pose']
                 GL.glUniformMatrix4fv(
-                        location_data['camera_pose'],
+                        location_data['camera_matrix'],
                         1, GL.GL_TRUE,
                         camera_pose.astype(numpy.float32))
 
@@ -1757,7 +1796,7 @@ class Renderpy:
                 GL.glUniform3fv(
                         location_data['ambient_color'], 1,
                         ambient_color.astype(numpy.float32))
-
+                
                 # set the point light data
                 GL.glUniform1i(
                         location_data['num_point_lights'],
@@ -1772,7 +1811,7 @@ class Renderpy:
                 GL.glUniform3fv(
                         location_data['point_light_data'], max_num_lights*2,
                         point_light_data.astype(numpy.float32))
-
+                
                 # set the direction light data
                 GL.glUniform1i(
                         location_data['num_direction_lights'],
@@ -1787,63 +1826,33 @@ class Renderpy:
                 GL.glUniform3fv(
                         location_data['direction_light_data'], max_num_lights*2,
                         direction_light_data.astype(numpy.float32))
-
+                
                 # set the image light parameters
+                GL.glUniform1i(location_data['image_light_active'],
+                        image_light_name is not None)
                 if image_light_name is not None:
-                    image_light_data = (
-                            self.scene_description['image_lights'][
-                                image_light_name])
+                    image_light_data = self.get_image_light(image_light_name)
+                    
+                    # set the offset matrix
                     offset_matrix = image_light_data['offset_matrix']
                     GL.glUniformMatrix4fv(
                             location_data['image_light_offset_matrix'],
                             1, GL.GL_TRUE,
                             offset_matrix.astype(numpy.float32))
-                    diffuse_minmax = numpy.array(
-                            [image_light_data['diffuse_min'],
-                             image_light_data['diffuse_max']],
-                            dtype=numpy.float32)
-                    if image_light_data['rescale_diffuse_intensity']:
-                        diffuse_intensity_target_lo = (
-                                image_light_data['diffuse_intensity_target_lo'])
-                        diffuse_intensity_target_hi = (
-                                image_light_data['diffuse_intensity_target_hi'])
-                    else:
-                        diffuse_intensity_target_lo = (
-                                image_light_data['diffuse_min'])
-                        diffuse_intensity_target_hi = (
-                                image_light_data['diffuse_max'])
-                    diffuse_rescale = numpy.array(
-                            [image_light_data['diffuse_contrast'],
-                             diffuse_intensity_target_lo,
-                             diffuse_intensity_target_hi],
-                             #image_light_data['diffuse_lo_rescale'],
-                             #image_light_data['diffuse_hi_rescale']],
-                            dtype=numpy.float32)
-                    diffuse_tint_lo = numpy.array(
-                            image_light_data['diffuse_tint_lo'],
-                            dtype=numpy.float32)
-                    diffuse_tint_hi = numpy.array(
-                            image_light_data['diffuse_tint_hi'],
-                            dtype=numpy.float32)
-                    reflect_tint = numpy.array(
-                            image_light_data['reflect_tint'],
-                            dtype=numpy.float32)
-                    GL.glUniform2fv(
-                            location_data['image_light_diffuse_minmax'],
-                            1, diffuse_minmax)
-                    GL.glUniform3fv(
-                            location_data['image_light_diffuse_rescale'],
-                            1, diffuse_rescale)
-                    GL.glUniform3fv(
-                            location_data['image_light_diffuse_tint_lo'],
-                            1, diffuse_tint_lo)
-                    GL.glUniform3fv(
-                            location_data['image_light_diffuse_tint_hi'],
-                            1, diffuse_tint_hi)
-                    GL.glUniform3fv(
-                            location_data['image_light_reflect_tint'],
-                            1, reflect_tint)
-
+                    
+                    image_light_properties = numpy.array([
+                            image_light_data['diffuse_gamma'],
+                            image_light_data['diffuse_bias'],
+                            image_light_data['reflect_gamma'],
+                            image_light_data['reflect_bias']])
+                    GL.glUniform4fv(
+                            location_data['image_light_properties'],
+                            1, image_light_properties.astype(numpy.float32))
+                
+                # set the background color
+                GL.glUniform3fv(location_data['background_color'], 1,
+                        self.get_background_color()[:3].astype(numpy.float32))
+                
                 mesh_instances = {}
                 for instance_name in shader_instances:
                     if self.instance_hidden(instance_name):
@@ -1895,15 +1904,8 @@ class Renderpy:
         instance_material = instance_data['material_name']
         material_data = (
                 self.scene_description['materials'][instance_material])
-        material_properties = numpy.array([
-                material_data['ka'],
-                material_data['kd'],
-                material_data['ks'],
-                material_data['shine']])
-        image_light_material_properties = numpy.array([
-                material_data['image_light_kd'],
-                material_data['image_light_ks'],
-                material_data['image_light_blur_reflection']])
+        image_light_name = self.scene_description['active_image_light']
+        
         mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
         material_buffers = self.gl_data['material_buffers'][instance_material]
         mesh_data = self.loaded_data['meshes'][instance_mesh]
@@ -1915,28 +1917,35 @@ class Renderpy:
                 location_data['model_pose'],
                 1, GL.GL_TRUE,
                 instance_data['transform'].astype(numpy.float32))
-
+        
+        material_properties = numpy.array([
+                material_data['ambient'],
+                material_data['metal'],
+                material_data['rough'],
+                material_data['base_reflect']])
         GL.glUniform4fv(
                 location_data['material_properties'],
                 1, material_properties.astype(numpy.float32))
-
-        GL.glUniform3fv(
-                location_data['image_light_material_properties'], 1,
-                image_light_material_properties)
-
+        
+        #reflect_color = numpy.array(
+        #        material_data['reflect_color']).astype(numpy.float32)
+        #GL.glUniform3fv(
+        #        location_data['reflect_color'],
+        #        1, reflect_color)
+        
         mesh_buffers['face_buffer'].bind()
         mesh_buffers['vertex_buffer'].bind()
-
+        
         if shader_name == 'textured_shader':
             GL.glActiveTexture(GL.GL_TEXTURE0)
             GL.glBindTexture(GL.GL_TEXTURE_2D, material_buffers['texture'])
-
+        
         if shader_name == 'flat_color_shader':
             flat_color = self.get_material_flat_color(instance_material)
             GL.glUniform3fv(
                     location_data['flat_color'],
                     1, numpy.array(flat_color, dtype=numpy.float32))
-
+        
         try:
             # SOMETHING BETWEEN HERE...
             if set_mesh_attrib_pointers:
@@ -2070,7 +2079,7 @@ class Renderpy:
         # set the camera's pose
         camera_pose = self.scene_description['camera']['pose']
         GL.glUniformMatrix4fv(
-                location_data['camera_pose'],
+                location_data['camera_matrix'],
                 1, GL.GL_TRUE,
                 camera_pose.astype(numpy.float32))
 
@@ -2164,7 +2173,7 @@ class Renderpy:
             # set the camera's pose
             camera_pose = self.scene_description['camera']['pose']
             GL.glUniformMatrix4fv(
-                    location_data['camera_pose'],
+                    location_data['camera_matrix'],
                     1, GL.GL_TRUE,
                     camera_pose.astype(numpy.float32))
 
@@ -2290,7 +2299,7 @@ class Renderpy:
                     'coord_shader')
             camera_pose = self.scene_description['camera']['pose']
             GL.glUniformMatrix4fv(
-                    location_data['camera_pose'],
+                    location_data['camera_matrix'],
                     1, GL.GL_TRUE,
                     camera_pose.astype(numpy.float32))
 
