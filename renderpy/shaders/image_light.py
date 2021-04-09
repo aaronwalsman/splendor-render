@@ -68,6 +68,7 @@ uniform vec4 sample_direction_importance_ratio[NUM_SAMPLES];
 
 void main(){
     color = vec3(0,0,0);
+    float num_samples = 0.;
     vec3 fragment_direction_n = normalize(fragment_direction);
     for(int i = 0; i < NUM_SAMPLES; ++i){
         vec3 sample_direction = vec3(sample_direction_importance_ratio[i]);
@@ -83,7 +84,8 @@ void main(){
         float sample_intensity = reflect_sample.w;
         
         color += sample_color * abs(d) * sample_intensity * importance_ratio;
+        num_samples += 1.;
     }
-    color /= NUM_SAMPLES;
+    color /= num_samples;
 }
 '''
