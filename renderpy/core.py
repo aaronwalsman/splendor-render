@@ -227,21 +227,58 @@ class Renderpy:
         self.scene_description['ambient_color'] = numpy.array(color)
     
     def get_ambient_color(self):
+        """
+        Gets the ambient light color for the scene.
+        
+        Returns
+        -------
+        3-channel array in [0-1]
+        """
         return self.scene_description['ambient_color']
 
     def set_background_color(self, background_color):
+        """
+        Sets the background color for the scene.
+        
+        Parameters
+        ----------
+        background_color : 3 or 4 channel array-like in [0-1]
+            If three channels are provided, an alpha channel of 1. is assumed.
+        """
         if len(background_color) == 3:
             background_color = tuple(background_color) + (1,)
         self.scene_description['background_color'] = numpy.array(
                 background_color)
     
     def get_background_color(self):
+        """
+        Gets the background color for the scene.
+        
+        Returns
+        -------
+        4-channel array in [0-1]
+        """
         return self.scene_description['background_color']
     
     def set_active_image_light(self, image_light):
+        """
+        Sets the active image light.
+        
+        Parameters
+        ----------
+        image_light : str
+            The name of the image light to make active.
+        """
         self.scene_description['active_image_light'] = image_light
     
     def get_active_image_light(self):
+        """
+        Gets the active image light.
+        
+        Returns
+        -------
+        str : the name of the image light
+        """
         return self.scene_description['active_image_light']
 
     # camera methods ===========================================================
@@ -314,7 +351,6 @@ class Renderpy:
             mesh_data = None,
             mesh_primitive = None,
             scale = 1.0,
-            #create_uvs = False,
             color_mode = 'textured'):
         """
         Load a mesh.
@@ -688,15 +724,7 @@ class Renderpy:
             diffuse_bias = 0.,
             reflect_gamma = 1.,
             reflect_bias = 0.,
-            #diffuse_contrast = 1.,
-            #rescale_diffuse_intensity = False,
-            #diffuse_intensity_target_lo = 0.,
-            #diffuse_intensity_target_hi = 1.,
-            #diffuse_tint_lo = (0,0,0),
-            #diffuse_tint_hi = (0,0,0),
-            #reflect_tint = (0,0,0),
             render_background = True,
-            #crop = None,
             set_active = False):
         """
         Load an image light.
@@ -716,8 +744,27 @@ class Renderpy:
             the px, nx, py, ny, pz, nz face of a cubemap.
         reflect_texture : str
             See diffuse_texture, but for the reflection map.
-        TODO: Come back and document the rest of this when we clean up the
-            image light parameters
+        offset_matrix : 4x4 array-like, default=numpy.eye(4)
+            An offset rotation matrix for the image light.
+        blur : float, default=0.
+            Blur to apply to the background when the background is visible.
+        diffuse_gamma : float, default=1.
+            A gamma correction for the diffuse component of the image light.
+            Values above one increase the contrast between dark and light
+            sides of an object.
+        diffuse_bias : float, default=0.
+            A bias for the diffuse component of the image light.
+        reflect_gamma : float, default=1.
+            A gamma correction for the reflect component of the image light.
+            Values above one increase the contrast in the reflections.
+        reflect_bias : float, default=0.
+            A bias for the reflection component of the image light.
+        render_background : bool, default=True
+            Whether or not to render the reflection maps as a background for
+            the scene.
+        set_active : bool, default=False
+            If true, this image light will become the active image light in
+            the scene.
         """
         
         if name in self.gl_data['light_buffers']:
@@ -738,19 +785,8 @@ class Renderpy:
         image_light_data['diffuse_bias'] = diffuse_bias
         image_light_data['reflect_gamma'] = reflect_gamma
         image_light_data['reflect_bias'] = reflect_bias
-        '''
-        image_light_data['diffuse_contrast'] = diffuse_contrast
-        image_light_data['rescale_diffuse_intensity'] = (
-                rescale_diffuse_intensity)
-        image_light_data['diffuse_intensity_target_lo'] = (
-                diffuse_intensity_target_lo)
-        image_light_data['diffuse_intensity_target_hi'] = (
-                diffuse_intensity_target_hi)
-        image_light_data['diffuse_tint_lo'] = diffuse_tint_lo
-        image_light_data['diffuse_tint_hi'] = diffuse_tint_hi
-        image_light_data['reflect_tint'] = reflect_tint
-        '''
         self.scene_description['image_lights'][name] = image_light_data
+        
         self.replace_image_light_textures(
                 name,
                 diffuse_texture,
@@ -1068,17 +1104,10 @@ class Renderpy:
             name,
             texture = None,
             flat_color = None,
-            ambient = 1.0,
-            #kd = 1.0,
-            #ks = 0.5,
-            metal = 0.0,
-            #shine = 1.0,
+            ambient = 1.,
+            metal = 0.,
             rough = 0.3,
             base_reflect = 0.04,
-            #reflect_color = (0.04, 0.04, 0.04),
-            #image_light_kd = 0.85,
-            #image_light_ks = 0.15,
-            #image_light_blur_reflection = 2.0,
             crop = None):
         """
         Load a material.
@@ -1097,17 +1126,26 @@ class Renderpy:
         flat_color : tuple, optional
             A flat color for this material
             (must specify either texture or flat_color)
-        TODO: Fill in the rest of this once material parameters stabilize
+        ambient : float, default=1.
+            The degree to which this material is affected by the ambient color
+            in the scene.
+        metal : float, default=0.
+            The metal parameter turns down the diffuse component of the light
+            and uses the albedo as a reflection coefficient.  A value of 1.0
+            will result in a shiny surface that is tinted using the surface
+            albedo (texture/flat_color).
+        rough : float, default=0.
+            Roughness causes reflections to blur and specular highlights to
+            be larger and fuzzier.
+        base_reflect : float, default=0.04
+            The ammount of light the surface reflects when the normal is
+            facing the camera.  A value of 1. with 0. metal and 0. roughness
+            results in a pure mirror.
+        crop : 4-tuple, optional
+            Bottom, left, top, right crop values for the texture
         """
 
         self.scene_description['materials'][name] = {
-                #'ka' : ka,
-                #'kd' : kd,
-                #'ks' : ks,
-                #'shine' : shine,
-                #'image_light_kd' : image_light_kd,
-                #'image_light_ks' : image_light_ks,
-                #'image_light_blur_reflection' : image_light_blur_reflection,
                 'ambient':ambient,
                 'metal':metal,
                 'rough':rough,
@@ -1887,28 +1925,34 @@ class Renderpy:
             is no need to copy certain data to the GPU again.
         """
         
+        # get instance data
         instance_data = self.scene_description['instances'][instance_name]
+        
+        # bail if this instance is hidden
         if instance_data['hidden']:
             return
-
+        
+        # get mesh, material and image light data
         instance_mesh = instance_data['mesh_name']
+        mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
         instance_material = instance_data['material_name']
+        material_buffers = self.gl_data['material_buffers'][instance_material]
         material_data = (
                 self.scene_description['materials'][instance_material])
-        image_light_name = self.scene_description['active_image_light']
         
-        mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
-        material_buffers = self.gl_data['material_buffers'][instance_material]
         mesh_data = self.loaded_data['meshes'][instance_mesh]
         num_triangles = len(mesh_data['faces'])
-
+        
+        # get the shader variable locations
         location_data = self.shader_library.get_shader_locations(shader_name)
-
+        
+        # set the model pose
         GL.glUniformMatrix4fv(
                 location_data['model_pose'],
                 1, GL.GL_TRUE,
                 instance_data['transform'].astype(numpy.float32))
         
+        # set the material properties
         material_properties = numpy.array([
                 material_data['ambient'],
                 material_data['metal'],
@@ -1918,15 +1962,11 @@ class Renderpy:
                 location_data['material_properties'],
                 1, material_properties.astype(numpy.float32))
         
-        #reflect_color = numpy.array(
-        #        material_data['reflect_color']).astype(numpy.float32)
-        #GL.glUniform3fv(
-        #        location_data['reflect_color'],
-        #        1, reflect_color)
-        
+        # bind the mesh buffers
         mesh_buffers['face_buffer'].bind()
         mesh_buffers['vertex_buffer'].bind()
         
+        # apply the albedo based on the shader type
         if shader_name == 'textured_shader':
             GL.glActiveTexture(GL.GL_TEXTURE0)
             GL.glBindTexture(GL.GL_TEXTURE_2D, material_buffers['texture'])
@@ -1966,9 +2006,10 @@ class Renderpy:
                             location_data['vertex_color'],
                             3, GL.GL_FLOAT, False, stride,
                             mesh_buffers['vertex_buffer']+((3+3)*4))
-
+            
             # AND HERE TAKES ~40% of the rendering time
-
+            
+            # draw triangles
             GL.glDrawElements(
                     GL.GL_TRIANGLES,
                     num_triangles*3,
