@@ -74,7 +74,7 @@ def mesh_grid(
     faces = numpy.zeros((3, total_faces), dtype=int)
     normal_axis, = {0,1,2} - set(axes)
     uv_scale = 1./max(x_range, y_range)
-
+    
     for i in range(x_vertices):
         vertices[axes[0], i, :] = x_spacing[i]
         u = (x_spacing[i] - x_spacing[0]) * uv_scale
@@ -130,13 +130,13 @@ def mesh_grid(
                         ci * y_vertices + cj]
 
     if flatten:
-        vertices = vertices.reshape(4, total_vertices)
-        normals = normals.reshape(4, total_vertices)
-        uvs = uvs.reshape(3, total_vertices)
-
-    return {'vertices':vertices.T,
-            'normals':normals.T,
-            'uvs':uvs.T,
+        vertices = vertices.reshape(4, total_vertices).T
+        normals = normals.reshape(4, total_vertices).T
+        uvs = uvs.reshape(3, total_vertices).T
+    
+    return {'vertices':vertices,
+            'normals':normals,
+            'uvs':uvs,
             'faces':faces.T}
 
 def disk(
@@ -237,6 +237,110 @@ def disk(
             'uvs':uvs.T,
             'faces':faces.T}
 
+def compute_bezel_spacing(extents, divisions, bezel):
+    primary_vertices = divisions + 2
+    total_vertices = primary_vertices + 2
+    total_range = extents[1] - extents[0]
+    primary_range = total_range - bezel * 2
+    primary_start = extents[0] + bezel
+    spacing = [float(extents[0])] + [
+        (i/(primary_vertices-1)) * primary_range + primary_start
+        for i in range(primary_vertices)
+    ] + [float(extents[1])]
+    
+    return spacing
+
+def rectangle(
+    x_extents = (-1,1),
+    y_extents = (-1,1),
+    x_divisions = 0,
+    y_divisions = 0,
+    depth = 0,
+    axes = (0,1),
+    flip_normals = False,
+    bezel = None
+):
+    if not bezel:
+        grid = mesh_grid(
+            axes=axes,
+            x_extents=x_extents,
+            y_extents=y_extents,
+            x_divisions=x_divisions,
+            y_divisions=y_divisions,
+            depth=depth,
+            flip_normals=flip_normals,
+            flatten=True,
+        )
+        print(grid['vertices'].shape)
+        print(grid['faces'].shape)
+    
+    else:
+        x_spacing = compute_bezel_spacing(x_extents, x_divisions, bezel)
+        y_spacing = compute_bezel_spacing(y_extents, y_divisions, bezel)
+        grid = mesh_grid(
+            axes=axes,
+            x_spacing=x_spacing,
+            y_spacing=y_spacing,
+            x_divisions=x_divisions+2,
+            y_divisions=y_divisions+2,
+            depth=depth,
+            flip_normals=flip_normals,
+            flatten=False)
+        
+        half = 1./(2.**0.5)
+        third = 1./(3.**0.5)
+        
+        normal_axis, = {0,1,2} - set(axes)
+        
+        grid['normals'][axes[1],1:-1, 0] = -half
+        grid['normals'][axes[1],1:-1,-1] =  half
+        grid['normals'][axes[0], 0,1:-1] = -half
+        grid['normals'][axes[0],-1,1:-1] =  half
+        grid['normals'][normal_axis,1:-1, 0] *= half
+        grid['normals'][normal_axis,1:-1,-1] *= half
+        grid['normals'][normal_axis, 0,1:-1] *= half
+        grid['normals'][normal_axis,-1,1:-1] *= half
+        
+        grid['normals'][axes, 0, 0] = [-third,-third]
+        grid['normals'][axes,-1, 0] = [ third,-third]
+        grid['normals'][axes, 0,-1] = [-third, third]
+        grid['normals'][axes,-1,-1] = [ third, third]
+        grid['normals'][normal_axis, 0, 0] *= third
+        grid['normals'][normal_axis,-1, 0] *= third
+        grid['normals'][normal_axis, 0,-1] *= third
+        grid['normals'][normal_axis,-1,-1] *= third
+        
+        if flip_normals:
+            direction = -1
+        else:
+            direction = 1
+        edge = 1. - half
+        corner = 1. - 0.546918160678027
+        grid['vertices'][axes[1],1:-1, 0] += edge * bezel
+        grid['vertices'][axes[1],1:-1,-1] -= edge * bezel
+        grid['vertices'][axes[0], 0,1:-1] += edge * bezel
+        grid['vertices'][axes[0],-1,1:-1] -= edge * bezel
+        grid['vertices'][normal_axis,1:-1, 0] += edge * bezel * direction
+        grid['vertices'][normal_axis,1:-1,-1] += edge * bezel * direction
+        grid['vertices'][normal_axis, 0,1:-1] += edge * bezel * direction
+        grid['vertices'][normal_axis,-1,1:-1] += edge * bezel * direction
+        
+        grid['vertices'][axes, 0, 0] += [ corner * bezel, corner * bezel]
+        grid['vertices'][axes,-1, 0] += [-corner * bezel, corner * bezel]
+        grid['vertices'][axes, 0,-1] += [ corner * bezel,-corner * bezel]
+        grid['vertices'][axes,-1,-1] += [-corner * bezel,-corner * bezel]
+        grid['vertices'][normal_axis, 0, 0] += corner*bezel*direction
+        grid['vertices'][normal_axis,-1, 0] += corner*bezel*direction
+        grid['vertices'][normal_axis, 0,-1] += corner*bezel*direction
+        grid['vertices'][normal_axis,-1,-1] += corner*bezel*direction
+        
+        total_vertices = (x_divisions+4) * (y_divisions+4)
+        grid['vertices'] = grid['vertices'].reshape(4, total_vertices).T
+        grid['normals'] = grid['normals'].reshape(4, total_vertices).T
+        grid['uvs'] = grid['uvs'].reshape(3, total_vertices).T
+    
+    return grid
+
 def cube(
         x_extents = (-1,1),
         y_extents = (-1,1),
@@ -246,7 +350,73 @@ def cube(
         z_divisions = 0,
         bezel = None):
     
-    raise NotImplementedError
+    neg_x = rectangle(
+        x_extents = y_extents,
+        y_extents = z_extents,
+        x_divisions = y_divisions,
+        y_divisions = z_divisions,
+        depth = x_extents[0],
+        axes = (1,2),
+        flip_normals=False,
+        bezel=bezel,
+    )
+    
+    pos_x = rectangle(
+        x_extents = y_extents,
+        y_extents = z_extents,
+        x_divisions = y_divisions,
+        y_divisions = z_divisions,
+        depth = x_extents[1],
+        axes = (1,2),
+        flip_normals=True,
+        bezel=bezel,
+    )
+    
+    neg_y = rectangle(
+        x_extents = z_extents,
+        y_extents = x_extents,
+        x_divisions = z_divisions,
+        y_divisions = x_divisions,
+        depth = y_extents[0],
+        axes = (2,0),
+        flip_normals=False,
+        bezel=bezel,
+    )
+    
+    pos_y = rectangle(
+        x_extents = z_extents,
+        y_extents = x_extents,
+        x_divisions = z_divisions,
+        y_divisions = x_divisions,
+        depth = y_extents[1],
+        axes = (2,0),
+        flip_normals=True,
+        bezel=bezel,
+    )
+    
+    neg_z = rectangle(
+        x_extents = x_extents,
+        y_extents = y_extents,
+        x_divisions = x_divisions,
+        y_divisions = y_divisions,
+        depth = z_extents[0],
+        axes = (0,1),
+        flip_normals=False,
+        bezel=bezel,
+    )
+    
+    pos_z = rectangle(
+        x_extents = x_extents,
+        y_extents = y_extents,
+        x_divisions = x_divisions,
+        y_divisions = y_divisions,
+        depth = z_extents[1],
+        axes = (0,1),
+        flip_normals=True,
+        bezel=bezel,
+    )
+    
+    return merge_meshes([neg_x, pos_x, neg_y, pos_y, neg_z, pos_z])
 
 def barrel(
         height_extents = (-1, 1),
@@ -283,16 +453,33 @@ def barrel(
     
     return mesh
 
+def cylinder(
+    start_height,
+    end_height,
+    radius,
+    radial_resolution=16,
+    start_cap=False,
+    end_cap=False,
+):
+    return multi_cylinder(
+        start_height=start_height,
+        sections=(radius, end_height),
+        radial_resolution=radial_resolution,
+        start_cap=start_cap,
+        end_cap=end_cap)
+
 def multi_cylinder(
-        start_height = 0,
-        sections = ((1, 1),),
-        radial_resolution = 16,
-        start_cap = False,
-        end_cap = False):
+    start_height = 0,
+    sections = ((1, 1),),
+    radial_resolution = 16,
+    start_cap = False,
+    middle_caps = False,
+    end_cap = False,
+):
     
     previous_height = start_height
     barrel_segments = []
-    for radius, height in sections:
+    for i, (radius, height) in enumerate(sections):
         barrel_segment = barrel(
                 height_extents = (previous_height, height),
                 radius = radius,
@@ -305,14 +492,14 @@ def multi_cylinder(
         cap = disk(
                 radius = sections[0][0],
                 radial_resolution = radial_resolution,
-                flip_normals = True)
+                flip_normals = False)
         cap['vertices'][:,1] = start_height
         caps.append(cap)
     if end_cap:
         cap = disk(
                 radius = sections[-1][0],
                 radial_resolution = radial_resolution,
-                flip_normals = False)
+                flip_normals = True)
         cap['vertices'][:,1] = previous_height
         caps.append(cap)
     
