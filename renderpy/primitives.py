@@ -30,20 +30,26 @@ def merge_meshes(meshes):
     return merged_mesh
 
 def mesh_grid(
-        axes,
-        x_divisions,
-        y_divisions,
-        x_extents = None,
-        y_extents = None,
-        x_spacing = None,
-        y_spacing = None,
-        depth = 0,
-        flip_normals = False,
-        flatten = True):
-
+    axes,
+    x_divisions,
+    y_divisions,
+    x_extents = None,
+    y_extents = None,
+    x_spacing = None,
+    y_spacing = None,
+    depth = 0,
+    flip_normals = False,
+    flatten = True,
+    uv_max = None,
+    flip_u=False,
+    flip_v=False,
+):
+    
+    # how many vertices will there be in x and y
     x_vertices = x_divisions+2
     y_vertices = y_divisions+2
-
+    
+    # get the x_range (x_max - x_min) and the spacing for each x_vertex
     if x_extents is not None:
         x_range = x_extents[1] - x_extents[0]
         x_spacing = [(i/(x_vertices-1))*x_range + x_extents[0]
@@ -54,6 +60,7 @@ def mesh_grid(
         raise Exception(
                 'Either x_extents or x_spacing argument must be supplied')
 
+    # get the x_range (x_max - x_min) and the spacing for each x_vertex
     if y_extents is not None:
         y_range = y_extents[1] - y_extents[0]
         y_spacing = [(i/(y_vertices-1))*y_range + y_extents[0]
@@ -63,7 +70,7 @@ def mesh_grid(
     else:
         raise Exception(
                 'Either y_extents or y_spacing argument must be supplied')
-
+    
     x_quads = x_divisions+1
     y_quads = y_divisions+1
     total_vertices = x_vertices * y_vertices
@@ -73,18 +80,28 @@ def mesh_grid(
     total_faces = x_quads * y_quads * 2
     faces = numpy.zeros((3, total_faces), dtype=int)
     normal_axis, = {0,1,2} - set(axes)
-    uv_scale = 1./max(x_range, y_range)
+    if uv_max is None:
+        uv_max = max(x_range, y_range)
+    uv_scale = 1./uv_max
     
+    max_u = (x_spacing[-1] - x_spacing[0])
     for i in range(x_vertices):
         vertices[axes[0], i, :] = x_spacing[i]
-        u = (x_spacing[i] - x_spacing[0]) * uv_scale
+        if flip_u:
+            u = (max_u - (x_spacing[i] - x_spacing[0])) * uv_scale
+        else:
+            u = (x_spacing[i] - x_spacing[0]) * uv_scale
         uvs[0, i, :] = u
-
+    
+    max_v = (y_spacing[-1] - y_spacing[0])
     for i in range(y_vertices):
         vertices[axes[1], :, i] = y_spacing[i]
-        v = (y_spacing[i] - y_spacing[0]) * uv_scale
+        if flip_v:
+            v = (max_v - (y_spacing[i] - y_spacing[0])) * uv_scale
+        else:
+            v = (y_spacing[i] - y_spacing[0]) * uv_scale
         uvs[1, :, i] = v
-
+    
     vertices[normal_axis] = depth
     vertices[3] = 1
     uvs[2] = 1
@@ -95,16 +112,25 @@ def mesh_grid(
         normals[normal_axis,:] = -1
 
     # faces
+    flip_face=False
+    if tuple(axes) in ((2,1), (1,0), (0,2)):
+        flip_face=True
     for i in range(x_quads):
         for j in range(y_quads):
 
             # make two faces
             ai = i
             aj = j
-            bi = i+1
-            bj = j
-            ci = i
-            cj = j+1
+            if flip_face:
+                bi = i+1
+                bj = j
+                ci = i
+                cj = j+1
+            else:
+                bi = i
+                bj = j+1
+                ci = i+1
+                cj = j
             di = i+1
             dj = j+1
 
@@ -258,7 +284,10 @@ def rectangle(
     depth = 0,
     axes = (0,1),
     flip_normals = False,
-    bezel = None
+    bezel = None,
+    uv_max = None,
+    flip_u=False,
+    flip_v=False,
 ):
     if not bezel:
         grid = mesh_grid(
@@ -270,9 +299,10 @@ def rectangle(
             depth=depth,
             flip_normals=flip_normals,
             flatten=True,
+            uv_max=uv_max,
+            flip_u=flip_u,
+            flip_v=flip_v,
         )
-        print(grid['vertices'].shape)
-        print(grid['faces'].shape)
     
     else:
         x_spacing = compute_bezel_spacing(x_extents, x_divisions, bezel)
@@ -285,7 +315,11 @@ def rectangle(
             y_divisions=y_divisions+2,
             depth=depth,
             flip_normals=flip_normals,
-            flatten=False)
+            flatten=False,
+            uv_max=uv_max,
+            flip_u=flip_u,
+            flip_v=flip_v,
+        )
         
         half = 1./(2.**0.5)
         third = 1./(3.**0.5)
@@ -350,49 +384,79 @@ def cube(
         z_divisions = 0,
         bezel = None):
     
+    x_range = x_extents[1] - x_extents[0]
+    y_range = y_extents[1] - y_extents[0]
+    z_range = z_extents[1] - z_extents[0]
+    uv_max = max(y_range+z_range*2, x_range*2+z_range*2)
+    
     neg_x = rectangle(
-        x_extents = y_extents,
-        y_extents = z_extents,
+        x_extents = z_extents,
+        y_extents = y_extents,
         x_divisions = y_divisions,
         y_divisions = z_divisions,
         depth = x_extents[0],
-        axes = (1,2),
+        axes = (2,1),
         flip_normals=False,
         bezel=bezel,
+        uv_max=uv_max,
     )
+    neg_x_uv_transform = numpy.array([
+        [1, 0, x_range/uv_max],
+        [0, 1, z_range/uv_max],
+        [0, 0, 1]
+    ])
+    neg_x['uvs'] = (neg_x_uv_transform @ neg_x['uvs'].T).T
     
     pos_x = rectangle(
-        x_extents = y_extents,
-        y_extents = z_extents,
+        x_extents = z_extents,
+        y_extents = y_extents,
         x_divisions = y_divisions,
         y_divisions = z_divisions,
         depth = x_extents[1],
-        axes = (1,2),
+        axes = (2,1),
         flip_normals=True,
         bezel=bezel,
+        uv_max=uv_max,
+        flip_u=True
     )
+    pos_x_uv_transform = numpy.array([
+        [1, 0, (x_range*2+z_range)/uv_max],
+        [0, 1, z_range/uv_max],
+        [0, 0, 1]
+    ])
+    pos_x['uvs'] = (pos_x_uv_transform @ pos_x['uvs'].T).T
     
     neg_y = rectangle(
-        x_extents = z_extents,
-        y_extents = x_extents,
+        x_extents = x_extents,
+        y_extents = z_extents,
         x_divisions = z_divisions,
         y_divisions = x_divisions,
         depth = y_extents[0],
-        axes = (2,0),
+        axes = (0,2),
         flip_normals=False,
         bezel=bezel,
+        uv_max=uv_max,
+        flip_v=True
     )
     
     pos_y = rectangle(
-        x_extents = z_extents,
-        y_extents = x_extents,
+        x_extents = x_extents,
+        y_extents = z_extents,
         x_divisions = z_divisions,
         y_divisions = x_divisions,
         depth = y_extents[1],
-        axes = (2,0),
+        axes = (0,2),
         flip_normals=True,
         bezel=bezel,
+        uv_max=uv_max,
+        flip_u=True
     )
+    pos_y_uv_transform = numpy.array([
+        [1, 0, 0],
+        [0, 1, (y_range+z_range)/uv_max],
+        [0, 0, 1]
+    ])
+    pos_y['uvs'] = (pos_y_uv_transform @ pos_y['uvs'].T).T
     
     neg_z = rectangle(
         x_extents = x_extents,
@@ -403,7 +467,15 @@ def cube(
         axes = (0,1),
         flip_normals=False,
         bezel=bezel,
+        uv_max=uv_max,
+        flip_u=True,
     )
+    neg_z_uv_transform = numpy.array([
+        [1, 0, 0],
+        [0, 1, z_range/uv_max],
+        [0, 0, 1]
+    ])
+    neg_z['uvs'] = (neg_z_uv_transform @ neg_z['uvs'].T).T
     
     pos_z = rectangle(
         x_extents = x_extents,
@@ -414,7 +486,14 @@ def cube(
         axes = (0,1),
         flip_normals=True,
         bezel=bezel,
+        uv_max=uv_max,
     )
+    pos_z_uv_transform = numpy.array([
+        [1, 0, (x_range + z_range)/uv_max],
+        [0, 1, z_range/uv_max],
+        [0, 0, 1]
+    ])
+    pos_z['uvs'] = (pos_z_uv_transform @ pos_z['uvs'].T).T
     
     return merge_meshes([neg_x, pos_x, neg_y, pos_y, neg_z, pos_z])
 
