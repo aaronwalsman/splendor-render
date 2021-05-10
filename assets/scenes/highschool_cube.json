@@ -33,9 +33,9 @@
         "cube1": {
             "flat_color": [1,0,0],
             "ambient":1.0,
-            "metal":1.0,
-            "rough":0.25,
-            "base_reflect":0.1
+            "metal":0.0,
+            "rough":0.75,
+            "base_reflect":0.04
         }
     },
     "instances": {

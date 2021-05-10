@@ -37,6 +37,7 @@ class Renderpy:
             'ambient_color', 'background_color', 'active_image_light')
     _asset_types = (
             ('mesh', 'meshes'),
+            ('texture', 'textures'),
             ('material', 'materials'),
             ('image_light', 'image_lights'),
             ('depthmap', 'depthmaps'))
@@ -86,6 +87,7 @@ class Renderpy:
                 'meshes':{},
                 'depthmaps':{},
                 'materials':{},
+                'textures':{},
                 'instances':{},
                 'depthmap_instances':{},
                 'background_color':numpy.array([0,0,0,0]),
@@ -109,7 +111,7 @@ class Renderpy:
         self.gl_data = {
                 'mesh_buffers':{},
                 'depthmap_buffers':{},
-                'material_buffers':{},
+                'texture_buffers':{},
                 'light_buffers':{},
                 #'textured_shader':{},
                 #'vertex_color_shader':{},
@@ -383,13 +385,13 @@ class Renderpy:
         
         # if a mesh asset name was provided, load that
         if mesh_asset is not None:
-            mesh_path = self.asset_library['meshes'][mesh_asset]
-            mesh = obj_mesh.load_mesh(mesh_path, scale=scale)
+            asset_path = self.asset_library['meshes'][mesh_asset]
+            mesh = obj_mesh.load_mesh(asset_path, scale=scale)
             self.scene_description['meshes'][name] = {
                 'mesh_asset':mesh_asset
             }
 
-        # otherwise, load name as an asset path
+        # otherwise if a mesh path was provided, load that
         elif mesh_path is not None:
             mesh = obj_mesh.load_mesh(mesh_path, scale=scale)
             self.scene_description['meshes'][name] = {
@@ -865,10 +867,32 @@ class Renderpy:
 
     # texture methods ==========================================================
     
+    '''
+    def load_texture(self,
+        name,
+        texture,
+        color_mode='RGB',
+        crop=None,
+    ):
+        self.gl_data['material_buffers'].setdefault(name, {})
+    
     def replace_texture(self,
-            name,
-            texture,
-            crop = None):
+        name,
+        texture,
+        texture_key='texture',
+        color_mode='RGB',
+        crop=None,
+    ):
+    '''
+    def load_texture(
+        self,
+        name,
+        texture_asset=None,
+        texture_path=None,
+        texture_data=None,
+        color_mode='RGB',
+        crop=None,
+    ):
         """
         Replace the texture for a material
         
@@ -881,30 +905,82 @@ class Renderpy:
         crop : 4-tuple, optional
             Bottom, left, top, right crop values for the image
         """
+        
+        # if a texture asset name was provided, load that
+        if texture_asset is not None:
+            asset_path = self.asset_library['textures'][texture_asset]
+            texture = load_image(asset_path)
+            self.scene_description['textures'][name] = {
+                'texture_asset':texture_asset
+            }
 
-        if isinstance(texture, str):
-            self.scene_description['materials'][name]['texture'] = texture
-            texture = self.asset_library['textures'][texture]
-            image = load_image(texture)
+        # otherwise if a texture path was provided, load that
+        elif texture_path is not None:
+            texture = load_image(texture_path)
+            self.scene_description['textures'][name] = {
+                'texture_path':texture_path
+            }
+
+        # otherwise if texture data was provided, load that
+        elif texture_data is not None:
+            texture = texture_data
+            self.scene_description['textures'][name] = {
+                'texture_data':texture_data
+            }
+        
         else:
-            self.scene_description['materials'][name]['texture'] = -1
-            image = numpy.array(texture)
-
+            raise RenderpyException(
+                    'Must supply a "texture_asset", "texture_path" or '
+                    '"texture_data" argument when loading a texture')
+        
+        # crop if necessary
         if crop is not None:
-            image = image[crop[0]:crop[2], crop[1]:crop[3]]
-
-        validate_texture(image)
-        self.loaded_data['textures'][name] = image
-
-        material_buffers = self.gl_data['material_buffers'][name]
-        GL.glBindTexture(GL.GL_TEXTURE_2D, material_buffers['texture'])
+            texture = texture[crop[0]:crop[2], crop[1]:crop[3]]
+        
+        # validate and store the texture
+        validate_texture(texture)
+        self.loaded_data['textures'][name] = texture
+        
+        # if an entry for this texture doesn't exist in texture_buffers
+        # make one
+        self.gl_data['texture_buffers'].setdefault(name, {})
+        
+        # delete any old texture that exists
+        if 'texture' in self.gl_data['texture_buffers'][name]:
+            GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+            GL.glDeleteTextures(
+                    [self.gl_data['texture_buffers'][name]['texture']])
+        
+        # make the new texture
+        self.gl_data['texture_buffers'][name]['texture'] = (
+            GL.glGenTextures(1))
+        
+        '''
+        # load the texture image
+        if isinstance(texture, str):
+            self.scene_description['materials'][name][texture_key] = texture
+            texture = self.asset_library['textures'][texture]
+            image = load_image(texture, mode=color_mode)
+        else:
+            self.scene_description['materials'][name][texture_key] = -1
+            image = numpy.array(texture)
+        '''
+        
+        # copy the texture to the GPU
+        texture_buffers = self.gl_data['texture_buffers'][name]
+        GL.glBindTexture(GL.GL_TEXTURE_2D, texture_buffers['texture'])
         try:
+            if texture.shape[2] == 3:
+                gl_color_mode = GL.GL_RGB
+            elif texture.shape[2] == 4:
+                gl_color_mode = GL.GL_RGBA
+            else:
+                raise NotImplementedError
             GL.glTexImage2D(
-                    GL.GL_TEXTURE_2D, 0, GL.GL_RGB,
-                    image.shape[1], image.shape[0], 0,
-                    GL.GL_RGB, GL.GL_UNSIGNED_BYTE, image)
+                    GL.GL_TEXTURE_2D, 0, gl_color_mode,
+                    texture.shape[1], texture.shape[0], 0,
+                    gl_color_mode, GL.GL_UNSIGNED_BYTE, texture)
 
-            # GL.GL_NEAREST?
             GL.glTexParameteri(
                     GL.GL_TEXTURE_2D,
                     GL.GL_TEXTURE_MAG_FILTER,
@@ -916,6 +992,25 @@ class Renderpy:
 
         finally:
             GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+    
+    def remove_texture(self, name):
+        if name in self.gl_data['texture_buffers']:
+            GL.glDeleteTextures(
+                self.gl_data['texture_buffers'][name]['texture'])
+            del(self.gl_data['texture_buffers'][name])
+        if name in self.loaded_data['textures']:
+            del(self.loaded_data['textures'][name])
+        del(self.scene_description['textures'][name])
+    
+    def list_textures(self):
+        return list(self.scene_description['textures'].keys())
+    
+    def clear_textures(self):
+        for name in self.list_textures():
+            self.remove_texture(name)
+    
+    def texture_exists(self, name):
+        return name in self.scene_description['textures']
     
     def replace_image_light_textures(self,
             name,
@@ -1102,8 +1197,11 @@ class Renderpy:
     
     def load_material(self,
             name,
-            texture = None,
+            texture_name = None,
+            #texture_asset = None,
+            #texture_data = None,
             flat_color = None,
+            material_properties_texture = None,
             ambient = 1.,
             metal = 0.,
             rough = 0.3,
@@ -1144,25 +1242,49 @@ class Renderpy:
         crop : 4-tuple, optional
             Bottom, left, top, right crop values for the texture
         """
-
-        self.scene_description['materials'][name] = {
-                'ambient':ambient,
-                'metal':metal,
-                'rough':rough,
-                'flat_color':flat_color,
-                'base_reflect':base_reflect}
-
-        if name in self.gl_data['material_buffers']:
-            GL.glBindTexture(GL.GL_TEXTURE_2D,0)
-            GL.glDeleteTextures(
-                    [self.gl_data['material_buffers'][name]['texture']])
-
-        material_buffers = {}
-        material_buffers['texture'] = GL.glGenTextures(1)
-        self.gl_data['material_buffers'][name] = material_buffers
         
+        material_description = {
+            'texture_name':texture_name,
+            'flat_color':flat_color,
+            'material_properties_texture':material_properties_texture,
+            'metal':metal,
+            'rough':rough,
+            'base_reflect':base_reflect,
+            'ambient':ambient,
+        }
+        
+        self.scene_description['materials'][name] = material_description
+        
+        '''
+        if texture_asset is not None or texture_data is not None:
+            if texture_name is None:
+                if texture_asset is None:
+                    texture_name = name
+                else:
+                    texture_name = texture_asset
+            material_description['texture_name'] = texture_name
+            if texture_name not in self.scene_description['textures']:
+                self.load_texture(
+                    texture_name,
+                    texture_asset,
+                    texture_data,
+                    color_mode='RGB',
+                    crop=crop)
+        '''
+        
+        '''
         if texture is not None:
-            self.replace_texture(name, texture, crop)
+            self.replace_texture(name, texture, crop=crop)
+        
+        if material_properties_texture is not None:
+            self.replace_texture(
+                name,
+                material_properties_texture,
+                texture_key='material_properties_texture',
+                color_mode='RGBA',
+                crop=crop,
+            )
+        '''
 
     def remove_material(self, name):
         """
@@ -1172,10 +1294,10 @@ class Renderpy:
         -----------
         name : str
         """
-        GL.glDeleteTextures(self.gl_data['material_buffers'][name]['texture'])
-        if name in self.loaded_data['textures']:
-            del(self.loaded_data['textures'][name])
-        del(self.gl_data['material_buffers'][name])
+        #GL.glDeleteTextures(self.gl_data['material_buffers'][name]['texture'])
+        #if name in self.loaded_data['textures']:
+        #    del(self.loaded_data['textures'][name])
+        #del(self.gl_data['material_buffers'][name])
         del(self.scene_description['materials'][name])
 
     def clear_materials(self):
@@ -1231,7 +1353,14 @@ class Renderpy:
             The flat color associated with a material or None if not present
         """
         return self.scene_description['materials'][name]['flat_color']
-
+    
+    def get_material_texture(self, name):
+        return self.scene_description['materials'][name]['texture_name']
+    
+    def get_material_properties_texture(self, name):
+        material_data = self.scene_description['materials'][name]
+        return material_data['material_properties_texture']
+    
     # instance methods =========================================================
     
     def add_instance(self,
@@ -1330,7 +1459,18 @@ class Renderpy:
         """
         self.scene_description['instances'][name]['material_name'] = (
                 material_name)
-
+    
+    def set_instance_mesh(self, name, mesh_name):
+        """
+        Sets the mesh of an instance
+        
+        Parameters:
+        -----------
+        name : str
+        mesh_name : str
+        """
+        self.scene_description['instances'][name]['mesh_name'] = mesh_name
+    
     def hide_instance(self, name):
         """
         Hides an instance so that it will not render in any render modes
@@ -1340,7 +1480,14 @@ class Renderpy:
         name : str
         """
         self.scene_description['instances'][name]['hidden'] = True
-
+    
+    def hide_all_instances(self):
+        """
+        Hides all instances
+        """
+        for instance in self.list_instances():
+            self.hide_instance(instance)
+    
     def show_instance(self, name):
         """
         Makes an instance visible in all render modes
@@ -1350,7 +1497,14 @@ class Renderpy:
         name : str
         """
         self.scene_description['instances'][name]['hidden'] = False
-
+    
+    def show_all_instances(self):
+        """
+        Makes all instances visible
+        """
+        for instance in self.list_instances():
+            self.show_instance(instance)
+    
     def get_instance_mesh_name(self, name):
         """
         Returns the mesh associated with an instance
@@ -1485,7 +1639,7 @@ class Renderpy:
     def add_depthmap_instance(self,
             name,
             depthmap_name,
-            material_name,
+            texture_name,
             transform = numpy.eye(4),
             point_size = 1):
         """
@@ -1514,7 +1668,7 @@ class Renderpy:
         """
         depthmap_instance_data = {}
         depthmap_instance_data['depthmap_name'] = depthmap_name
-        depthmap_instance_data['material_name'] = material_name
+        depthmap_instance_data['texture_name'] = texture_name
         depthmap_instance_data['transform'] = numpy.array(transform)
         depthmap_instance_data['point_size'] = point_size
         self.scene_description['depthmap_instances'][name] = (
@@ -1769,6 +1923,7 @@ class Renderpy:
         if instances is None:
             instances = self.scene_description['instances']
         
+        textured_material_properties_shader_instances = {}
         textured_shader_instances = {}
         vertex_color_shader_instances = {}
         flat_color_shader_instances = {}
@@ -1779,7 +1934,21 @@ class Renderpy:
             instance_mesh = self.get_instance_mesh_name(instance)
             mesh_color_mode = self.get_mesh_color_mode(instance_mesh)
             if mesh_color_mode == 'textured':
-                shader_instances = textured_shader_instances
+                '''
+                if ('material_properties_texture'
+                    in self.gl_data['material_buffers'][instance_material]
+                ):
+                    shader_instances = (
+                        textured_material_properties_shader_instances)
+                else:
+                    shader_instances = textured_shader_instances
+                '''
+                if (self.get_material_properties_texture(instance_material)
+                    is None):
+                    shader_instances = textured_shader_instances
+                else:
+                    shader_instances = (
+                        textured_material_properties_shader_instances)
             elif mesh_color_mode == 'vertex_color':
                 shader_instances = vertex_color_shader_instances
             elif mesh_color_mode == 'flat_color':
@@ -1796,25 +1965,9 @@ class Renderpy:
                     shader_instances[instance_material] = {
                             instance_mesh:[instance]}
         
-        '''
-        textured_shader_instances = []
-        vertex_color_shader_instances = []
-        flat_color_shader_instances = []
-        for instance in instances:
-            if self.instance_hidden(instance):
-                continue
-            instance_material = self.get_instance_material_name(instance)
-            instance_mesh = self.get_instance_mesh_name(instance)
-            mesh_color_mode = self.get_mesh_color_mode(instance_mesh)
-            if mesh_color_mode == 'textured':
-                textured_shader_instances.append(instance)
-            elif mesh_color_mode == 'vertex_color':
-                vertex_color_shader_instances.append(instance)
-            elif mesh_color_mode == 'flat_color':
-                flat_color_shader_instances.append(instance)
-        '''
-        
         for shader_name, shader_instances in (
+                ('textured_material_properties_shader',
+                 textured_material_properties_shader_instances),
                 ('textured_shader', textured_shader_instances),
                 ('vertex_color_shader', vertex_color_shader_instances),
                 ('flat_color_shader', flat_color_shader_instances)):
@@ -1920,30 +2073,10 @@ class Renderpy:
                         self.load_mesh_color_shader_data(mesh_name, shader_name)
                         instances = shader_instances[material_name][mesh_name]
                         for instance in instances:
-                            self.color_render_instance_light(
+                            self.color_render_instance(
                                     instance, shader_name)
                         self.unload_mesh_shader_data(mesh_name)
-                
-                '''
-                mesh_instances = {}
-                for instance_name in shader_instances:
-                    if self.instance_hidden(instance_name):
-                        continue
-                    mesh_name = self.get_instance_mesh_name(instance_name)
-                    try:
-                        mesh_instances[mesh_name].append(instance_name)
-                    except KeyError:
-                        mesh_instances[mesh_name] = [instance_name]
-
-                for mesh_name, instance_names in mesh_instances.items():
-                    self.color_render_instance(instance_names[0], shader_name)
-                    for instance_name in instance_names[1:]:
-                        self.color_render_instance(
-                                instance_name,
-                                shader_name,
-                                set_mesh_attrib_pointers=False)
-                '''
-
+            
             finally:
                 GL.glUseProgram(0)
 
@@ -1963,7 +2096,8 @@ class Renderpy:
         # enable the attribute arrays
         GL.glEnableVertexAttribArray(location_data['vertex_position'])
         GL.glEnableVertexAttribArray(location_data['vertex_normal'])
-        if shader_name == 'textured_shader':
+        if shader_name in (
+            'textured_shader', 'textured_material_properties_shader'):
             GL.glEnableVertexAttribArray(location_data['vertex_uv'])
         elif shader_name == 'vertex_color_shader':
             GL.glEnableVertexAttribArray(location_data['vertex_color'])
@@ -1978,7 +2112,8 @@ class Renderpy:
                 location_data['vertex_normal'],
                 3, GL.GL_FLOAT, False, stride,
                 mesh_buffers['vertex_buffer']+((3)*4))
-        if shader_name == 'textured_shader':
+        if shader_name in (
+            'textured_shader', 'textured_material_properties_shader'):
             GL.glVertexAttribPointer(
                     location_data['vertex_uv'],
                     2, GL.GL_FLOAT, False, stride,
@@ -1995,7 +2130,10 @@ class Renderpy:
         mesh_buffers['vertex_buffer'].unbind()
     
     def load_material_shader_data(self, material_name, shader_name):
-        material_buffers = self.gl_data['material_buffers'][material_name]
+        '''
+        if material_name in self.gl_data['material_buffers']:
+            material_buffers = self.gl_data['material_buffers'][material_name]
+        '''
         material_data = (
                 self.scene_description['materials'][material_name])
         
@@ -2003,19 +2141,32 @@ class Renderpy:
         location_data = self.shader_library.get_shader_locations(shader_name)
         
         # set the material properties
-        material_properties = numpy.array([
-                material_data['ambient'],
-                material_data['metal'],
-                material_data['rough'],
-                material_data['base_reflect']])
-        GL.glUniform4fv(
-                location_data['material_properties'],
-                1, material_properties.astype(numpy.float32))
+        if shader_name == 'textured_material_properties_shader':
+            mat_prop_texture = self.get_material_properties_texture(
+                material_name)
+            mat_prop_texture_buffer = (
+                self.gl_data['texture_buffers'][mat_prop_texture]['texture'])
+            GL.glActiveTexture(GL.GL_TEXTURE1)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, mat_prop_texture_buffer)
+        else:
+            material_properties = numpy.array([
+                    material_data['metal'],
+                    material_data['rough'],
+                    material_data['base_reflect'],
+                    material_data['ambient'],
+            ])
+            GL.glUniform4fv(
+            #GL.glUniform3fv(
+                    location_data['material_properties'],
+                    1, material_properties.astype(numpy.float32))
         
         # apply the albedo based on the shader type
-        if shader_name == 'textured_shader':
+        if shader_name in (
+            'textured_shader', 'textured_material_properties_shader'):
+            texture = self.get_material_texture(material_name)
+            texture_buffer = self.gl_data['texture_buffers'][texture]['texture']
             GL.glActiveTexture(GL.GL_TEXTURE0)
-            GL.glBindTexture(GL.GL_TEXTURE_2D, material_buffers['texture'])
+            GL.glBindTexture(GL.GL_TEXTURE_2D, texture_buffer)
         
         if shader_name == 'flat_color_shader':
             flat_color = self.get_material_flat_color(material_name)
@@ -2023,7 +2174,18 @@ class Renderpy:
                     location_data['flat_color'],
                     1, numpy.array(flat_color, dtype=numpy.float32))
     
-    def color_render_instance_light(self, instance_name, shader_name):
+    def color_render_instance(self, instance_name, shader_name):
+        """
+        Renders a single instance.  Assumes load_mesh_shader_data and
+        load_mesh_material_data have already been called.
+        
+        Parameters:
+        -----------
+        instance_name : str
+            The instance to render
+        shader_name : str
+            The shader being used to render the instance
+        """
         # get instance data
         instance_data = self.scene_description['instances'][instance_name]
         instance_mesh = instance_data['mesh_name']
@@ -2045,121 +2207,6 @@ class Renderpy:
                 GL.GL_UNSIGNED_INT,
                 None)
     
-    def color_render_instance(self,
-            instance_name,
-            shader_name,
-            set_mesh_attrib_pointers=True):
-        """
-        Render a single instance using the color program.
-        
-        Parameters:
-        -----------
-        instance_name : str
-            The instance to render
-        shader_name : str
-            {"textured_shader", "vertex_color_shader", "flat_color_shader"}
-            The specific version of the color program to use.
-        set_mesh_attrib_pointers : bool, default=True
-            An optimization.  If the same mesh was rendered previously, there
-            is no need to copy certain data to the GPU again.
-        """
-        
-        # get instance data
-        instance_data = self.scene_description['instances'][instance_name]
-        
-        # bail if this instance is hidden
-        if instance_data['hidden']:
-            return
-        
-        # get mesh, material and image light data
-        instance_mesh = instance_data['mesh_name']
-        mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
-        instance_material = instance_data['material_name']
-        material_buffers = self.gl_data['material_buffers'][instance_material]
-        material_data = (
-                self.scene_description['materials'][instance_material])
-        
-        mesh_data = self.loaded_data['meshes'][instance_mesh]
-        num_triangles = len(mesh_data['faces'])
-        
-        # get the shader variable locations
-        location_data = self.shader_library.get_shader_locations(shader_name)
-        
-        # set the model pose
-        GL.glUniformMatrix4fv(
-                location_data['model_pose'],
-                1, GL.GL_TRUE,
-                instance_data['transform'].astype(numpy.float32))
-        
-        # set the material properties
-        material_properties = numpy.array([
-                material_data['ambient'],
-                material_data['metal'],
-                material_data['rough'],
-                material_data['base_reflect']])
-        GL.glUniform4fv(
-                location_data['material_properties'],
-                1, material_properties.astype(numpy.float32))
-        
-        # bind the mesh buffers
-        mesh_buffers['face_buffer'].bind()
-        mesh_buffers['vertex_buffer'].bind()
-        
-        # apply the albedo based on the shader type
-        if shader_name == 'textured_shader':
-            GL.glActiveTexture(GL.GL_TEXTURE0)
-            GL.glBindTexture(GL.GL_TEXTURE_2D, material_buffers['texture'])
-        
-        if shader_name == 'flat_color_shader':
-            flat_color = self.get_material_flat_color(instance_material)
-            GL.glUniform3fv(
-                    location_data['flat_color'],
-                    1, numpy.array(flat_color, dtype=numpy.float32))
-        
-        try:
-            # SOMETHING BETWEEN HERE...
-            if set_mesh_attrib_pointers:
-                GL.glEnableVertexAttribArray(location_data['vertex_position'])
-                GL.glEnableVertexAttribArray(location_data['vertex_normal'])
-                if shader_name == 'textured_shader':
-                    GL.glEnableVertexAttribArray(location_data['vertex_uv'])
-                elif shader_name == 'vertex_color_shader':
-                    GL.glEnableVertexAttribArray(location_data['vertex_color'])
-
-                stride = self.get_mesh_stride(instance_mesh)
-                GL.glVertexAttribPointer(
-                        location_data['vertex_position'],
-                        3, GL.GL_FLOAT, False, stride,
-                        mesh_buffers['vertex_buffer'])
-                GL.glVertexAttribPointer(
-                        location_data['vertex_normal'],
-                        3, GL.GL_FLOAT, False, stride,
-                        mesh_buffers['vertex_buffer']+((3)*4))
-                if shader_name == 'textured_shader':
-                    GL.glVertexAttribPointer(
-                            location_data['vertex_uv'],
-                            2, GL.GL_FLOAT, False, stride,
-                            mesh_buffers['vertex_buffer']+((3+3)*4))
-                elif shader_name == 'vertex_color_shader':
-                    GL.glVertexAttribPointer(
-                            location_data['vertex_color'],
-                            3, GL.GL_FLOAT, False, stride,
-                            mesh_buffers['vertex_buffer']+((3+3)*4))
-            
-            # AND HERE TAKES ~40% of the rendering time
-            
-            # draw triangles
-            GL.glDrawElements(
-                    GL.GL_TRIANGLES,
-                    num_triangles*3,
-                    GL.GL_UNSIGNED_INT,
-                    None)
-
-        finally:
-            mesh_buffers['face_buffer'].unbind()
-            mesh_buffers['vertex_buffer'].unbind()
-            GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
-
     def color_render_depthmap_instance(self, depthmap_instance_name):
         """
         Render a single depthmap instance using the color program.
@@ -2172,11 +2219,10 @@ class Renderpy:
         depthmap_instance_data = self.scene_description['depthmap_instances'][
                 depthmap_instance_name]
         instance_depthmap = depthmap_instance_data['depthmap_name']
-        instance_material = depthmap_instance_data['material_name']
-        material_data = (
-                self.scene_description['materials'][instance_material])
+        instance_texture = depthmap_instance_data['texture_name']
         depthmap_buffers = self.gl_data['depthmap_buffers'][instance_depthmap]
-        material_buffers = self.gl_data['material_buffers'][instance_material]
+        texture_buffers = self.gl_data['texture_buffers'][instance_texture]
+        #material_buffers = self.gl_data['material_buffers'][instance_material]
         depth_data = self.loaded_data['depthmaps'][instance_depthmap]
         location_data = self.shader_library.get_shader_locations(
                 'textured_depthmap_shader')
@@ -2203,7 +2249,7 @@ class Renderpy:
         depthmap_buffers['depth_buffer'].bind()
         depthmap_buffers['index_buffer'].bind()
         GL.glActiveTexture(GL.GL_TEXTURE0)
-        GL.glBindTexture(GL.GL_TEXTURE_2D, material_buffers['texture'])
+        GL.glBindTexture(GL.GL_TEXTURE_2D, texture_buffers['texture'])
         try:
             GL.glEnableVertexAttribArray(location_data['vertex_depth'])
 
@@ -2365,10 +2411,6 @@ class Renderpy:
             
             if instances is None:
                 instances = self.scene_description['instances'].keys()
-            '''
-            for instance_name in instances:
-                self.mask_render_instance(instance_name)
-            '''
             
             # sort the instances
             mesh_instances = {}
@@ -2386,7 +2428,7 @@ class Renderpy:
                 self.load_mesh_mask_shader_data(mesh_name)
                 instances = mesh_instances[mesh_name]
                 for instance in instances:
-                    self.mask_render_instance_lite(instance)
+                    self.mask_render_instance(instance)
                 self.unload_mesh_shader_data(mesh_name)
 
         finally:
@@ -2412,7 +2454,7 @@ class Renderpy:
                 3, GL.GL_FLOAT, False, stride,
                 mesh_buffers['vertex_buffer'])
     
-    def mask_render_instance_lite(self, instance_name):
+    def mask_render_instance(self, instance_name):
         instance_data = self.scene_description['instances'][instance_name]
         location_data = self.shader_library.get_shader_locations('mask_shader')
         GL.glUniformMatrix4fv(
@@ -2430,62 +2472,6 @@ class Renderpy:
                 GL.GL_UNSIGNED_INT,
                 None)
     
-    def mask_render_instance(self, instance_name):
-        """
-        Render a single instance using the mask program.
-        
-        Parameters:
-        -----------
-        instance_name : str
-            The instance to render
-        TODO (figure out large scene optimizations first):
-        set_mesh_attrib_pointers : bool, default=True
-            An optimization.  If the same mesh was rendered previously, there
-            is no need to copy certain data to the GPU again.
-        """
-        instance_data = self.scene_description['instances'][instance_name]
-        if instance_data['hidden']:
-            return
-
-        instance_mesh = instance_data['mesh_name']
-        mask_color = instance_data['mask_color']
-        mesh_buffers = self.gl_data['mesh_buffers'][instance_mesh]
-        mesh = self.loaded_data['meshes'][instance_mesh]
-
-        location_data = self.shader_library.get_shader_locations('mask_shader')
-
-        GL.glUniformMatrix4fv(
-                location_data['model_pose'],
-                1, GL.GL_TRUE,
-                numpy.array(instance_data['transform'], dtype=numpy.float32))
-
-        GL.glUniform3fv(
-                location_data['mask_color'],
-                1, numpy.array(mask_color, dtype=numpy.float32))
-
-        mesh_buffers['face_buffer'].bind()
-        mesh_buffers['vertex_buffer'].bind()
-
-        try:
-            GL.glEnableVertexAttribArray(location_data['vertex_position'])
-
-            stride = self.get_mesh_stride(instance_mesh)
-
-            GL.glVertexAttribPointer(
-                    location_data['vertex_position'],
-                    3, GL.GL_FLOAT, False, stride,
-                    mesh_buffers['vertex_buffer'])
-
-            GL.glDrawElements(
-                    GL.GL_TRIANGLES,
-                    len(mesh['faces'])*3,
-                    GL.GL_UNSIGNED_INT,
-                    None)
-
-        finally:
-            mesh_buffers['face_buffer'].unbind()
-            mesh_buffers['vertex_buffer'].unbind()
-
     # coord_render methods -----------------------------------------------------
     
     def coord_render(self,
