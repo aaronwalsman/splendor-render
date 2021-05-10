@@ -1,5 +1,6 @@
 from setuptools import setup
 
+
 setup(  name = 'renderpy',
         version = '0.2',
         install_requires = ['Pillow', 'numpy', 'PyOpenGL>=3.1.5'],
