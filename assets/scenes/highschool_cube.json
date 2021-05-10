@@ -5,39 +5,43 @@
             "reflect_texture": "highschool_ref.png",
             "reflect_mipmaps": null,
             "blur":0,
-            "render_background":1,
-            "diffuse_contrast":1,
-            "rescale_diffuse_intensity":false,
-            "diffuse_intensity_target_lo":0.0,
-            "diffuse_intensity_target_hi":1.0,
-            "diffuse_tint_lo":[0.0,0.0,0.0],
-            "diffuse_tint_hi":[0.0,0.0,0.0],
-            "reflect_tint":[0.0,0.0,0.0]
+            "diffuse_gamma":1.0,
+            "diffuse_bias":0.0,
+            "reflect_gamma":1.0,
+            "reflect_bias":0.0,
+            "render_background":1
         }
     },
     "active_image_light" : "background_1",
     "meshes": {
         "cube": {
-            "mesh_asset" : "cube",
-            "scale":1.0
+            "mesh_primitive":{
+                "shape":"cube",
+                "x_extents":[-2,2],
+                "y_extents":[0,6],
+                "z_extents":[-1,1],
+                "x_divisions":3,
+                "y_divisions":5,
+                "z_divisions":1,
+                "bezel":0.025
+            },
+            "scale":1.0,
+            "color_mode":"flat_color"
         }
     },
     "materials": {
-        "cube": {
-            "texture": "cube",
-            "ka":1.0,
-            "kd":0.5,
-            "ks":0.5,
-            "shine":1.0,
-            "image_light_kd":0.85,
-            "image_light_ks":0.15,
-            "image_light_blur_reflection":3.0
+        "cube1": {
+            "flat_color": [1,0,0],
+            "ambient":1.0,
+            "metal":0.0,
+            "rough":0.75,
+            "base_reflect":0.04
         }
     },
     "instances": {
-        "cracker_1": {
+        "cube_1": {
             "mesh_name": "cube",
-            "material_name": "cube",
+            "material_name": "cube1",
             "transform": [
                 [1,0,0,0],
                 [0,1,0,0],
