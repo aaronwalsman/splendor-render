@@ -1,4 +1,4 @@
-## Welcome to Splendor-Render
+## Welcome to splendor-render
 Shiny!!
 
 ## Getting Started
