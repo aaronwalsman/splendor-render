@@ -2,6 +2,8 @@ import OpenGL.GL as gl
 import OpenGL.GL.shaders as shaders
 
 from renderpy.shaders.color_render import (
+        textured_material_properties_vertex_shader,
+        textured_material_properties_fragment_shader,
         textured_vertex_shader, textured_fragment_shader,
         vertex_color_vertex_shader, vertex_color_fragment_shader,
         flat_color_vertex_shader, flat_color_fragment_shader)
@@ -15,6 +17,10 @@ from renderpy.shaders.depthmap import (
         textured_depthmap_vertex_shader, textured_depthmap_fragment_shader)
 
 default_shader_code = {
+    'textured_material_properties_shader':(
+        textured_material_properties_vertex_shader,
+        textured_material_properties_fragment_shader,
+    ),
     'textured_shader' :
         (textured_vertex_shader, textured_fragment_shader),
     'vertex_color_shader' :

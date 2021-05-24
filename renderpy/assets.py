@@ -62,8 +62,7 @@ class AssetLibrary:
     @staticmethod
     def path_list_to_paths(path_list, HERE):
         paths = path_list.split(',')
-        paths = [path.replace('{HERE}', HERE)
-                for path in paths]
+        paths = [path.format(HERE=HERE) for path in paths]
         return paths
     
     def clear(self):
