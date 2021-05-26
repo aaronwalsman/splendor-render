@@ -12,8 +12,10 @@ setup(  name = 'splendor-render',
         scripts = [
                 'bin/splendor_viewer',
                 'bin/splendor_render',
+                'bin/splendor_mask_insepector',
                 'bin/panorama_to_strip',
                 'bin/panorama_to_image_light',
-                'bin/reflect_to_diffuse'
+                'bin/reflect_to_diffuse',
+                'bin/triangulate_obj',
         ],
         zip_safe = False)
