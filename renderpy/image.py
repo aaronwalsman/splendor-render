@@ -4,9 +4,9 @@ import PIL.Image as Image
 def load_image(path):
     '''
     This is a stub so that image loading can be easily changed in one place.
-    Returns a numpy uint8 array with shape HxWx3 with RGB channel order.
     '''
-    return numpy.array(Image.open(path).convert('RGB'))
+    #return numpy.array(Image.open(path).convert(mode))
+    return numpy.array(Image.open(path))
 
 def save_image(image, path):
     '''

@@ -26,7 +26,7 @@ _glut_state = {
     'window' : None,
 }
 
-def initialize(x_authority = None, display=None):
+def initialize(x_authority = None, display=None, repeat_keys=False):
     '''
     Set glut to be the active context manager for this rendering session.
     Once initialized, other context managers (egl) may not be used.
@@ -43,7 +43,11 @@ def initialize(x_authority = None, display=None):
             os.environ['DISPLAY'] = display
         
         GLUT.glutInit([])
+        #GLUT.glutInitContextVersion(4,6)
         _glut_state['initialized'] = True
+        
+        if not repeat_keys:
+            GLUT.glutSetKeyRepeat(GLUT.GLUT_KEY_REPEAT_OFF)
 
 class GlutWindowWrapper:
     '''
