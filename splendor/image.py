@@ -32,6 +32,10 @@ def save_depth(depth, path):
     with open(path, 'wb') as f:
         numpy.save(f, depth)
 
+def resize_image(image, width, height):
+    image = Image.fromarray(image).resize((width, height), Image.BILINEAR)
+    return numpy.array(image)
+
 def intensity(image):
     return (0.2989 * image[...,0] +
             0.5870 * image[...,1] +
