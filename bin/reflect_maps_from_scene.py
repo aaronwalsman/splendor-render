@@ -26,7 +26,7 @@ def reflection_maps_from_scene(
         pass
     manager.enable_frame('reflection')
     
-    renderer = core.Renderpy()
+    renderer = core.SplendorRender()
     
     renderer.load_scene(scene, clear_existing=True)
     #renderer.set_active_image_light = None

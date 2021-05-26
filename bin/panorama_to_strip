@@ -2,9 +2,9 @@
 import os
 import argparse
 
-from renderpy.assets import AssetLibrary
-import renderpy.image_light.panorama as panorama
-from renderpy.image import load_image, save_image
+from splendor.assets import AssetLibrary
+import splendor.image_light.panorama as panorama
+from splendor.image import load_image, save_image
 
 parser = argparse.ArgumentParser()
 parser.add_argument('panorama', type=str)

@@ -9,8 +9,8 @@ import tqdm
 import numpy
 
 from image import save_image
-from renderpy.reflection_maps_from_scene import reflection_maps_from_scene
-from renderpy.reflection_to_diffuse import reflection_to_diffuse
+from splendor.reflection_maps_from_scene import reflection_maps_from_scene
+from splendor.reflection_to_diffuse import reflection_to_diffuse
 
 def sample_color(
         intensity_range,
