@@ -14,6 +14,8 @@ There are a few other packages that do similar things that you may also want to 
 
 - **Splendor Render is fast!** For simple scenes you can easily generate images using image-based lighting at faster than 1000hz (including copying images back from the graphics card) with a good GPU.
 
+- **Splendor Render can run on servers!** Splendor Render can use EGL to run on headless servers that have no physical display.
+
 - **Splendor Render is easy to use!**  I think.  If not, let me know and I'll try to make it better.
 
 - **Splendor Render does not support shadows!**  This is not a feature.  This is an anti-feature.  I really need to get shadows in here at some point.
