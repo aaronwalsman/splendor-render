@@ -1,4 +1,4 @@
-## Welcome to Renderpy
+## Welcome to splendor-render
 Shiny!!
 
 ## Getting Started
@@ -14,5 +14,5 @@ drpy_viewer high_school_cube.json
 
 Render a single image to a file:
 ```
-drpy_render high_school_cube.json ./my_render.jpg
+drpy_render highschool_cube.json ./my_render.jpg
 ```

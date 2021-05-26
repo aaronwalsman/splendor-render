@@ -19,7 +19,11 @@ in vec3 fragment_color;
 
 out vec4 color;
 
+#ifndef COMPILE_TEXURED_MATERIAL_PROPERTIES
 uniform vec4 material_properties;
+//uniform vec3 material_properties;
+#endif
+
 uniform vec4 image_light_properties;
 uniform bool image_light_active;
 uniform vec3 background_color;
@@ -43,6 +47,10 @@ uniform mat4 camera_matrix;
 layout(binding=0) uniform sampler2D texture_sampler;
 #endif
 
+#ifdef COMPILE_TEXTURED_MATERIAL_PROPERTIES
+layout(binding=1) uniform sampler2D material_properties_sampler;
+#endif
+
 layout(binding=2) uniform samplerCube diffuse_sampler;
 layout(binding=3) uniform samplerCube reflect_sampler;
 
@@ -54,10 +62,14 @@ const float MAX_MIPMAP = 4.;
 void main(){
     
     // material properties =====================================================
-    float ambient = material_properties.x;
-    float metal = material_properties.y;
-    float rough = material_properties.z;
-    float base_reflect = material_properties.w;
+#ifdef COMPILE_TEXTURED_MATERIAL_PROPERTIES
+    vec4 material_properties = texture(
+        material_properties_sampler, fragment_uv);
+#endif
+    float metal = material_properties.x;
+    float rough = material_properties.y;
+    float base_reflect = material_properties.z;
+    float ambient = material_properties.w;
     
     float diffuse_gamma = image_light_properties.x;
     float diffuse_bias = image_light_properties.y;
@@ -114,7 +126,7 @@ void main(){
     for(int i = 0; i < num_direction_lights; ++i){
         
         vec3 light_color = vec3(direction_light_data[2*i]);
-        vec3 light_direction = -direction_light_data[2*i+1];
+        vec3 light_direction = -normalize(direction_light_data[2*i+1]);
         light_direction = vec3(camera_matrix * vec4(light_direction, 0.));
         vec3 half_direction = normalize(eye + light_direction);
         
@@ -178,7 +190,7 @@ void main(){
     }
     
     // ambient and background ==================================================
-    color += vec4(kd * ambient_color * albedo, 0.);
+    color += vec4(kd * ambient_color * ambient * albedo, 0.);
     color += vec4(ks * background_color, 0.);
     
 }

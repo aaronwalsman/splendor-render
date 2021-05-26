@@ -1,5 +1,5 @@
 import numpy
-from . import camera
+from renderpy import camera
 
 class InteractiveCamera(object):
     def __init__(self, window, renderer):
@@ -18,7 +18,13 @@ class InteractiveCamera(object):
                 self.button = button
                 self.mouse_click_position = (x,y)
                 self.mouse_click_depth = depth[self.window.height-y,x]
-
+                
+                near, far = camera.clip_from_projection(
+                    self.renderer.get_projection())
+                min_depth = numpy.min(depth)
+                self.mouse_click_depth = min(
+                    min_depth*5, self.mouse_click_depth)
+                
                 if button in (3,4):
                     camera_pose = self.renderer.get_camera_pose()
                     z_direction = camera_pose[2,0:3]

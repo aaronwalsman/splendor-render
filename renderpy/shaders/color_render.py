@@ -1,6 +1,16 @@
 from renderpy.shaders.mesh import mesh_vertex_shader
 from renderpy.shaders.lighting_model import lighting_model_fragment_shader
 
+# textured + textured material properties
+textured_material_properties_vertex_shader = f'''#version 460 core
+#define COMPILE_TEXTURE
+#define COMPILE_TEXTURED_MATERIAL_PROPERTIES
+{mesh_vertex_shader}'''
+textured_material_properties_fragment_shader = f'''#version 460 core
+#define COMPILE_TEXTURE
+#define COMPILE_TEXTURED_MATERIAL_PROPERTIES
+{lighting_model_fragment_shader}'''
+
 # textured
 textured_vertex_shader = f'''#version 460 core
 #define COMPILE_TEXTURE
