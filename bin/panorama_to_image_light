@@ -2,10 +2,10 @@
 import os
 import argparse
 
-from renderpy.assets import AssetLibrary
-from renderpy.image_light.panorama import panorama_to_strip
-from renderpy.image_light.diffuse import reflect_to_diffuse
-from renderpy.image import even_intensity, load_image, save_image
+from splendor.assets import AssetLibrary
+from splendor.image_light.panorama import panorama_to_strip
+from splendor.image_light.diffuse import reflect_to_diffuse
+from splendor.image import even_intensity, load_image, save_image
 
 parser = argparse.ArgumentParser()
 parser.add_argument('panorama', type=str)

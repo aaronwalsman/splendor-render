@@ -13,9 +13,9 @@ import tqdm
 import numpy
 
 # local
-import renderpy.image
-import renderpy.panorama_to_cube as p2c
-import renderpy.reflection_to_diffuse as r2d
+from splendor.image import load_image, save_image
+import splendor.panorama_to_cube as p2c
+import splendor.reflection_to_diffuse as r2d
 
 def fix_black_bars(image):
     row = 0
@@ -37,7 +37,7 @@ def fix_black_bars(image):
         image[row+1:,:,:] = image[row]
 
 parser = argparse.ArgumentParser(description = 
-        'Convert Matterport panoramas to reflective and diffuse cube maps')
+        'Convert Gibson panoramas to reflective and diffuse cube maps')
 parser.add_argument('gibson_location', type=str,
         help = 'The location of the gibson data')
 parser.add_argument('destination', type=str,
@@ -72,9 +72,7 @@ for i, house in enumerate(houses):
         
         pano_index = re.search('[0-9]+', pano_file)[0]
         
-        #pano = numpy.array(
-        #        imageio.imread(os.path.join(pano_rgb, pano_file)))[:,:,:3]
-        pano = renderpy.image.load_image(os.path.join(pano_rgb, pano_file))
+        pano = load_image(os.path.join(pano_rgb, pano_file))
         fix_black_bars(pano)
         reflection_images = p2c.panorama_to_cube(
                 pano, args.reflection_resolution)
@@ -84,8 +82,7 @@ for i, house in enumerate(houses):
             os.makedirs(reflection_dir)
         for cube_face in reflection_images:
             image_path = os.path.join(reflection_dir, cube_face + '.png')
-            #imageio.imsave(image_path, reflection_images[cube_face])
-            renderpy.image.save_image(reflection_images[cube_face], image_path)
+            save_image(reflection_images[cube_face], image_path)
         
         diffuse_images = r2d.reflection_to_diffuse(
                 reflection_images, args.diffuse_resolution)
