@@ -1,6 +1,6 @@
 import math
 import numpy
-import splendor.pose_utils as pose_utils
+import splendor.pose as pose
 
 #===============================================================================
 # projection
@@ -172,13 +172,13 @@ def azimuthal_pose_to_matrix(pose, center=(0,0,0)):
     shift_x = pose[4]
     shift_y = pose[5]
     
-    a = pose_utils.euler_y_matrix(azimuth)
-    e = pose_utils.euler_x_matrix(elevation)
-    t = pose_utils.euler_z_matrix(tilt)
+    a = pose.euler_y_matrix(azimuth)
+    e = pose.euler_x_matrix(elevation)
+    t = pose.euler_z_matrix(tilt)
     
-    translate = pose_utils.translate_matrix([shift_x, shift_y, distance])
+    translate = pose.translate_matrix([shift_x, shift_y, distance])
     
-    c = pose_utils.translate_matrix(center)
+    c = pose.translate_matrix(center)
     
     m = numpy.linalg.inv(
             numpy.dot(c,
