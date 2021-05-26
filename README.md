@@ -10,15 +10,15 @@ There are a few other packages that do similar things that you may also want to 
 - [PyBullet](https://pybullet.org/wordpress/) is focused more on physics simulation, but some people use it for generating images as well.  I haven't looked into it, but I would be surprised if they have all the nice shader stuff and image-based lighting that we do.
 
 ### Features
-Splendor Render is fast!  For simple scenes you can easily generate images using image-based lighting at faster than 1000hz (including copying images back from the graphics card) with a good GPU.
+- **Splendor Render is shiny!**  Splendor Render uses various approximations of physically based rendering (PBR) for image-based lighting (IBL).  These were big buzzwords in video game development ten years ago, but they basically mean we use a lighting/material model that uses environment maps for lighting and provides relatively simple material controls (base reflectance, metal, roughness) that are designed to approximate physics.  
 
-Splendor Render is shiny!  Splendor Render uses various approximations of physically based rendering (PBR) for image-based lighting (IBL).  These were big buzzwords in video game development ten years ago, but they basically mean we use a lighting/material model that uses environment maps for lighting and provides relatively simple material controls (base reflectance, metal, roughness) that are designed to approximate physics.  
+- **Splendor Render is fast!** For simple scenes you can easily generate images using image-based lighting at faster than 1000hz (including copying images back from the graphics card) with a good GPU.
 
-Splendor Render is easy to use!  I think.  If not, let me know and I'll try to make it better.
+- **Splendor Render is easy to use!**  I think.  If not, let me know and I'll try to make it better.
 
-Splendor Render does not support shadows!  This is not a feature.  This is an anti-feature.  I really need to get shadows in here at some point.
+- **Splendor Render does not support shadows!**  This is not a feature.  This is an anti-feature.  I really need to get shadows in here at some point.
 
-Splendor Render does not support transparent objects!  This is also an anti-feature.  I'm just hoping that by publicly shaming myself in the README like this, I will some day take the time to implement this.
+- **Splendor Render does not support transparent objects!**  This is also an anti-feature.  I'm just hoping that by publicly shaming myself in the README like this, I will some day take the time to implement this.
 
 ## Getting Started
 Install this package:
