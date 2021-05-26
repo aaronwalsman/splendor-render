@@ -1,18 +1,17 @@
 from setuptools import setup
 
 
-setup(  name = 'renderpy',
+setup(  name = 'splendor-render',
         version = '0.2',
         install_requires = ['Pillow', 'numpy', 'PyOpenGL>=3.1.5'],
-        description = 'Bare-bones python OpenGL renderer for textured meshes',
-        url = 'https://gitlab.cs.washington.edu/awalsman/renderpy',
+        description = 'Shiny OpenGL renderer',
+        url = 'https://github.com/aaronwalsman/splendor-render',
         author = 'Aaron Walsman',
-        author_email = 'awalsman@cs.washington.edu',
-        packages = ['renderpy'],
+        author_email = 'aaronwalsman@gmail.com',
+        packages = ['splendor'],
         scripts = [
-                'bin/drpy_viewer',
-                'bin/drpy_mask_viewer',
-                'bin/drpy_render',
+                'bin/splendor_viewer',
+                'bin/splendor_render',
                 'bin/panorama_to_strip',
                 'bin/panorama_to_image_light',
                 'bin/reflect_to_diffuse'
