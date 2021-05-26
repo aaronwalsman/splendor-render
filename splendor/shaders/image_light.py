@@ -1,5 +1,5 @@
-from renderpy.shaders.utils import softish_step_fn, intensity_fn
-from renderpy.shaders.skybox import skybox_fn
+from splendor.shaders.utils import softish_step_fn, intensity_fn
+from splendor.shaders.skybox import skybox_fn
 
 def reflect_to_diffuse_fragment_shader(num_samples=512):
     return f'''#version 460 core

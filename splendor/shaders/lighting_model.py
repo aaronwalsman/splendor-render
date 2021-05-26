@@ -1,7 +1,7 @@
-from renderpy.shaders.utils import phong_fn
-from renderpy.shaders.pbr import pbr_fns
-from renderpy.shaders.skybox import skybox_fn
-from renderpy.shaders.utils import softish_step_fn
+from splendor.shaders.utils import phong_fn
+from splendor.shaders.pbr import pbr_fns
+from splendor.shaders.skybox import skybox_fn
+from splendor.shaders.utils import softish_step_fn
 
 lighting_model_fragment_shader = '''
 const int MAX_NUM_LIGHTS = 8;

@@ -44,7 +44,7 @@ def load_mesh(mesh_path, strict=False, scale=1.0):
     
     '''
     Loads an obj file to a mesh dictionary.  This does not support all obj
-    features, but supports the ones necessary for renderpy.
+    features, but supports the ones necessary for splendor-render.
     '''
     
     try:

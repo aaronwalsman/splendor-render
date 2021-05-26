@@ -10,23 +10,23 @@ from OpenGL.arrays import vbo
 # numpy
 import numpy
 
-# renderpy
-from renderpy.assets import AssetLibrary
-import renderpy.camera as camera
-import renderpy.masks as masks
-from renderpy.shader_library import ShaderLibrary
-import renderpy.obj_mesh as obj_mesh
-from renderpy.image import load_image, load_depth, validate_texture
-import renderpy.json_numpy as json_numpy
-from renderpy.exceptions import RenderpyException
-from renderpy.primitives import make_primitive
+# splendor
+from splendor.assets import AssetLibrary
+import splendor.camera as camera
+import splendor.masks as masks
+from splendor.shader_library import ShaderLibrary
+import splendor.obj_mesh as obj_mesh
+from splendor.image import load_image, load_depth, validate_texture
+import splendor.json_numpy as json_numpy
+from splendor.exceptions import SplendorException
+from splendor.primitives import make_primitive
 
 max_num_lights = 8
 default_default_camera_pose = numpy.eye(4)
 default_default_camera_projection = camera.projection_matrix(
         math.radians(90.), 1.0)
 
-class Renderpy:
+class SplendorRender:
     """
     Core rendering functionality.
     
@@ -52,7 +52,7 @@ class Renderpy:
             default_camera_pose=None,
             default_camera_projection=None):
         """
-        Renderpy initialization
+        SplendorRender initialization
         
         Parameters
         ----------
@@ -60,7 +60,7 @@ class Renderpy:
             Either a path pointing to an asset library cfg file or an
             AssetLibrary object.  This is used to load assets such as meshes
             and textures by name rather than their full path.  If not provided,
-            this will load the renderpy default asset library.
+            this will load the splendor-render default asset library.
         default_camera_pose : 4x4 numpy matrix, optional
             The default camera matrix for the renderer.
             Identity if not specified.
@@ -413,7 +413,7 @@ class Renderpy:
             }
         
         else:
-            raise RenderpyException(
+            raise SplendorException(
                     'Must supply a "mesh_asset", "mesh_path", "mesh_data" '
                     ' or "mesh_primitive" argument when loading a mesh')
 
@@ -632,7 +632,7 @@ class Renderpy:
             depthmap = depthmap_data
 
         else:
-            raise RenderpyException(
+            raise SplendorException(
                     'Must supply a "depthmap_asset", "depthmap_path" or a '
                     '"depthmap_data" argument when loading a depthmap')
 
@@ -929,7 +929,7 @@ class Renderpy:
             }
         
         else:
-            raise RenderpyException(
+            raise SplendorException(
                     'Must supply a "texture_asset", "texture_path" or '
                     '"texture_data" argument when loading a texture')
         

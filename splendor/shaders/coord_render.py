@@ -1,4 +1,4 @@
-from renderpy.shaders.mesh import mesh_vertex_shader
+from splendor.shaders.mesh import mesh_vertex_shader
 
 coord_vertex_shader = f'''#version 460 core
 #define COMPILE_COORD

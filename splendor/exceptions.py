@@ -1,5 +1,8 @@
-class RenderpyException(Exception):
+class SplendorException(Exception):
     pass
 
-class AssetError(RenderpyException):
+class SplendorAssetException(SplendorException):
+    pass
+
+class SplendorContextException(SplendorException):
     pass

@@ -3,8 +3,8 @@ Manages and creates a glut window/context.
 Rendering with GLUT requires an active window (currently only one is supported)
 but also allows for offscreen rendering using a FrameBufferWrapper.
 
-Use this module if you want to use renderpy to draw to an active window and
-one or more offscreen frame buffers.  On the other hand, if all you want is
+Use this module if you want to use splendor-render to draw to an active window
+and one or more offscreen frame buffers.  On the other hand, if all you want is
 offscreen rendering, see egl.py instead.
 
 This module requires a physical display to be connected to the rendering
@@ -17,8 +17,8 @@ import OpenGL.GLUT as GLUT
 
 import numpy
 
-import renderpy.camera as camera
-from renderpy.contexts.initialization import (
+import splendor.camera as camera
+from splendor.contexts.initialization import (
         initialization_state, register_context)
 
 _glut_state = {

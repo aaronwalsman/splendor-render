@@ -1,5 +1,5 @@
 import numpy
-from renderpy import camera
+from splendor import camera
 
 class InteractiveCamera(object):
     def __init__(self, window, renderer):

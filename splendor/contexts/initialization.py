@@ -1,3 +1,5 @@
+from splendor.exceptions import SplendorContextException
+
 _context_state = {
     'initialized' : False,
     'mode' : None,
@@ -14,9 +16,6 @@ def register_context(context_mode):
     elif _context_state['mode'] == context_mode:
         return False
     else:
-        raise RenderpyContextException(
+        raise SplendorContextException(
                 'Cannot register a new context, one already exists (%s)'%
                 (_context_state['mode']))
-
-class RenderpyContextException(Exception):
-    pass

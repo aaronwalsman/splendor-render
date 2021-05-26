@@ -1,5 +1,5 @@
-from renderpy.shaders.mesh import mesh_vertex_shader
-from renderpy.shaders.lighting_model import lighting_model_fragment_shader
+from splendor.shaders.mesh import mesh_vertex_shader
+from splendor.shaders.lighting_model import lighting_model_fragment_shader
 
 # textured + textured material properties
 textured_material_properties_vertex_shader = f'''#version 460 core

@@ -1,20 +1,20 @@
-import renderpy.glut as drpy_glut
-import renderpy.core as core
-import renderpy.camera as camera
-import renderpy.masks as masks
-import renderpy.primitives as primitives
-from renderpy.image import load_image
+import splendor.glut
+import splendor.core as core
+import splendor.camera as camera
+import splendor.masks as masks
+import splendor.primitives as primitives
+from splendor.image import load_image
 
 def start_viewer(file_path):
     
     image = load_image(file_path)
     height, width, _ = image.shape
     
-    drpy_glut.initialize_glut()
+    splendor.glut.initialize_glut()
     
-    mask_window = drpy_glut.GlutWindowWrapper(
+    mask_window = splendor.glut.GlutWindowWrapper(
             'Mask', width, height)
-    renderer = core.Renderpy()
+    renderer = core.SplendorRender()
     
     rectangle = primitives.mesh_grid(
             axes = (0,1),

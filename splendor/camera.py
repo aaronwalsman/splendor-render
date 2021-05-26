@@ -1,6 +1,6 @@
 import math
 import numpy
-import renderpy.pose_utils as pose_utils
+import splendor.pose_utils as pose_utils
 
 #===============================================================================
 # projection

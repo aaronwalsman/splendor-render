@@ -9,13 +9,13 @@ from OpenGL.arrays import vbo
 # numpy
 import numpy
 
-# renderpy
-from renderpy.shaders import image_light, background
-from renderpy.shader_library import ShaderLibrary
-from renderpy.contexts import egl
-from renderpy import camera
-from renderpy.frame_buffer import FrameBufferWrapper
-from renderpy.image import save_image
+# splendor
+from splendor.shaders import image_light, background
+from splendor.shader_library import ShaderLibrary
+from splendor.contexts import egl
+from splendor import camera
+from splendor.frame_buffer import FrameBufferWrapper
+from splendor.image import save_image
 
 MAX_SAMPLES_PER_STEP = 512
 

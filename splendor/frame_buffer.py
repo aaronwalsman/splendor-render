@@ -2,7 +2,7 @@ import numpy
 
 from OpenGL import GL
 
-import renderpy.camera as camera
+import splendor.camera as camera
 
 class FrameBufferWrapper:
     def __init__(self,

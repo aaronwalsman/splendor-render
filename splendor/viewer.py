@@ -5,10 +5,10 @@ import os
 
 import numpy
 
-import renderpy.contexts.glut as glut
-import renderpy.core as core
-import renderpy.camera as camera
-from renderpy.interactive_camera import InteractiveCamera
+import splendor.contexts.glut as glut
+import splendor.core as core
+import splendor.camera as camera
+from splendor.interactive_camera import InteractiveCamera
 
 def start_viewer(
         file_path,
@@ -22,7 +22,7 @@ def start_viewer(
     glut.initialize()
     window = glut.GlutWindowWrapper('Color', width, height)
     
-    renderer = core.Renderpy()
+    renderer = core.SplendorRender()
     window.show_window()
     window.enable_window()
 

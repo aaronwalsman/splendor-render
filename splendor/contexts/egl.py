@@ -7,7 +7,7 @@ import numpy
 from OpenGL import GL
 import OpenGL.platform
 
-from renderpy.contexts.initialization import (
+from splendor.contexts.initialization import (
         initialization_state, register_context)
 
 EGL_PLATFORM_DEVICE_EXT = 0x313F

@@ -1,7 +1,7 @@
-import renderpy.contexts.egl as egl
-import renderpy.core as core
-from renderpy.image import save_image, save_depth
-from renderpy.frame_buffer import FrameBufferWrapper
+import splendor.contexts.egl as egl
+import splendor.core as core
+from splendor.image import save_image, save_depth
+from splendor.frame_buffer import FrameBufferWrapper
 
 def render_scene(
         scene,
@@ -20,7 +20,7 @@ def render_scene(
     framebuffer = FrameBufferWrapper(
             width, height, anti_alias, anti_alias_samples)
     framebuffer.enable()
-    renderer = core.Renderpy(assets=assets)
+    renderer = core.SplendorRender(assets=assets)
     renderer.load_scene(scene, clear_scene=True)
         
     if render_mode == 'color' or render_mode == 'depth':

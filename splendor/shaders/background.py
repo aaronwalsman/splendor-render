@@ -1,4 +1,4 @@
-from renderpy.shaders.skybox import skybox_fn
+from splendor.shaders.skybox import skybox_fn
 
 background_vertex_shader = '''#version 460 core
 #define FAR 1-(1e-4)

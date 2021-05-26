@@ -6,12 +6,12 @@ from OpenGL.arrays import vbo
 
 import numpy
 
-from renderpy.shaders.background import background_vertex_shader
-from renderpy.shaders.skybox import panorama_to_cube_fragment_shader
-from renderpy.frame_buffer import FrameBufferWrapper
-from renderpy.contexts import egl
-import renderpy.camera as camera
-import renderpy.image as image
+from splendor.shaders.background import background_vertex_shader
+from splendor.shaders.skybox import panorama_to_cube_fragment_shader
+from splendor.frame_buffer import FrameBufferWrapper
+from splendor.contexts import egl
+import splendor.camera as camera
+import splendor.image as image
 
 def cube_to_strip(cube):
     strip = numpy.concatenate([
