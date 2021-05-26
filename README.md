@@ -1,5 +1,11 @@
-## Welcome to splendor-render
+# splendor-render
 Shiny!!
+
+## Purpose
+This package is designed to be a lightweight, but nice looking 3D renderer in python.  It has primarily been designed as a way to generate online training data for computer vision, reinforcement learning and robotics applications.
+
+There are a few other packages that do similar things that you may also want to check out:
+[PyRender](https://github.com/mmatl/pyrender) is a really solid renderer and does a lot of what splendor-render can do.  It is also probably much more stable and compliant with various specifications and supports more formats of things.  You should really go check out PyRender and see if that works for you, and if not, come back here.
 
 ## Getting Started
 Install this package:
