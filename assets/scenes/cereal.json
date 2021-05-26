@@ -1,0 +1,74 @@
+{
+    "image_lights":{
+        "background_1": {
+            "diffuse_texture": "cellar_dif.png",
+            "reflect_texture": "cellar_ref.png",
+            "reflect_mipmaps": null,
+            "blur":0,
+            "diffuse_gamma":1.0,
+            "diffuse_bias":0.0,
+            "reflect_gamma":1.0,
+            "reflect_bias":0.0,
+            "render_background":1
+        }
+    },
+    "active_image_light" : "background_1",
+    "meshes": {
+        "cube": {
+            "mesh_primitive":{
+                "shape":"cube",
+                "x_extents":[-3.5,3.5],
+                "y_extents":[0,11],
+                "z_extents":[-1,1],
+                "bezel":0.05
+            },
+            "scale":1.0,
+            "color_mode":"textured"
+        }
+    },
+    "textures": {
+        "renderpy" : {
+            "texture_asset":"renderpy"
+        },
+        "renderpy_matprop" : {
+            "texture_asset":"renderpy_matprop"
+        }
+    },
+    "materials": {
+        "cube1": {
+            "texture_name":"renderpy",
+            "material_properties_texture":"renderpy_matprop"
+        },
+        "cube2": {
+            "texture_name":"renderpy",
+            "ambient":1.0,
+            "metal":0.75,
+            "rough":0.75,
+            "base_reflect":0.04
+        }
+    },
+    "instances": {
+        "cube_1": {
+            "mesh_name": "cube",
+            "material_name": "cube1",
+            "transform": [
+                [1,0,0,0],
+                [0,1,0,0],
+                [0,0,1,0],
+                [0,0,0,1]],
+            "mask_color": [1,1,1]
+        }
+    },
+    "ambient_color": [0,0,0],
+    "point_lights": {},
+    "direction_lights": {},
+    "camera":{
+        "pose":[0.0, 0.0, 0, 6.02, 0, 0],
+        "projection":[
+            [ 1.73205081,  0.0       ,  0.0       ,  0.0       ],
+            [ 0.0       ,  1.73205081,  0.0       ,  0.0       ],
+            [ 0.0       ,  0.0       , -1.002002  , -0.1001001 ],
+            [ 0.0       ,  0.0       , -1.0       ,  0.0       ]],
+        "pose_delta":[0.0004,0,0,0,0,0]
+    }
+}
