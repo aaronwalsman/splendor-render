@@ -11,18 +11,20 @@ import splendor.camera as camera
 from splendor.interactive_camera import InteractiveCamera
 
 def start_viewer(
-        file_path,
-        width = 512,
-        height = 512,
-        poll_frequency = 1024,
-        anti_alias = True,
-        anti_alias_samples = 8,
-        print_fps = False):
+    file_path,
+    width = 512,
+    height = 512,
+    poll_frequency = 1024,
+    anti_alias = True,
+    anti_alias_samples = 8,
+    assets = None,
+    print_fps = False,
+):
 
     glut.initialize()
     window = glut.GlutWindowWrapper('Color', width, height)
     
-    renderer = core.SplendorRender()
+    renderer = core.SplendorRender(assets=assets)
     window.show_window()
     window.enable_window()
 

@@ -4,15 +4,16 @@ from splendor.image import save_image, save_depth
 from splendor.frame_buffer import FrameBufferWrapper
 
 def render_scene(
-        scene,
-        width,
-        height,
-        assets = None,
-        output_file = None,
-        anti_alias = True,
-        anti_alias_samples = 8,
-        render_mode = 'color',
-        device = None):
+    scene,
+    width,
+    height,
+    assets = None,
+    output_file = None,
+    anti_alias = True,
+    anti_alias_samples = 8,
+    render_mode = 'color',
+    device = None,
+):
     
     egl.initialize_plugin()
     egl.initialize_device(device)

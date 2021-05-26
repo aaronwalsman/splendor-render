@@ -1,8 +1,8 @@
 {
     "image_lights":{
         "background_1": {
-            "diffuse_texture": "julbelysning_dif.png",
-            "reflect_texture": "julbelysning_ref.png",
+            "diffuse_texture": "dresden_dif.png",
+            "reflect_texture": "dresden_ref.png",
             "reflect_mipmaps": null,
             "blur":0,
             "diffuse_gamma":1.0,

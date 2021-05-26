@@ -53,8 +53,10 @@ class AssetLibrary:
             config_path = default_assets_path
         
         self.clear()
-        config_paths = config_path.split(':')
+        config_paths = config_path.split(',')
         for config_path in config_paths:
+            if config_path == 'DEFAULT':
+                config_path = default_assets_path
             if not os.path.exists(config_path):
                 raise SplendorAssetException(
                     'Config path not found: %s'%config_path)
@@ -76,7 +78,7 @@ class AssetLibrary:
         
         parser = configparser.ConfigParser()
         parser.read(config_path)
-        HERE = os.path.dirname(config_path)
+        HERE = os.path.dirname(os.path.abspath(config_path))
         
         for asset_type in asset_types:
             if asset_type in parser['paths']:
