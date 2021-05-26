@@ -1,4 +1,4 @@
-## Welcome to Renderpy
+## Welcome to splendor-render
 Shiny!!
 
 ## Getting Started
