@@ -2,7 +2,7 @@
 Shiny!!
 
 ## Purpose
-This package is designed to be a lightweight but nice looking 3D renderer in python.  It has primarily been designed as a way to generate online training data for computer vision, reinforcement learning and robotics applications.
+This package is designed to be a lightweight but nice looking 3D renderer in python.  It has primarily been designed to generate online training data for computer vision, reinforcement learning and robotics applications.
 
 There are a few other packages that do similar things that you may also want to check out:
 - [PyRender](https://github.com/mmatl/pyrender) is a really solid renderer and does a lot of what Splendor Render can do.  It is also probably much more stable and compliant with various specifications and supports more formats of things, and definitely has waaaaay better documentation than we do.  You should really go check out PyRender and see if that works for you.  I *think* the one thing we support that PyRender does not is image-based lighting, which is really nice and makes for shiny pictures that I'm *very* proud of.
