@@ -79,7 +79,7 @@ def reflect_to_diffuse(
     x = strip_x % reflect_width
     face = strip_x // reflect_width
     
-    camera_matrices = numpy.array([
+    view_matrices = numpy.array([
             # px
             [[ 0, 0,-1, 0],
              [ 0,-1, 0, 0],
@@ -111,7 +111,7 @@ def reflect_to_diffuse(
              [ 0, 0, 1, 0],
              [ 0, 0, 0, 1]]])
     
-    sample_poses = camera_matrices[face]
+    sample_poses = view_matrices[face]
     half_reflect_width = reflect_width / 2
     x = x - half_reflect_width
     y = y - half_reflect_width
@@ -175,10 +175,10 @@ def reflect_to_diffuse(
                 num_samples,
                 step_direction_importance[...,0])
     
-        for i, camera_matrix in enumerate(camera_matrices):
+        for i, view_matrix in enumerate(view_matrices):
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
             GL.glUniformMatrix4fv(
-                    locations['camera_matrix'], 1, GL.GL_TRUE, camera_matrix)
+                    locations['view_matrix'], 1, GL.GL_TRUE, view_matrix)
             GL.glDrawElements(GL.GL_TRIANGLES, 2*3, GL.GL_UNSIGNED_INT, None)
             strip_start = i * diffuse_width
             strip_end = (i+1) * diffuse_width

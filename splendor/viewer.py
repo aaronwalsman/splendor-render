@@ -44,10 +44,10 @@ def start_viewer(
             try:
                 change_time = os.stat(file_path).st_mtime
                 if change_time != state['recent_file_change_time']:
-                    camera_pose = renderer.get_camera_pose()
+                    view_matrix = renderer.get_view_matrix()
                     renderer.load_scene(file_path, clear_scene=True)
                     if state['recent_file_change_time'] != -1:
-                        renderer.set_camera_pose(camera_pose)
+                        renderer.set_view_matrix(view_matrix)
                     renderer.set_projection(projection)
                     state['recent_file_change_time'] = change_time
                     print('Loaded: %s'%file_path)

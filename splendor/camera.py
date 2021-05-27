@@ -144,49 +144,60 @@ def project(
 
 
 #===============================================================================
-# camera pose
+# camera matrix
 #===============================================================================
-def camera_pose_to_matrix(pose):
+def view_matrix(parameters):
+    
+    # dict input
+    if isinstance(parameters, dict):
+        return numpy.linalg.inv(azimuthal_parameters_to_matrix(**parameters))
     
     # matrix input
-    if len(pose) == 4 and len(pose[0]) == 4:
-        return numpy.array(pose)
+    if len(parameters) == 4 and len(parameters[0]) == 4:
+        return numpy.array(parameters)
     
-    # azimuth, elevation, spin, distance, x, y
-    elif len(pose) == 6:
-        return azimuthal_pose_to_matrix(pose)
-    
-    elif len(pose) == 9:
-        return azimuthal_pose_to_matrix(pose[:6], pose[6:])
+    # azimuth
+    elif len(parameters) == 6 or len(parameters) == 9:
+        return numpy.linalg.inv(azimuthal_parameters_to_matrix(*parameters))
     
     # unknown
     else:
-        raise ValueError('camera pose should be a 4x4 matrix or 6 elements '
-                '[azimuth, elevation, tilt, distance, shift_x, shift_y]')
+        raise ValueError('camera parameters should be a 4x4 matrix '
+            'or a dictionary with named azimuthal argments '
+            'or 6 elements '
+            '[azimuth, elevation, tilt, distance, shift_x, shift_y]'
+            'or 9 elements '
+            '[azimuth, elevation, tilt, distance, shift_x, shift_y, '
+            'center_x, center_y, center_z]')
         
-def azimuthal_pose_to_matrix(pose, center=(0,0,0)):
-    azimuth = pose[0]
-    elevation = pose[1]
-    tilt = pose[2]
-    distance = pose[3]
-    shift_x = pose[4]
-    shift_y = pose[5]
+def azimuthal_parameters_to_matrix(
+    azimuth=0,
+    elevation=0,
+    tilt=0,
+    distance=0,
+    shift_x=0,
+    shift_y=0,
+    center_x=0,
+    center_y=0,
+    center_z=0,
+):
     
-    a = pose.euler_y_matrix(azimuth)
-    e = pose.euler_x_matrix(elevation)
-    t = pose.euler_z_matrix(tilt)
+    azimuth = pose.euler_y_matrix(azimuth)
+    elevation = pose.euler_x_matrix(elevation)
+    tilt = pose.euler_z_matrix(tilt)
     
     translate = pose.translate_matrix([shift_x, shift_y, distance])
     
-    c = pose.translate_matrix(center)
+    center = pose.translate_matrix((center_x, center_y, center_z))
     
-    m = numpy.linalg.inv(
-            numpy.dot(c,
-            numpy.dot(a,
-            numpy.dot(e,
-            numpy.dot(t, translate)))))
+    #m = numpy.linalg.inv(
+    #        numpy.dot(c,
+    #        numpy.dot(a,
+    #        numpy.dot(e,
+    #        numpy.dot(t, translate)))))
+    matrix = center @ azimuth @ elevation @ tilt @ translate
     
-    return m
+    return matrix
 
 def framing_distance_for_bbox(bbox, projection_matrix, multiplier):
     diagonal = numpy.array(bbox[1]) - numpy.array(bbox[0])
@@ -198,7 +209,7 @@ def frame_bbox(bbox, projection_matrix, multiplier,
     diagonal = numpy.array(bbox[1]) - numpy.array(bbox[0])
     centroid = bbox[0] + diagonal * 0.5
     distance = framing_distance_for_bbox(bbox, projection_matrix, multiplier)
-    return azimuthal_pose_to_matrix(
+    return azimuthal_parameters_to_matrix(
             [azimuth, elevation, tilt, distance, shift_x, shift_y],
             center = centroid)
 

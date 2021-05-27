@@ -22,7 +22,7 @@ from splendor.exceptions import SplendorException
 from splendor.primitives import make_primitive
 
 max_num_lights = 8
-default_default_camera_pose = numpy.eye(4)
+default_default_view_matrix = numpy.eye(4)
 default_default_camera_projection = camera.projection_matrix(
         math.radians(90.), 1.0)
 
@@ -49,7 +49,7 @@ class SplendorRender:
 
     def __init__(self,
             assets=None,
-            default_camera_pose=None,
+            default_view_matrix=None,
             default_camera_projection=None):
         """
         SplendorRender initialization
@@ -61,9 +61,9 @@ class SplendorRender:
             AssetLibrary object.  This is used to load assets such as meshes
             and textures by name rather than their full path.  If not provided,
             this will load the splendor-render default asset library.
-        default_camera_pose : 4x4 numpy matrix, optional
-            The default camera matrix for the renderer.
-            Identity if not specified.
+        default_view_matrix : 4x4 numpy matrix, optional
+            The default view matrix for the renderer.  This is the inverse of
+            thre 3D pose of the camera object.  Identity if not specified.
         default_camera_projection : 4x4 numpy matrix, optional
             The default projection matrix for the renderer.
             A square projection with a 90 degree fov is used if not specified.
@@ -75,9 +75,9 @@ class SplendorRender:
             self.asset_library = AssetLibrary(assets)
 
         # default camera settings
-        if default_camera_pose is None:
-            default_camera_pose = default_default_camera_pose
-        self.default_camera_pose = default_camera_pose
+        if default_view_matrix is None:
+            default_view_matrix = default_default_view_matrix
+        self.default_view_matrix = default_view_matrix
         if default_camera_projection is None:
             default_camera_projection = default_default_camera_projection
         self.default_camera_projection = default_camera_projection
@@ -95,7 +95,7 @@ class SplendorRender:
                 'point_lights':{},
                 'direction_lights':{},
                 'camera':{
-                    'pose':default_camera_pose,
+                    'view_matrix':default_view_matrix,
                     'projection':default_camera_projection,
                 },
                 'image_lights':{},
@@ -196,8 +196,8 @@ class SplendorRender:
                 set_fn(scene[global_parameter])
 
         if 'camera' in scene:
-            if 'pose' in scene['camera']:
-                self.set_camera_pose(scene['camera']['pose'])
+            if 'view_matrix' in scene['camera']:
+                self.set_view_matrix(scene['camera']['view_matrix'])
             if 'projection' in scene['camera']:
                 self.set_projection(scene['camera']['projection'])
 
@@ -287,9 +287,9 @@ class SplendorRender:
     
     def reset_camera(self):
         """
-        Resets the camera to the default pose and projection.
+        Resets the camera to the default view matrix and projection.
         """
-        self.set_camera_pose(self.default_camera_pose)
+        self.set_view_matrix(self.default_view_matrix)
         self.set_projection(self.default_camera_projection)
 
     def set_projection(self, projection_matrix):
@@ -313,36 +313,46 @@ class SplendorRender:
         """
         return self.scene_description['camera']['projection']
 
-    def set_camera_pose(self, camera_pose):
+    def set_view_matrix(self, view_matrix):
         """
-        Sets the camera matrix.
+        Sets the view matrix.
         
         Parameters:
         -----------
-        camera_matrix : 4x4 array-like, 6-element or 9-element azimuthal pose
-            Azimuthal pose is [azimuth, elevation, tilt, distance, x, y]
+        view_matrix : 4x4 matrix, 6-element or 9-element azimuthal parameters
+            or a dictionary of named azimuthal parameters.
+            Azimuthal parameters are:
+            [azimuth,
+             elevation,
+             tilt,
+             distance,
+             shift_x,
+             shift_y,
+             center_x (optional),
+             center_y (optional),
+             center_z (optional)]
         """
-        camera_matrix = camera.camera_pose_to_matrix(camera_pose)
-        self.scene_description['camera']['pose'] = numpy.array(camera_matrix)
+        view_matrix = camera.view_matrix(view_matrix)
+        self.scene_description['camera']['view_matrix'] = view_matrix
 
-    def get_camera_pose(self):
+    def get_view_matrix(self):
         """
-        Get the camera matrix.
+        Get the view matrix.
         
         Note this is the inverse of the SE3 pose of the camera object.
         
         Returns:
         --------
-        camera_matrix : 4x4 numpy array
+        view_matrix : 4x4 numpy array
         """
-        return self.scene_description['camera']['pose']
+        return self.scene_description['camera']['view_matrix']
 
     def camera_frame_scene(self, multiplier=3.0, *args, **kwargs):
         bbox = self.get_instance_center_bbox()
-        camera_matrix = camera.frame_bbox(
+        view_matrix = camera.frame_bbox(
                 bbox, self.get_projection(), multiplier,
                 *args, **kwargs)
-        self.set_camera_pose(camera_matrix)
+        self.set_view_matrix(view_matrix)
 
     # mesh methods =============================================================
     
@@ -1889,12 +1899,12 @@ class SplendorRender:
             location_data = self.shader_library.get_shader_locations(
                     'textured_depthmap_shader')
             
-            # set the camera's pose
-            camera_pose = self.scene_description['camera']['pose']
+            # set the camera's view_matrix
+            view_matrix = self.scene_description['camera']['view_matrix']
             GL.glUniformMatrix4fv(
-                    location_data['camera_matrix'],
+                    location_data['view_matrix'],
                     1, GL.GL_TRUE,
-                    camera_pose.astype(numpy.float32))
+                    view_matrix.astype(numpy.float32))
 
             # set the camera's projection matrix
             projection_matrix = (
@@ -1982,12 +1992,12 @@ class SplendorRender:
                 location_data = self.shader_library.get_shader_locations(
                         shader_name)
 
-                # set the camera's pose
-                camera_pose = self.scene_description['camera']['pose']
+                # set the camera's view matrix
+                view_matrix = self.scene_description['camera']['view_matrix']
                 GL.glUniformMatrix4fv(
-                        location_data['camera_matrix'],
+                        location_data['view_matrix'],
                         1, GL.GL_TRUE,
-                        camera_pose.astype(numpy.float32))
+                        view_matrix.astype(numpy.float32))
 
                 # set the camera's projection matrix
                 projection_matrix = (
@@ -2293,12 +2303,12 @@ class SplendorRender:
         location_data = self.shader_library.get_shader_locations(
                 'background_shader')
 
-        # set the camera's pose
-        camera_pose = self.scene_description['camera']['pose']
+        # set the camera's view_matrix
+        view_matrix = self.scene_description['camera']['view_matrix']
         GL.glUniformMatrix4fv(
-                location_data['camera_matrix'],
+                location_data['view_matrix'],
                 1, GL.GL_TRUE,
-                camera_pose.astype(numpy.float32))
+                view_matrix.astype(numpy.float32))
 
         # set the camera's projection matrix
         projection_matrix = self.scene_description['camera']['projection']
@@ -2387,12 +2397,12 @@ class SplendorRender:
             location_data = self.shader_library.get_shader_locations(
                     'mask_shader')
 
-            # set the camera's pose
-            camera_pose = self.scene_description['camera']['pose']
+            # set the camera's view matrix
+            view_matrix = self.scene_description['camera']['view_matrix']
             GL.glUniformMatrix4fv(
-                    location_data['camera_matrix'],
+                    location_data['view_matrix'],
                     1, GL.GL_TRUE,
-                    camera_pose.astype(numpy.float32))
+                    view_matrix.astype(numpy.float32))
 
             # set the camera's projection matrix
             projection_matrix = self.scene_description['camera']['projection']
@@ -2508,11 +2518,11 @@ class SplendorRender:
         try:
             location_data = self.shader_library.get_shader_locations(
                     'coord_shader')
-            camera_pose = self.scene_description['camera']['pose']
+            view_matrix = self.scene_description['camera']['view_matrix']
             GL.glUniformMatrix4fv(
-                    location_data['camera_matrix'],
+                    location_data['view_matrix'],
                     1, GL.GL_TRUE,
-                    camera_pose.astype(numpy.float32))
+                    view_matrix.astype(numpy.float32))
 
             projection_matrix = self.scene_description['camera']['projection']
             if flip_y:
@@ -2615,7 +2625,7 @@ class SplendorRender:
                         [0, 0, 0, 1]]))
             GL.glMultMatrixf(numpy.transpose(numpy.dot(
                     projection_matrix,
-                    self.scene_description['camera']['pose'])))
+                    self.scene_description['camera']['view_matrix'])))
 
             GL.glColor3f(*color)
             GL.glPointSize(point_size)
@@ -2639,7 +2649,7 @@ class SplendorRender:
                         [0, 0, 0, 1]]))
             GL.glMultMatrixf(numpy.transpose(numpy.dot(
                     projection_matrix,
-                    self.scene_description['camera']['pose'])))
+                    self.scene_description['camera']['view_matrix'])))
 
             GL.glColor3f(*color)
             GL.glBegin(GL.GL_LINES)
@@ -2663,7 +2673,7 @@ class SplendorRender:
                         [0, 0, 0, 1]]))
             GL.glMultMatrixf(numpy.transpose(numpy.dot(numpy.dot(
                     projection_matrix,
-                    self.scene_description['camera']['pose']),
+                    self.scene_description['camera']['view_matrix']),
                     transform)))
 
             GL.glColor3f(1., 0., 0.)

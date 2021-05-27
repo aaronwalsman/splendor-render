@@ -42,7 +42,7 @@ out vec3 coord;
 
 uniform mat4 projection_matrix;
 uniform mat4 model_pose;
-uniform mat4 camera_matrix;
+uniform mat4 view_matrix;
 
 #ifdef COMPILE_FLAT_COLOR
 uniform vec3 box_min;
@@ -50,7 +50,7 @@ uniform vec3 box_max;
 #endif
 
 void main(){
-    mat4 vm = camera_matrix * model_pose;
+    mat4 vm = view_matrix * model_pose;
     mat4 pvm = projection_matrix * vm;
     
     gl_Position = pvm * vec4(vertex_position,1);
