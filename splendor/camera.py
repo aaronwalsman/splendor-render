@@ -306,7 +306,7 @@ def sample_mesh_turntable(
 
     centroid_offset = numpy.eye(4)
     centroid_offset[:3,3] -= v_centroid
-    model_camera_poses = sample_turntable(
+    model_camera_matrices = sample_turntable(
             distance_extents = distance_extents,
             num_poses = num_poses,
             initial_orientation_extents = initial_orientation_extents,
@@ -316,10 +316,10 @@ def sample_mesh_turntable(
             spin_extents = spin_extents,
             lift_extents = lift_extents)
 
-    model_camera_poses = [numpy.dot(camera_pose, centroid_offset)
-            for camera_pose in model_camera_poses]
+    model_camera_matrices = [numpy.dot(camera_matrix, centroid_offset)
+            for camera_matrix in model_camera_matrices]
     
-    return model_camera_poses
+    return model_camera_matrices
 
 
 def sample_turntable(
