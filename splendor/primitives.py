@@ -542,7 +542,7 @@ def cylinder(
 ):
     return multi_cylinder(
         start_height=start_height,
-        sections=(radius, end_height),
+        sections=((radius, end_height),),
         radial_resolution=radial_resolution,
         start_cap=start_cap,
         end_cap=end_cap)

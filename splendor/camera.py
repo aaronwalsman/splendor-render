@@ -209,9 +209,8 @@ def frame_bbox(bbox, projection_matrix, multiplier,
     diagonal = numpy.array(bbox[1]) - numpy.array(bbox[0])
     centroid = bbox[0] + diagonal * 0.5
     distance = framing_distance_for_bbox(bbox, projection_matrix, multiplier)
-    return azimuthal_parameters_to_matrix(
-            [azimuth, elevation, tilt, distance, shift_x, shift_y],
-            center = centroid)
+    return numpy.linalg.inv(azimuthal_parameters_to_matrix(
+            azimuth, elevation, tilt, distance, shift_x, shift_y, *centroid))
 
 '''
 # moved to camera_utils.py in detection_utils
