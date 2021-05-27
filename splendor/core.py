@@ -1872,7 +1872,7 @@ class SplendorRender:
         # clear
         if clear:
             self.clear_frame()
-
+        
         # render the background
         image_light_name = self.scene_description['active_image_light']
         if image_light_name is not None:
@@ -1991,7 +1991,7 @@ class SplendorRender:
             try:
                 location_data = self.shader_library.get_shader_locations(
                         shader_name)
-
+                
                 # set the camera's view matrix
                 view_matrix = self.scene_description['camera']['view_matrix']
                 GL.glUniformMatrix4fv(
@@ -2140,10 +2140,6 @@ class SplendorRender:
         mesh_buffers['vertex_buffer'].unbind()
     
     def load_material_shader_data(self, material_name, shader_name):
-        '''
-        if material_name in self.gl_data['material_buffers']:
-            material_buffers = self.gl_data['material_buffers'][material_name]
-        '''
         material_data = (
                 self.scene_description['materials'][material_name])
         
@@ -2165,8 +2161,8 @@ class SplendorRender:
                     material_data['base_reflect'],
                     material_data['ambient'],
             ])
+            
             GL.glUniform4fv(
-            #GL.glUniform3fv(
                     location_data['material_properties'],
                     1, material_properties.astype(numpy.float32))
         
