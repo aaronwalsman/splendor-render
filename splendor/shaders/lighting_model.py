@@ -41,7 +41,7 @@ uniform mat4 image_light_offset_matrix;
 uniform vec3 point_light_data[2*MAX_NUM_LIGHTS];
 uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
-uniform mat4 camera_matrix;
+uniform mat4 view_matrix;
 
 #ifdef COMPILE_TEXTURE
 layout(binding=0) uniform sampler2D texture_sampler;
@@ -78,7 +78,7 @@ void main(){
     
     vec3 eye = normalize(vec3(-fragment_position));
     vec3 normal = normalize(vec3(fragment_normal));
-    vec3 camera_normal = vec3(inverse(camera_matrix) * vec4(normal, 0.));
+    vec3 camera_normal = vec3(inverse(view_matrix) * vec4(normal, 0.));
     
     // albedo ==================================================================
     #ifdef COMPILE_TEXTURE
@@ -102,7 +102,7 @@ void main(){
         
         vec3 light_color = point_light_data[2*i];
         vec3 light_position = point_light_data[2*i+1];
-        light_position = vec3(camera_matrix * vec4(light_position, 1.));
+        light_position = vec3(view_matrix * vec4(light_position, 1.));
         vec3 light_direction = light_position - vec3(fragment_position);
         light_direction = normalize(light_direction);
         
@@ -127,7 +127,7 @@ void main(){
         
         vec3 light_color = vec3(direction_light_data[2*i]);
         vec3 light_direction = -normalize(direction_light_data[2*i+1]);
-        light_direction = vec3(camera_matrix * vec4(light_direction, 0.));
+        light_direction = vec3(view_matrix * vec4(light_direction, 0.));
         vec3 half_direction = normalize(eye + light_direction);
         
         vec3 light_contribution = cook_torrance(
@@ -172,7 +172,7 @@ void main(){
         color += vec4(kd * diffuse_color * albedo, 0.);
         
         vec4 reflected_direction =
-                inverse(camera_matrix) *
+                inverse(view_matrix) *
                 vec4(reflect(-eye, normal), 0.);
         reflected_direction = image_light_offset_matrix * reflected_direction;
         vec3 reflect_color = vec3(skybox_texture(

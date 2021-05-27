@@ -11,7 +11,7 @@ from .image import save_image
 
 def reflection_maps_from_scene(
         scene,
-        camera_pose,
+        view_matrix,
         width,
         height,
         ignore_instances=[],
@@ -68,8 +68,8 @@ def reflection_maps_from_scene(
     
     output_images = {}
     for name, offset in camera_offsets.items():
-        pose = numpy.dot(offset, camera_pose)
-        renderer.set_camera_pose(pose)
+        view = numpy.dot(offset, view_matrix)
+        renderer.set_view_matrix(view)
         renderer.color_render()
         output_image = manager.read_pixels('reflection')
         

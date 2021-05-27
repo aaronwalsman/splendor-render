@@ -53,7 +53,7 @@ def panorama_to_cube(
 
     # get shader variable locations
     projection_location = GL.glGetUniformLocation(program, 'projection_matrix')
-    camera_location = GL.glGetUniformLocation(program, 'camera_matrix')
+    camera_location = GL.glGetUniformLocation(program, 'view_matrix')
     sampler_location = GL.glGetUniformLocation(program, 'texture_sampler')
     GL.glUniform1i(sampler_location, 0)
 
@@ -116,7 +116,7 @@ def panorama_to_cube(
     projection_matrix = camera.projection_matrix(
             math.radians(90), 1.0, 0.01, 1.0)
 
-    camera_matrices = {
+    view_matrices = {
             'nz' : numpy.array([
                 [-1, 0, 0, 0],
                 [ 0,-1, 0, 0],
@@ -157,10 +157,10 @@ def panorama_to_cube(
 
     output_images = {}
 
-    for cube_face in camera_matrices:
-        camera_matrix = camera_matrices[cube_face]
+    for cube_face in view_matrices:
+        view_matrix = view_matrices[cube_face]
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-        GL.glUniformMatrix4fv(camera_location, 1, GL.GL_TRUE, camera_matrix)
+        GL.glUniformMatrix4fv(camera_location, 1, GL.GL_TRUE, view_matrix)
         GL.glDrawElements(GL.GL_TRIANGLES, 2*3, GL.GL_UNSIGNED_INT, None)
         output_images[cube_face] = frame_buffer.read_pixels()
 
