@@ -1,9 +1,18 @@
 {
+    "cubemaps":{
+        "diffuse": {
+            "cubemap_asset": "dresden_dif",
+            "mipmaps": null
+        },
+        "reflect": {
+            "cubemap_asset": "dresden_ref",
+            "mipmaps": null
+        }
+    },
     "image_lights":{
         "background_1": {
-            "diffuse_texture": "dresden_dif.png",
-            "reflect_texture": "dresden_ref.png",
-            "reflect_mipmaps": null,
+            "diffuse_cubemap": "diffuse",
+            "reflect_cubemap": "reflect",
             "blur":0,
             "diffuse_gamma":1.0,
             "diffuse_bias":0.0,
