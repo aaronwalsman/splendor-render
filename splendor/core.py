@@ -851,7 +851,6 @@ class SplendorRender:
         texture_asset=None,
         texture_path=None,
         texture_data=None,
-        #color_mode='RGB',
         crop=None,
     ):
         """
@@ -1220,10 +1219,6 @@ class SplendorRender:
         -----------
         name : str
         """
-        #GL.glDeleteTextures(self.gl_data['material_buffers'][name]['texture'])
-        #if name in self.loaded_data['textures']:
-        #    del(self.loaded_data['textures'][name])
-        #del(self.gl_data['material_buffers'][name])
         del(self.scene_description['materials'][name])
 
     def clear_materials(self):
