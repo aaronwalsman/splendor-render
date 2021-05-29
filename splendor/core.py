@@ -38,6 +38,7 @@ class SplendorRender:
     _asset_types = (
             ('mesh', 'meshes'),
             ('texture', 'textures'),
+            ('cubemap', 'cubemaps'),
             ('material', 'materials'),
             ('image_light', 'image_lights'),
             ('depthmap', 'depthmaps'))
@@ -84,40 +85,37 @@ class SplendorRender:
 
         # scene data
         self.scene_description = {
-                'meshes':{},
-                'depthmaps':{},
-                'materials':{},
-                'textures':{},
-                'instances':{},
-                'depthmap_instances':{},
-                'background_color':numpy.array([0,0,0,0]),
-                'ambient_color':numpy.array([0,0,0]),
-                'point_lights':{},
-                'direction_lights':{},
-                'camera':{
-                    'view_matrix':default_view_matrix,
-                    'projection':default_camera_projection,
-                },
-                'image_lights':{},
-                'active_image_light':None
+            'meshes':{},
+            'depthmaps':{},
+            'materials':{},
+            'textures':{},
+            'cubemaps':{},
+            'instances':{},
+            'depthmap_instances':{},
+            'background_color':numpy.array([0,0,0,0]),
+            'ambient_color':numpy.array([0,0,0]),
+            'point_lights':{},
+            'direction_lights':{},
+            'camera':{
+                'view_matrix':default_view_matrix,
+                'projection':default_camera_projection,
+            },
+            'image_lights':{},
+            'active_image_light':None,
         }
 
         self.loaded_data = {
-                'meshes':{},
-                'depthmaps':{},
-                'textures':{},
+            'meshes':{},
+            'depthmaps':{},
+            'textures':{},
+            'cubemaps':{},
         }
 
         self.gl_data = {
-                'mesh_buffers':{},
-                'depthmap_buffers':{},
-                'texture_buffers':{},
-                'light_buffers':{},
-                #'textured_shader':{},
-                #'vertex_color_shader':{},
-                #'mask_shader':{},
-                #'coord_shader':{},
-                #'background_shader':{}
+            'mesh_buffers':{},
+            'depthmap_buffers':{},
+            'texture_buffers':{},
+            'cubemap_buffers':{},
         }
         
         self.opengl_init()
@@ -174,7 +172,7 @@ class SplendorRender:
             scene = self.asset_library['scenes'][scene]
             scene = json.load(open(scene))
 
-        # meshes, depthmaps, materials, image_lights
+        # meshes, depthmaps, textures, cubemaps, materials, image_lights
         for singular, plural in self._asset_types:
             if plural in scene:
                 for asset_name, asset_args in scene[plural].items():
@@ -570,11 +568,6 @@ class SplendorRender:
         
         Parameters:
         -----------
-        color_mode : {"textured", "vertex_color", "flat"}
-            Describes the color mode of the surface.  Can be one of:
-            "textured" : requires uvs
-            "vertex_color" : requires specified vertex colors
-            "flat" : the entire surface will be a single flat color
         name : str
         
         Returns:
@@ -727,9 +720,8 @@ class SplendorRender:
     
     def load_image_light(self,
             name,
-            diffuse_texture,
-            reflect_texture,
-            reflect_mipmaps = None,
+            diffuse_cubemap,
+            reflect_cubemap,
             offset_matrix = numpy.eye(4),
             blur = 0.,
             diffuse_gamma = 1.,
@@ -749,13 +741,10 @@ class SplendorRender:
         name : str
             Name of the image light, must be unique to this scene among other
             image lights
-        diffuse_texture : str
-            Either an asset name or a path to a diffuse texture strip.  The
-            height of the texture strip must be a power of 2 and the width must
-            be six times the height, with each sequential square representing
-            the px, nx, py, ny, pz, nz face of a cubemap.
-        reflect_texture : str
-            See diffuse_texture, but for the reflection map.
+        diffuse_cubemap : str
+            The name of the cubemap to use for diffuse lighting component.
+        reflect_cubemap : str
+            The name of the cubemap to use for reflect lighting component.
         offset_matrix : 4x4 array-like, default=numpy.eye(4)
             An offset rotation matrix for the image light.
         blur : float, default=0.
@@ -779,17 +768,9 @@ class SplendorRender:
             the scene.
         """
         
-        if name in self.gl_data['light_buffers']:
-            GL.glDeleteTextures([
-                    self.gl_data['light_buffers'][name]['diffuse_texture'],
-                    self.gl_data['light_buffers'][name]['reflect_texture']])
-
-        light_buffers = {}
-        light_buffers['diffuse_texture'] = GL.glGenTextures(1)
-        light_buffers['reflect_texture'] = GL.glGenTextures(1)
-        self.gl_data['light_buffers'][name] = light_buffers
-
         image_light_data = {}
+        image_light_data['diffuse_cubemap'] = diffuse_cubemap
+        image_light_data['reflect_cubemap'] = reflect_cubemap
         image_light_data['offset_matrix'] = numpy.array(offset_matrix)
         image_light_data['blur'] = blur
         image_light_data['render_background'] = render_background
@@ -799,17 +780,11 @@ class SplendorRender:
         image_light_data['reflect_bias'] = reflect_bias
         self.scene_description['image_lights'][name] = image_light_data
         
-        self.replace_image_light_textures(
-                name,
-                diffuse_texture,
-                reflect_texture,
-                reflect_mipmaps)
-
         self.load_background_mesh()
-
+        
         if set_active:
             self.set_active_image_light(name)
-
+    
     def remove_image_light(self, name):
         """
         Deletes an image light from the scene.
@@ -818,13 +793,6 @@ class SplendorRender:
         -----------
         name : str
         """
-        GL.glDeleteTextures(
-                self.gl_data['light_buffers'][name]['diffuse_texture'])
-        GL.glDeleteTextures(
-                self.gl_data['light_buffers'][name]['reflect_texture'])
-        del(self.gl_data['light_buffers'][name])
-        del(self.loaded_data['textures'][name + '_diffuse'])
-        del(self.loaded_data['textures'][name + '_reflect'])
         del(self.scene_description['image_lights'][name])
 
         # delete the background mesh if there are no image lights left
@@ -877,30 +845,12 @@ class SplendorRender:
 
     # texture methods ==========================================================
     
-    '''
-    def load_texture(self,
-        name,
-        texture,
-        color_mode='RGB',
-        crop=None,
-    ):
-        self.gl_data['material_buffers'].setdefault(name, {})
-    
-    def replace_texture(self,
-        name,
-        texture,
-        texture_key='texture',
-        color_mode='RGB',
-        crop=None,
-    ):
-    '''
     def load_texture(
         self,
         name,
         texture_asset=None,
         texture_path=None,
         texture_data=None,
-        color_mode='RGB',
         crop=None,
     ):
         """
@@ -965,17 +915,6 @@ class SplendorRender:
         self.gl_data['texture_buffers'][name]['texture'] = (
             GL.glGenTextures(1))
         
-        '''
-        # load the texture image
-        if isinstance(texture, str):
-            self.scene_description['materials'][name][texture_key] = texture
-            texture = self.asset_library['textures'][texture]
-            image = load_image(texture, mode=color_mode)
-        else:
-            self.scene_description['materials'][name][texture_key] = -1
-            image = numpy.array(texture)
-        '''
-        
         # copy the texture to the GPU
         texture_buffers = self.gl_data['texture_buffers'][name]
         GL.glBindTexture(GL.GL_TEXTURE_2D, texture_buffers['texture'])
@@ -1022,174 +961,6 @@ class SplendorRender:
     def texture_exists(self, name):
         return name in self.scene_description['textures']
     
-    def replace_image_light_textures(self,
-            name,
-            diffuse_texture,
-            reflect_texture,
-            reflect_mipmaps = None):
-        """
-        Replace the textures for an image light
-        
-        Parameters:
-        -----------
-        name : str
-            The name of the material to replace the texture
-        diffuse_texture : array-like or str
-            Either an asset, path or raw image data for the diffuse texture
-        reflect_texture : array-like or str
-            Either an asset, path or raw image data for the reflect texture
-        TODO: update this once we figure out what we're doing with mipmaps
-        """
-        
-        light_description = self.scene_description['image_lights'][name]
-        
-        if isinstance(diffuse_texture, str):
-            diffuse_texture = self.asset_library['image_lights'][
-                    diffuse_texture]
-            light_description['diffuse_texture'] = diffuse_texture
-            diffuse_image = load_image(diffuse_texture)
-        else:
-            light_description['diffuse_texture'] = -1
-            diffuse_image = diffuse_texture
-
-        if isinstance(reflect_texture, str):
-            reflect_texture = self.asset_library['image_lights'][
-                    reflect_texture]
-            light_description['reflect_texture'] = reflect_texture
-            reflect_image = load_image(reflect_texture)
-        else:
-            light_description['reflect_texture'] = -1
-            reflect_image = reflect_texture
-
-        if reflect_mipmaps:
-            if isinstance(reflect_mipmaps[0][0], str):
-                light_description['reflect_mipmaps'] = reflect_mipmaps
-                reflect_mipmaps = [
-                        [load_image(mipmap) for mipmap in mipmaps]
-                        for mipmaps in reflect_mipmaps]
-            else:
-                light_description['reflect_mipmaps'] = -1
-        else:
-            light_description['reflect_mipmaps'] = -1
-        
-        light_buffers = self.gl_data['light_buffers'][name]
-        GL.glBindTexture(
-                GL.GL_TEXTURE_CUBE_MAP,
-                light_buffers['diffuse_texture'],
-        )
-        try:
-            diffuse_min = float('inf')
-            diffuse_max = -float('inf')
-            diffuse_image = numpy.array(diffuse_image)
-            height, strip_width = diffuse_image.shape[:2]
-            assert strip_width == height * 6
-            for i in range(6):
-                face_image = diffuse_image[:,i*height:(i+1)*height]
-                validate_texture(face_image)
-                GL.glTexImage2D(
-                        GL.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                        0, GL.GL_RGB,
-                        face_image.shape[1], face_image.shape[0],
-                        0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, face_image)
-
-                diffuse_intensity = (
-                        diffuse_image[:,:,0] * 0.2989 +
-                        diffuse_image[:,:,1] * 0.5870 +
-                        diffuse_image[:,:,2] * 0.1140)
-
-                diffuse_min = min(diffuse_min, numpy.min(diffuse_intensity))
-                diffuse_max = max(diffuse_max, numpy.max(diffuse_intensity))
-
-            light_description['diffuse_min'] = diffuse_min / 255.
-            light_description['diffuse_max'] = diffuse_max / 255.
-
-            GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP,
-                    GL.GL_TEXTURE_MAG_FILTER,
-                    GL.GL_LINEAR,
-            )
-            GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_MIN_FILTER,
-                    GL.GL_LINEAR_MIPMAP_LINEAR)
-            GL.glGenerateMipmap(GL.GL_TEXTURE_CUBE_MAP)
-            GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP,
-                    GL.GL_TEXTURE_WRAP_S,
-                    GL.GL_CLAMP_TO_EDGE,
-            )
-            GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP,
-                    GL.GL_TEXTURE_WRAP_T,
-                    GL.GL_CLAMP_TO_EDGE,
-            )
-            GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP,
-                    GL.GL_TEXTURE_WRAP_R,
-                    GL.GL_CLAMP_TO_EDGE,
-            )
-        finally:
-            GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
-
-        GL.glBindTexture(
-                GL.GL_TEXTURE_CUBE_MAP, light_buffers['reflect_texture'])
-        try:
-            reflect_image = numpy.array(reflect_image)
-            height, strip_width = reflect_image.shape[:2]
-            assert strip_width == height * 6
-            for i in range(6):
-                face_image = reflect_image[:,i*height:(i+1)*height]
-                validate_texture(face_image)
-                GL.glTexImage2D(
-                        GL.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                        0, GL.GL_RGB,
-                        face_image.shape[1], face_image.shape[0],
-                        0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, face_image)
-                if reflect_mipmaps is not None:
-                    for j, mipmap in enumerate(reflect_mipmaps[i]):
-                        mipmap = numpy.array(mipmap)
-                        validate_texture(mipmap)
-                        GL.glTexImage2D(
-                                GL.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                                j+1, GL.GL_RGB,
-                                mipmap.shape[1], mipmap.shape[0],
-                                0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, mipmap)
-            
-            GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP,
-                    GL.GL_TEXTURE_MAG_FILTER,
-                    GL.GL_LINEAR,
-            )
-            GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_MIN_FILTER,
-                    GL.GL_LINEAR_MIPMAP_LINEAR)
-            if reflect_mipmaps is None:
-                GL.glGenerateMipmap(GL.GL_TEXTURE_CUBE_MAP)
-            else:
-                GL.glTexParameteri(
-                        GL.GL_TEXTURE_CUBE_MAP,
-                        GL.GL_TEXTURE_MAX_LEVEL,
-                        len(reflect_mipmaps[0]))
-            GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP,
-                    GL.GL_TEXTURE_WRAP_S,
-                    GL.GL_CLAMP_TO_EDGE,
-            )
-            GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP,
-                    GL.GL_TEXTURE_WRAP_T,
-                    GL.GL_CLAMP_TO_EDGE,
-            )
-            GL.glTexParameteri(
-                    GL.GL_TEXTURE_CUBE_MAP,
-                    GL.GL_TEXTURE_WRAP_R,
-                    GL.GL_CLAMP_TO_EDGE,
-            )
-        finally:
-            GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
-
-        self.loaded_data['textures'][name + '_diffuse'] = diffuse_image
-        self.loaded_data['textures'][name + '_reflect'] = reflect_image
-    
     def get_texture(self, name):
         """
         Parameters:
@@ -1201,15 +972,190 @@ class SplendorRender:
         array :
             The named loaded texture.
         """
-        return self.loaded_data['textures'][texture_name]
+        return self.loaded_data['textures'][name]
+    
+    # cubemap methods ==========================================================
+    
+    def load_cubemap(
+        self,
+        name,
+        cubemap_asset=None,
+        cubemap_path=None,
+        cubemap_data=None,
+        crop=None,
+        mipmaps=None,
+    ):
+        """
+        Loads a cubemap
+        """
+        
+        # if a cubemap asset name was provided, load that
+        if cubemap_asset is not None:
+            asset_path = self.asset_library['cubemaps'][cubemap_asset]
+            cubemap = load_image(asset_path)
+            self.scene_description['cubemaps'][name] = {
+                'cubemap_asset':cubemap_asset
+            }
 
+        # otherwise if a cubemap path was provided, load that
+        elif cubemap_path is not None:
+            cubemap = load_image(cubemap_path)
+            self.scene_description['cubemaps'][name] = {
+                'cubemap_path':cubemap_path
+            }
+
+        # otherwise if cubemap data was provided, load that
+        elif cubemap_data is not None:
+            cubemap = cubemap_data
+            self.scene_description['cubemaps'][name] = {
+                'cubemap_data':cubemap_data
+            }
+        
+        else:
+            raise SplendorException(
+                    'Must supply a "cubemap_asset", "cubemap_path" or '
+                    '"cubemap_data" argument when loading a cubemap')
+        
+        # crop if necessary
+        if crop is not None:
+            cubemap = cubemap[crop[0]:crop[2], crop[1]:crop[3]]
+        
+        # validate and store the cubemap
+        self.loaded_data['cubemaps'][name] = cubemap
+        
+        # if an entry for this cubemap doesn't exist in cubemap_buffers
+        # make one
+        self.gl_data['cubemap_buffers'].setdefault(name, {})
+        
+        # delete any old cubemap that exists
+        if 'cubemap' in self.gl_data['cubemap_buffers'][name]:
+            GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
+            GL.glDeleteTextures(
+                [self.gl_data['cubemap_buffers'][name]['cubemap']])
+        
+        # make the new cubemap
+        self.gl_data['cubemap_buffers'][name]['cubemap'] = (
+            GL.glGenTextures(1))
+        
+        # copy the cubemap to the GPU
+        cubemap_buffers = self.gl_data['cubemap_buffers'][name]
+        GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, cubemap_buffers['cubemap'])
+        try:
+            if cubemap.shape[2] == 3:
+                gl_color_mode = GL.GL_RGB
+            elif cubemap.shape[2] == 4:
+                gl_color_mode = GL.GL_RGBA
+            else:
+                raise NotImplementedError
+            
+            height, strip_width = cubemap.shape[:2]
+            assert strip_width == height * 6
+            for i in range(6):
+                face_image = cubemap[:,i*height:(i+1)*height]
+                validate_texture(face_image)
+                GL.glTexImage2D(
+                    GL.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                    0,
+                    gl_color_mode,
+                    face_image.shape[1],
+                    face_image.shape[0],
+                    0,
+                    gl_color_mode,
+                    GL.GL_UNSIGNED_BYTE,
+                    face_image,
+                )
+                if mipmaps is not None:
+                    for j, mipmap in enumerate(mipmaps[i]):
+                        mipmap = numpy.array(mipmap)
+                        validate_texture(mipmap)
+                        Gl.glTexImage2d(
+                            Gl.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                            j+1,
+                            gl_color_mode,
+                            mipmap.shape[1],
+                            mipmap.shape[0],
+                            0,
+                            gl_color_mode,
+                            GL.GL_UNSIGNED_BYTE,
+                            mipmap,
+                        )
+
+            GL.glTexParameteri(
+                GL.GL_TEXTURE_CUBE_MAP,
+                GL.GL_TEXTURE_MAG_FILTER,
+                GL.GL_LINEAR,
+            )
+            GL.glTexParameteri(
+                GL.GL_TEXTURE_CUBE_MAP,
+                GL.GL_TEXTURE_MIN_FILTER,
+                GL.GL_LINEAR_MIPMAP_LINEAR,
+            )
+            if mipmaps is None:
+                GL.glGenerateMipmap(GL.GL_TEXTURE_CUBE_MAP)
+            else:
+                GL.glTexParameteri(
+                    GL.GL_TEXTURE_CUBE_MAP,
+                    GL.GL_TEXTURE_MAX_LEVEL,
+                    len(mipmaps[0]),
+                )
+            GL.glTexParameteri(
+                GL.GL_TEXTURE_CUBE_MAP,
+                GL.GL_TEXTURE_WRAP_R,
+                GL.GL_CLAMP_TO_EDGE,
+            )
+            GL.glTexParameteri(
+                GL.GL_TEXTURE_CUBE_MAP,
+                GL.GL_TEXTURE_WRAP_S,
+                GL.GL_CLAMP_TO_EDGE,
+            )
+            GL.glTexParameteri(
+                GL.GL_TEXTURE_CUBE_MAP,
+                GL.GL_TEXTURE_WRAP_T,
+                GL.GL_CLAMP_TO_EDGE,
+            )
+
+        finally:
+            GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
+    
+    def remove_cubemap(self, name):
+        if name in self.gl_data['cubemap_buffers']:
+            GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
+            GL.glDeleteTextures(
+                [self.gl_data['cubemap_buffers'][name]['cubemap']])
+            del(self.gl_data['cubemap_buffers'][name])
+        if name in self.loaded_data['cubemaps']:
+            del(self.loaded_data['cubemaps'][name])
+        del(self.scene_description['cubemaps'][name])
+    
+    def list_cubemaps(self):
+        return list(self.scene_description['cubemaps'].keys())
+    
+    def clear_cubemaps(self):
+        for name in self.list_cubemaps():
+            self.remove_cubemap(name)
+    
+    def cubemap_exists(self, name):
+        return name in self.scene_description['cubemaps']
+    
+    def get_cubemap(self, name):
+        """
+        Parameters:
+        -----------
+        name : str
+        
+        Returns:
+        --------
+        array :
+            The named loaded cubemap.
+        """
+        return self.loaded_data['cubemaps'][name]
+    
+    
     # material methods =========================================================
     
     def load_material(self,
             name,
             texture_name = None,
-            #texture_asset = None,
-            #texture_data = None,
             flat_color = None,
             material_properties_texture = None,
             ambient = 1.,
@@ -1264,37 +1210,6 @@ class SplendorRender:
         }
         
         self.scene_description['materials'][name] = material_description
-        
-        '''
-        if texture_asset is not None or texture_data is not None:
-            if texture_name is None:
-                if texture_asset is None:
-                    texture_name = name
-                else:
-                    texture_name = texture_asset
-            material_description['texture_name'] = texture_name
-            if texture_name not in self.scene_description['textures']:
-                self.load_texture(
-                    texture_name,
-                    texture_asset,
-                    texture_data,
-                    color_mode='RGB',
-                    crop=crop)
-        '''
-        
-        '''
-        if texture is not None:
-            self.replace_texture(name, texture, crop=crop)
-        
-        if material_properties_texture is not None:
-            self.replace_texture(
-                name,
-                material_properties_texture,
-                texture_key='material_properties_texture',
-                color_mode='RGBA',
-                crop=crop,
-            )
-        '''
 
     def remove_material(self, name):
         """
@@ -1304,10 +1219,6 @@ class SplendorRender:
         -----------
         name : str
         """
-        #GL.glDeleteTextures(self.gl_data['material_buffers'][name]['texture'])
-        #if name in self.loaded_data['textures']:
-        #    del(self.loaded_data['textures'][name])
-        #del(self.gl_data['material_buffers'][name])
         del(self.scene_description['materials'][name])
 
     def clear_materials(self):
@@ -1876,19 +1787,22 @@ class SplendorRender:
         # render the background
         image_light_name = self.scene_description['active_image_light']
         if image_light_name is not None:
-            image_light_description = (
-                    self.scene_description['image_lights'][image_light_name])
-            if image_light_description['render_background']:
+            image_light_data = self.get_image_light(image_light_name)
+            if image_light_data['render_background']:
                 self.render_background(image_light_name, flip_y = flip_y)
 
-        # set image light active/maps
-        if image_light_name is not None:
+            diffuse_cubemap = image_light_data['diffuse_cubemap']
+            reflect_cubemap = image_light_data['reflect_cubemap']
             GL.glActiveTexture(GL.GL_TEXTURE2)
-            GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, self.gl_data[
-                    'light_buffers'][image_light_name]['diffuse_texture'])
+            GL.glBindTexture(
+                GL.GL_TEXTURE_CUBE_MAP,
+                self.gl_data['cubemap_buffers'][diffuse_cubemap]['cubemap'],
+            )
             GL.glActiveTexture(GL.GL_TEXTURE3)
-            GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, self.gl_data[
-                    'light_buffers'][image_light_name]['reflect_texture'])
+            GL.glBindTexture(
+                GL.GL_TEXTURE_CUBE_MAP,
+                self.gl_data['cubemap_buffers'][reflect_cubemap]['cubemap'],
+            )
 
         # depthmap_instances
         if depthmap_instances is None:
@@ -1944,15 +1858,6 @@ class SplendorRender:
             instance_mesh = self.get_instance_mesh_name(instance)
             mesh_color_mode = self.get_mesh_color_mode(instance_mesh)
             if mesh_color_mode == 'textured':
-                '''
-                if ('material_properties_texture'
-                    in self.gl_data['material_buffers'][instance_material]
-                ):
-                    shader_instances = (
-                        textured_material_properties_shader_instances)
-                else:
-                    shader_instances = textured_shader_instances
-                '''
                 if (self.get_material_properties_texture(instance_material)
                     is None):
                     shader_instances = textured_shader_instances
@@ -1976,11 +1881,12 @@ class SplendorRender:
                             instance_mesh:[instance]}
         
         for shader_name, shader_instances in (
-                ('textured_material_properties_shader',
+            ('textured_material_properties_shader',
                  textured_material_properties_shader_instances),
-                ('textured_shader', textured_shader_instances),
-                ('vertex_color_shader', vertex_color_shader_instances),
-                ('flat_color_shader', flat_color_shader_instances)):
+            ('textured_shader', textured_shader_instances),
+            ('vertex_color_shader', vertex_color_shader_instances),
+            ('flat_color_shader', flat_color_shader_instances),
+        ):
 
             if len(shader_instances) == 0:
                 continue
@@ -2228,7 +2134,6 @@ class SplendorRender:
         instance_texture = depthmap_instance_data['texture_name']
         depthmap_buffers = self.gl_data['depthmap_buffers'][instance_depthmap]
         texture_buffers = self.gl_data['texture_buffers'][instance_texture]
-        #material_buffers = self.gl_data['material_buffers'][instance_material]
         depth_data = self.loaded_data['depthmaps'][instance_depthmap]
         location_data = self.shader_library.get_shader_locations(
                 'textured_depthmap_shader')
@@ -2293,7 +2198,10 @@ class SplendorRender:
         self.shader_library.use_program('background_shader')
 
         mesh_buffers = self.gl_data['mesh_buffers']['BACKGROUND']
-        light_buffers = self.gl_data['light_buffers'][image_light_name]
+        light_data = self.scene_description['image_lights'][image_light_name]
+        reflect_cubemap = light_data['reflect_cubemap']
+        cubemap_buffers = self.gl_data['cubemap_buffers'][reflect_cubemap]
+        
         num_triangles = 2
 
         location_data = self.shader_library.get_shader_locations(
@@ -2321,8 +2229,6 @@ class SplendorRender:
                 1, GL.GL_TRUE,
                 projection_matrix.astype(numpy.float32))
 
-        light_data = self.scene_description['image_lights'][image_light_name]
-
         # set the offset matrix
         offset_matrix = light_data['offset_matrix']
         GL.glUniformMatrix4fv(
@@ -2339,8 +2245,9 @@ class SplendorRender:
 
         GL.glActiveTexture(GL.GL_TEXTURE0)
         GL.glBindTexture(
-                GL.GL_TEXTURE_CUBE_MAP,
-                light_buffers['reflect_texture'])
+            GL.GL_TEXTURE_CUBE_MAP,
+            cubemap_buffers['cubemap'],
+        )
         #GL.glTexParameterf(
         #        GL.GL_TEXTURE_CUBE_MAP,
         #        GL.GL_TEXTURE_MIN_LOD,

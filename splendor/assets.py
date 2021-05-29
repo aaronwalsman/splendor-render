@@ -11,12 +11,14 @@ asset_types = (
         'meshes',
         'materials',
         'textures',
+        'cubemaps',
         'panoramas',
         'scenes')
 asset_extensions = {
         'image_lights' : ('.jpg', '.png'),
         'meshes' : ('.obj',),
         'textures' : ('.jpg', '.png'),
+        'cubemaps' : ('.jpg', '.png'),
         'materials' : (),
         'panoramas' : ('.jpg', '.png'),
         'scenes' : ('.json',)

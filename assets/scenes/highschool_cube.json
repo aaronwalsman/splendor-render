@@ -1,9 +1,18 @@
 {
+    "cubemaps":{
+        "diffuse": {
+            "cubemap_asset": "highschool_dif",
+            "mipmaps": null
+        },
+        "reflect": {
+            "cubemap_asset": "highschool_ref",
+            "mipmaps": null
+        }
+    },
     "image_lights":{
         "background_1": {
-            "diffuse_texture": "highschool_dif.png",
-            "reflect_texture": "highschool_ref.png",
-            "reflect_mipmaps": null,
+            "diffuse_cubemap": "diffuse",
+            "reflect_cubemap": "reflect",
             "blur":0,
             "diffuse_gamma":1.0,
             "diffuse_bias":0.0,
