@@ -25,7 +25,7 @@ There are a few other packages that do similar things that you may also want to 
 ## Getting Started
 Install this package:
 ```
-pip install -e .
+pip install splendor-render
 ```
 
 Run the interactive viewer:
@@ -36,6 +36,51 @@ splendor_viewer cereal
 Render a single image to a file:
 ```
 splendor_render cereal ./my_render.jpg
+```
+
+In the examples above `cereal` refers to `assets/scenes/cereal.json` using the asset library structure found in `default_assets.cfg`.  Let's take a look to get a sense of how scenes are stored in splendor-render:
+
+```
+"cubemaps":{
+    "diffuse": {
+        "cubemap_asset": "dresden_dif",
+        "mipmaps": null
+    },
+    "reflect": {
+        "cubemap_asset": "dresden_ref",
+        "mipmaps": null
+    }
+},
+```
+The first section `"cubemaps"` defines two cube maps that will be used for the image-based lighting in the scene.  The first is named `"diffuse"` and will be used later to represent the non-shiny component of the lighting.  The second is named `"reflect"` and will be used later for the reflections (the shiny component of the lighting) and the background.  The `"cubemap_asset"` tells splendor-render to load the `"dresden_dif"` and `"dresden_ref"` assets accordingly.
+
+```
+"image_lights":{
+    "background_1": {
+        "diffuse_cubemap": "diffuse",
+        "reflect_cubemap": "reflect",
+        "blur":0,
+        "render_background":1
+    }
+},
+"active_image_light" : "background_1",
+```
+The next section defines the image-light that will illuminate the scene.  You can see it references the `"diffuse"` and `"reflect"` cubemaps that we defined earlier.  The `"render_background"=1` attribute tells the system to render the reflection map as the scene background, and the `"blur"` attribute defines how blurry the background will be when rendered.
+
+```
+"meshes": {
+    "cube": {
+        "mesh_primitive":{
+            "shape":"cube",
+            "x_extents":[-3.5,3.5],
+            "y_extents":[-5.5,5.5],
+            "z_extents":[-1,1],
+            "bezel":0.05
+        },
+        "scale":1.0,
+        "color_mode":"textured"
+    }
+},
 ```
 
 ## Asset Paths
