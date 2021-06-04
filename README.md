@@ -38,6 +38,7 @@ Render a single image to a file:
 splendor_render cereal ./my_render.jpg
 ```
 
+### Example
 In the examples above `cereal` refers to `assets/scenes/cereal.json` using the asset library structure found in `default_assets.cfg`.  Let's take a look to get a sense of how scenes are stored in splendor-render:
 
 ```
@@ -116,6 +117,38 @@ Next we load two textures.  This is similar to the cubemaps we saw at the beginn
 ```
 
 Here we build two materials that can be used in the scene.  The first is `"varying"` which uses the second texture (`"splendor_matprop"`) to define the material properties of the surface.  The second sets each of these values explicitly for the entire surface.  The `"ambient"` parameter affects how much the surface is affected by the ambient light (uniform lighting bias) in the scene.  The other three (`"metal"`, `"rough"` and `"base_reflect"` control the interaction between the lighting and the surface.  Briefly, `"base_reflect"` makes the surface more shiny.  When `"base_reflect=1"` the surface will become a pure mirror and will ignore the albedo (surface color/texture) entirely.  The `"rough"` parameter makes these reflections more blurry, while `"metal"` is another kind of shiny that incorporates the albedo and makes the surface look like colored refelctive foil instead of a pure mirror.
+
+```
+"instances": {
+    "cube_1": {
+        "mesh_name": "cereal_box",
+        "material_name": "varying",
+        "transform": [
+            [-1,0,0,0],
+            [0,1,0,0],
+            [0,0,-1,0],
+            [0,0,0,1]],
+        "mask_color": [1,1,1]
+    }
+},
+```
+
+Finally we add an instance to the scene.  In splendor-render no meshes are displayed until we create an instance of them.  This allows us to have many copies of a mesh in the scene while only loading it once.  Each instance is essentially a combination of a mesh, a material and a 3D transform that places it somewhere in the scene.  Here you can see we refer to the `"cereal_box"` mesh and `"varying"` material that we created earlier.
+
+```
+"ambient_color": [0,0,0],
+"point_lights": {},
+"direction_lights": {},
+"camera":{
+    "view_matrix":[0.0, 0.0, 0, 12.0, 0, 0],
+    "projection":[
+        [ 1.73205081,  0.0       ,  0.0       ,  0.0       ],
+        [ 0.0       ,  1.73205081,  0.0       ,  0.0       ],
+        [ 0.0       ,  0.0       , -1.002002  , -0.1001001 ],
+        [ 0.0       ,  0.0       , -1.0       ,  0.0       ]]
+}
+```
+This last section defines the ambient color (in this case `[0,0,0]` which means no contribution), an empty list of `"point_lights"` and `"direction_lights"` (we are using the image light above instead of these simpler lights), as well as camera information.
 
 ## Asset Paths
 Splendor Render supports asset paths for easy asset loading.  To make an asset library, simply make a .cfg structured like this:
