@@ -13,17 +13,13 @@
         "background_1": {
             "diffuse_cubemap": "diffuse",
             "reflect_cubemap": "reflect",
-            "blur":0,
-            "diffuse_gamma":1.0,
-            "diffuse_bias":0.0,
-            "reflect_gamma":1.0,
-            "reflect_bias":0.0,
-            "render_background":1
+            "render_background":1,
+            "blur":0
         }
     },
     "active_image_light" : "background_1",
     "meshes": {
-        "cube": {
+        "cereal_box": {
             "mesh_primitive":{
                 "shape":"cube",
                 "x_extents":[-3.5,3.5],
@@ -44,11 +40,11 @@
         }
     },
     "materials": {
-        "cube1": {
+        "varying": {
             "texture_name":"splendor",
             "material_properties_texture":"splendor_matprop"
         },
-        "cube2": {
+        "fixed": {
             "texture_name":"splendor",
             "ambient":1.0,
             "metal":0.75,
@@ -58,8 +54,8 @@
     },
     "instances": {
         "cube_1": {
-            "mesh_name": "cube",
-            "material_name": "cube1",
+            "mesh_name": "cereal_box",
+            "material_name": "varying",
             "transform": [
                 [-1,0,0,0],
                 [0,1,0,0],
