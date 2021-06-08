@@ -3,8 +3,8 @@ import configparser
 
 from splendor.exceptions import SplendorAssetException
 
-splendor_root_path = os.path.join(os.path.dirname(__file__), '..')
-default_assets_path = os.path.join(splendor_root_path, 'default_assets.cfg')
+splendor_module_path = os.path.join(os.path.dirname(__file__))
+default_assets_path = os.path.join(splendor_module_path, 'default_assets.cfg')
 
 asset_types = (
         'image_lights',
