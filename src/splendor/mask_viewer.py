@@ -1,4 +1,4 @@
-import splendor.glut
+import splendor.contexts.glut as glut
 import splendor.core as core
 import splendor.camera as camera
 import splendor.masks as masks
@@ -10,9 +10,9 @@ def start_viewer(file_path):
     image = load_image(file_path)
     height, width, _ = image.shape
     
-    splendor.glut.initialize_glut()
+    glut.initialize()
     
-    mask_window = splendor.glut.GlutWindowWrapper(
+    mask_window = glut.GlutWindowWrapper(
             'Mask', width, height)
     renderer = core.SplendorRender()
     
@@ -25,7 +25,8 @@ def start_viewer(file_path):
             depth = -width / 200.)
     
     renderer.load_mesh('rectangle_mesh', mesh_data=rectangle)
-    renderer.load_material('rectangle_mat', texture=file_path)
+    renderer.load_texture('rectangle_texture', texture_path=file_path)
+    renderer.load_material('rectangle_mat', texture_name='rectangle_texture')
     renderer.add_instance('rectangle', 'rectangle_mesh', 'rectangle_mat')
     
     renderer.set_ambient_color((1, 1, 1))
@@ -40,7 +41,9 @@ def start_viewer(file_path):
             color = image[y, x]
             print(f'Index at ({x}, {y}): {masks.color_byte_to_index(color)}')
     
-    mask_window.start_main_loop(
+    mask_window.register_callbacks(
             glutDisplayFunc = render,
             glutIdleFunc = render,
             glutMouseFunc = mouse_button)
+    
+    glut.start_main_loop()
