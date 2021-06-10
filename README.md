@@ -32,7 +32,7 @@ Run a script to install the assets:
 ```
 splendor_asset_installer
 ```
-This downloads about 15MB worth of images and textures that are used in various examples.
+This downloads about 15MB worth of images and textures that are used in various examples.  The install location defaults to `~/.cache/splendor` but can be changed by setting the `SPLENDOR_HOME` environment variable.
 
 Run the interactive viewer:
 ```
@@ -45,7 +45,7 @@ splendor_render cereal ./my_render.jpg
 ```
 
 ### Example
-In the examples above `cereal` refers to `assets/scenes/cereal.json` using the asset library structure found in `default_assets.cfg`.  Let's take a look to get a sense of how scenes are stored in splendor-render:
+In the examples above `cereal` refers to `~/.cache/splendor/default_assets/scenes/cereal.json` using the asset library structure found in `~/.cache/splendor/default_assets.cfg`.  Let's take a look to get a sense of how scenes are stored in splendor-render:
 
 ```
 "cubemaps":{
