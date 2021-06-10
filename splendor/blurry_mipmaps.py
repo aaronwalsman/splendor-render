@@ -95,7 +95,7 @@ def blurry_cube_mipmap_step(images, radius=2):
                 r:height+r,
                 r:width+r,:] = image
         
-        expanded_image[0:r,0:r,:] = image[0,0,:] * 
+        expanded_image[0:r,0:r,:] = image[0,0,:]
         expanded_image[-r:,0:r,:] = image[-1,0,:]
         expanded_image[0:r,-r:,:] = image[0,-1,:]
         expanded_image[-r:,-r:,:] = image[-1,-1,:]
