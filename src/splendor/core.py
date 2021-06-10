@@ -11,7 +11,7 @@ from OpenGL.arrays import vbo
 import numpy
 
 # splendor
-from splendor.asset_library import AssetLibrary
+from splendor.assets import AssetLibrary
 import splendor.camera as camera
 import splendor.masks as masks
 from splendor.shader_library import ShaderLibrary
