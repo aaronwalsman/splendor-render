@@ -28,6 +28,12 @@ Install this package:
 pip install splendor-render
 ```
 
+Run a script to install the assets:
+```
+splendor_asset_installer
+```
+This downloads about 15MB worth of images and textures that are used in various examples.
+
 Run the interactive viewer:
 ```
 splendor_viewer cereal
