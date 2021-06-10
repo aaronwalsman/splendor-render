@@ -17,18 +17,19 @@ parser.add_argument('--assets', type=str, default=None)
 parser.add_argument('--fps', action='store_true',
         help='print fps')
 
-args = parser.parse_args()
+def main():
+    args = parser.parse_args()
 
-width, height = (int(wh) for wh in args.resolution.lower().split('x'))
-anti_alias = args.anti_alias_samples != 0
+    width, height = (int(wh) for wh in args.resolution.lower().split('x'))
+    anti_alias = args.anti_alias_samples != 0
 
-viewer.start_viewer(
-    args.file_path,
-    width,
-    height,
-    args.poll_frequency,
-    anti_alias,
-    args.anti_alias_samples,
-    args.assets,
-    args.fps,
-)
+    viewer.start_viewer(
+        args.file_path,
+        width,
+        height,
+        args.poll_frequency,
+        anti_alias,
+        args.anti_alias_samples,
+        args.assets,
+        args.fps,
+    )

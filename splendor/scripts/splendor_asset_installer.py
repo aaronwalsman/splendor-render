@@ -18,10 +18,11 @@ parser.add_argument('--asset-url', default=None, type=str,
 parser.add_argument('--destination', default=get_splendor_home(), type=str,
     help='Download Location')
 
-args = parser.parse_args()
+def main():
+    args = parser.parse_args()
 
-asset_url = args.asset_url
-if asset_url is None:
-    asset_url = asset_urls[args.asset_package]
+    asset_url = args.asset_url
+    if asset_url is None:
+        asset_url = asset_urls[args.asset_package]
 
-install_assets(asset_url)
+    install_assets(asset_url)

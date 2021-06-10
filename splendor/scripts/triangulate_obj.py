@@ -2,5 +2,5 @@
 import sys
 from splendor.obj_mesh import triangulate_obj
 
-if __name__ == '__main__':
+def main():
     triangulate_obj(sys.argv[1], sys.argv[2])

@@ -19,22 +19,24 @@ parser.add_argument('--assets', type=str, default=None)
 parser.add_argument('--debug', type=str, default=None)
 parser.add_argument('--device', type=int, default=None)
 
-args = parser.parse_args()
+def main():
+    args = parser.parse_args()
 
-asset_library = AssetLibrary(args.assets)
-panorama_path = asset_library['panoramas'][args.panorama]
-panorama_image = load_image(panorama_path)
-reflect_image = panorama_to_strip(
+    asset_library = AssetLibrary(args.assets)
+    panorama_path = asset_library['panoramas'][args.panorama]
+    panorama_image = load_image(panorama_path)
+    reflect_image = panorama_to_strip(
         panorama_image, args.reflect_size, args.filter, args.device)
-reflect_intensity = (
+    reflect_intensity = (
         (even_intensity(reflect_image) / 255.) ** args.intensity_gamma * 255.)
-diffuse_image = reflect_to_diffuse(
+    diffuse_image = reflect_to_diffuse(
         args.diffuse_size,
         reflect_image,
         reflect_intensity,
         args.samples,
         args.debug,
-        args.device)
+        args.device,
+    )
 
-save_image(reflect_image, args.output + '_ref.png')
-save_image(diffuse_image, args.output + '_dif.png')
+    save_image(reflect_image, args.output + '_ref.png')
+    save_image(diffuse_image, args.output + '_dif.png')

@@ -17,20 +17,21 @@ parser.add_argument('--assets', type=str, default=None)
 parser.add_argument('--debug', type=str, default=None)
 parser.add_argument('--device', type=int, default=None)
 
-args = parser.parse_args()
+def main():
+    args = parser.parse_args()
 
-asset_library = AssetLibrary(args.assets)
-reflect_path = asset_library['image_lights'][args.reflect]
-reflect = load_image(reflect_path)
-reflect_intensity = (
-        (even_intensity(reflect) / 255.) ** args.intensity_gamma * 255.)
+    asset_library = AssetLibrary(args.assets)
+    reflect_path = asset_library['image_lights'][args.reflect]
+    reflect = load_image(reflect_path)
+    reflect_intensity = (
+            (even_intensity(reflect) / 255.) ** args.intensity_gamma * 255.)
 
-diffuse = reflect_to_diffuse(
-        args.size,
-        reflect,
-        reflect_intensity,
-        args.samples,
-        args.debug,
-        args.device)
+    diffuse = reflect_to_diffuse(
+            args.size,
+            reflect,
+            reflect_intensity,
+            args.samples,
+            args.debug,
+            args.device)
 
-save_image(diffuse, args.out)
+    save_image(diffuse, args.out)

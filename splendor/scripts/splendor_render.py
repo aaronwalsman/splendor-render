@@ -20,18 +20,19 @@ parser.add_argument('--render-mode', type=str, default='color',
 parser.add_argument('--device', type=int, default=0,
         help='which device to use for rendering using EGL')
 
-args = parser.parse_args()
+def main():
+    args = parser.parse_args()
 
-width, height = (int(wh) for wh in args.resolution.lower().split('x'))
-anti_alias = args.anti_alias_samples != 0
+    width, height = (int(wh) for wh in args.resolution.lower().split('x'))
+    anti_alias = args.anti_alias_samples != 0
 
-render.render_scene(
-        args.scene,
-        width,
-        height, 
-        assets = args.assets,
-        output_file = args.output,
-        anti_alias = anti_alias,
-        anti_alias_samples = args.anti_alias_samples,
-        render_mode = args.render_mode,
-        device = args.device)
+    render.render_scene(
+            args.scene,
+            width,
+            height, 
+            assets = args.assets,
+            output_file = args.output,
+            anti_alias = anti_alias,
+            anti_alias_samples = args.anti_alias_samples,
+            render_mode = args.render_mode,
+            device = args.device)
