@@ -7,8 +7,6 @@ from splendor.home import get_splendor_home, make_splendor_home
 from splendor.exceptions import SplendorAssetException
 
 splendor_home = get_splendor_home()
-#splendor_module_path = os.path.join(os.path.dirname(__file__))
-#default_assets_path = os.path.join(splendor_home, 'default_assets.cfg')
 
 asset_types = (
         'image_lights',
@@ -28,25 +26,32 @@ asset_extensions = {
         'scenes' : ('.json',)
 }
 
-def install_assets(url, destination=splendor_home):
+def install_assets(
+    url,
+    name,
+    destination=splendor_home,
+    overwrite=False,
+    cleanup_zip=False,
+):
     print('='*80)
-    print('Installing: %s'%url)
+    print('Installing %s to: %s'%(name, url))
     make_splendor_home()
     
     print('-'*80)
-    asset_path = os.path.join(destination, 'assets.zip')
-    downloaded_path = download(url, asset_path, overwrite=True)
+    asset_zip_path = os.path.join(destination, '%s.zip'%name)
+    download(url, asset_zip_path, overwrite=overwrite)
     
     print('-'*80)
     print('Checking for Licenses')
-    if agree_to_zip_licenses(downloaded_path):
+    if agree_to_zip_licenses(asset_zip_path):
         print('Extracting Contents To: %s'%destination)
-        with zipfile.ZipFile(downloaded_path, 'r') as z:
+        with zipfile.ZipFile(asset_zip_path, 'r') as z:
             z.extractall(destination)
     else:
         print('Must Agree to All Licensing.  Aborting.')
     
-    os.remove(downloaded_path)
+    if cleanup_zip:
+        os.remove(asset_zip_path)
 
 def default_assets_installed():
     return 'default_assets.cfg' in os.path.listdir(splendor_home)

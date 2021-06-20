@@ -17,12 +17,22 @@ parser.add_argument('--asset-url', default=None, type=str,
     help='URL of an asset package to download')
 parser.add_argument('--destination', default=get_splendor_home(), type=str,
     help='Download Location')
+parser.add_argument('--overwrite', action='store_true',
+    help='Overwrite any existing files and redownload')
+parser.add_argument('--cleanup-zip', action='store_true',
+    help='Remove the downloaded zip after decompression')
 
 def main():
     args = parser.parse_args()
 
     asset_url = args.asset_url
+    asset_name = args.asset_package
     if asset_url is None:
         asset_url = asset_urls[args.asset_package]
 
-    install_assets(asset_url)
+    install_assets(
+        asset_url,
+        asset_name,
+        overwrite=args.overwrite,
+        cleanup_zip=args.cleanup_zip,
+    )
