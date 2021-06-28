@@ -28,6 +28,12 @@ Install this package:
 pip install splendor-render
 ```
 
+Run a script to install the assets:
+```
+splendor_asset_installer
+```
+This downloads about 15MB worth of images and textures that are used in various examples.  The install location defaults to `~/.cache/splendor` but can be changed by setting the `SPLENDOR_HOME` environment variable.
+
 Run the interactive viewer:
 ```
 splendor_viewer cereal
@@ -39,7 +45,7 @@ splendor_render cereal ./my_render.jpg
 ```
 
 ### Example
-In the examples above `cereal` refers to `assets/scenes/cereal.json` using the asset library structure found in `default_assets.cfg`.  Let's take a look to get a sense of how scenes are stored in splendor-render:
+In the examples above `cereal` refers to `~/.cache/splendor/default_assets/scenes/cereal.json` using the asset library structure found in `~/.cache/splendor/default_assets.cfg`.  Let's take a look to get a sense of how scenes are stored in splendor-render:
 
 ```
 "cubemaps":{
@@ -116,7 +122,7 @@ Next we load two textures.  This is similar to the cubemaps we saw at the beginn
 },
 ```
 
-Here we build two materials that can be used in the scene.  The first is `"varying"` which uses the second texture (`"splendor_matprop"`) to define the material properties of the surface.  The second sets each of these values explicitly for the entire surface.  The `"ambient"` parameter affects how much the surface is affected by the ambient light (uniform lighting bias) in the scene.  The other three (`"metal"`, `"rough"` and `"base_reflect"` control the interaction between the lighting and the surface.  Briefly, `"base_reflect"` makes the surface more shiny.  When `"base_reflect=1"` the surface will become a pure mirror and will ignore the albedo (surface color/texture) entirely.  The `"rough"` parameter makes these reflections more blurry, while `"metal"` is another kind of shiny that incorporates the albedo and makes the surface look like colored refelctive foil instead of a pure mirror.
+Here we build two materials that can be used in the scene.  The first is `"varying"` which uses the second texture (`"splendor_matprop"`) to define the material properties of the surface.  The second sets each of these values explicitly for the entire surface.  The `"ambient"` parameter affects how much the surface is affected by the ambient light (uniform lighting bias) in the scene.  The other three (`"metal"`, `"rough"` and `"base_reflect"`) control the interaction between the lighting and the surface.  Briefly, `"base_reflect"` makes the surface more shiny.  When `"base_reflect=1"` the surface will become a pure mirror and will ignore the albedo (surface color/texture) entirely.  The `"rough"` parameter makes these reflections more blurry, while `"metal"` is another kind of shiny that incorporates the albedo and makes the surface look like colored refelctive foil instead of a pure mirror.
 
 ```
 "instances": {
