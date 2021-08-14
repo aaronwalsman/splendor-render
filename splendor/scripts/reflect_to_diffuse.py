@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('reflect', type=str)
 parser.add_argument('out', type=str)
 parser.add_argument('--size', type=int, default=64)
+parser.add_argument('--intensity-image', type=str, default=None)
 parser.add_argument('--intensity-gamma', type=float, default=1)
 parser.add_argument('--samples', type=int, default=100000)
 parser.add_argument('--assets', type=str, default=None)
@@ -22,9 +23,13 @@ def main():
 
     asset_library = AssetLibrary(args.assets)
     reflect_path = asset_library['image_lights'][args.reflect]
-    reflect = load_image(reflect_path)
+    reflect = load_image(reflect_path)[:,:,:3]
+    if args.intensity_image is None:
+        intensity_image = even_intensity(reflect)
+    else:
+        intensity_image = even_intensity(load_image(args.intensity_image))
     reflect_intensity = (
-            (even_intensity(reflect) / 255.) ** args.intensity_gamma * 255.)
+            (intensity_image / 255.) ** args.intensity_gamma * 255.)
 
     diffuse = reflect_to_diffuse(
             args.size,

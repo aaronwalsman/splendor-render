@@ -1755,11 +1755,13 @@ class SplendorRender:
     # color_render methods -----------------------------------------------------
     
     def color_render(self,
-            instances = None,
-            depthmap_instances = None,
-            flip_y = True,
-            clear = True,
-            finish = True):
+        instances = None,
+        depthmap_instances = None,
+        flip_y = True,
+        clear = True,
+        finish = True,
+        ignore_hidden = False,
+    ):
         """
         Renders instances and depthmap instances using the color program.
         
@@ -1852,7 +1854,7 @@ class SplendorRender:
         vertex_color_shader_instances = {}
         flat_color_shader_instances = {}
         for instance in instances:
-            if self.instance_hidden(instance):
+            if not ignore_hidden and self.instance_hidden(instance):
                 continue
             instance_material = self.get_instance_material_name(instance)
             instance_mesh = self.get_instance_mesh_name(instance)
@@ -2270,7 +2272,14 @@ class SplendorRender:
 
     # mask_render methods ------------------------------------------------------
     
-    def mask_render(self, instances=None, flip_y=True, clear=True, finish=True):
+    def mask_render(
+        self,
+        instances=None,
+        flip_y=True,
+        clear=True,
+        finish=True,
+        ignore_hidden=False,
+    ):
         """
         Renders instances using the mask program.
         
@@ -2328,7 +2337,7 @@ class SplendorRender:
             # sort the instances
             mesh_instances = {}
             for instance in instances:
-                if self.instance_hidden(instance):
+                if not ignore_hidden and self.instance_hidden(instance):
                     continue
                 instance_mesh = self.get_instance_mesh_name(instance)
                 try:
@@ -2388,10 +2397,11 @@ class SplendorRender:
     # coord_render methods -----------------------------------------------------
     
     def coord_render(self,
-            instances=None,
-            flip_y=True,
-            clear=True,
-            finish=True,
+        instances=None,
+        flip_y=True,
+        clear=True,
+        finish=True,
+        ignore_hidden=False,
     ):
         """
         Renders instances using the coord program.
@@ -2445,6 +2455,8 @@ class SplendorRender:
             if instances is None:
                 instances = self.scene_description['instances']
             for instance_name in instances:
+                if not ignore_hidden and self.instance_hidden(instance_name):
+                    continue
                 self.coord_render_instance(instance_name)
 
         finally:
@@ -2467,8 +2479,6 @@ class SplendorRender:
             is no need to copy certain data to the GPU again.
         """
         instance_data = self.scene_description['instances'][instance_name]
-        if instance_data['hidden']:
-            return
 
         instance_mesh = instance_data['mesh_name']
         coord_box = instance_data['coord_box']
