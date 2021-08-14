@@ -63,7 +63,7 @@ def reflect_to_diffuse(
     # create the samples
     importance_strip = intensity_strip
     reflect_width, strip_width = importance_strip.shape[:2]
-    assert strip_width == reflect_width * 6
+    assert strip_width == reflect_width * 6, '%i != 6*%i'%(strip_width, reflect_width)
     pixel_ids = numpy.arange(reflect_width * strip_width)
     importance = importance_strip.reshape(-1)
     importance = importance / numpy.sum(importance)
