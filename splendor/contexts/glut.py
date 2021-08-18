@@ -23,7 +23,7 @@ from splendor.contexts.initialization import (
 
 _glut_state = {
     'initialized' : False,
-    'window' : None,
+    'windows' : [],
 }
 
 def initialize(x_authority = None, display=None, repeat_keys=False):
@@ -63,8 +63,7 @@ class GlutWindowWrapper:
         initialized, mode = initialization_state()
         assert initialized and mode == 'glut'
         
-        # multiple windows not supported
-        assert _glut_state['initialized'] and _glut_state['window'] is None
+        assert _glut_state['initialized']
         
         self.name = name
         self.width = width
@@ -84,7 +83,7 @@ class GlutWindowWrapper:
         self.window_id = GLUT.glutCreateWindow(name)
         self.set_active()
         
-        _glut_state['window'] = self.window_id
+        _glut_state['windows'].append(self.window_id)
 
     def hide_window(self):
         GLUT.glutHideWindow(self.window_id)
@@ -97,13 +96,16 @@ class GlutWindowWrapper:
             self.width = width
             self.height = height
             GLUT.glutReshapeWindow(width, height)
+    
+    def is_active(self):
+        return GLUT.glutGetWindow() == self.window_id
 
     def set_active(self):
         '''
         Sets this window active
         '''
         GLUT.glutSetWindow(self.window_id)
-
+    
     def enable_window(self):
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
         GL.glViewport(0, 0, self.width, self.height)
@@ -112,7 +114,7 @@ class GlutWindowWrapper:
         else:
             GL.glDisable(GL.GL_MULTISAMPLE)
 
-    def read_pixels(self, read_depth = False, projection=None):
+    def read_pixels(self, read_depth=False, projection=None):
         self.enable_window()
         width = self.width
         height = self.height
