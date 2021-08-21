@@ -171,7 +171,6 @@ class SplendorRender:
             Reload assets that exist both in the new scene data and the
             already loaded scene data (irrelevant if clear_scene=True)
         """
-        self.ensure_active()
         
         if clear_scene:
             self.clear_scene()
@@ -399,8 +398,6 @@ class SplendorRender:
         
         assert color_mode in ('textured', 'vertex_color', 'flat_color')
         
-        self.ensure_active()
-        
         # if a mesh asset name was provided, load that
         if mesh_asset is not None:
             asset_path = self.asset_library['meshes'][mesh_asset]
@@ -486,8 +483,6 @@ class SplendorRender:
         the background onto.
         """
         
-        self.ensure_active()
-        
         if 'BACKGROUND' not in self.gl_data['mesh_buffers']:
             mesh_buffers = {}
             vertex_floats = numpy.array([
@@ -513,8 +508,6 @@ class SplendorRender:
         -----------
         name : str
         """
-        
-        self.ensure_active()
         
         del(self.scene_description['meshes'][name])
         self.gl_data['mesh_buffers'][name]['vertex_buffer'].delete()
@@ -628,8 +621,6 @@ class SplendorRender:
             reprojection into 3D
         """
         
-        self.ensure_active()
-        
         if name in self.scene_description['depthmaps']:
             self.remove_depthmap(name)
 
@@ -688,8 +679,6 @@ class SplendorRender:
         -----------
         name : str
         """
-        
-        self.ensure_active()
         
         del(self.scene_description['depthmaps'][name])
         self.gl_data['depthmap_buffers'][name]['depth_buffer'].delete()
@@ -818,7 +807,6 @@ class SplendorRender:
 
         # delete the background mesh if there are no image lights left
         if len(self.scene_description['image_lights']) == 0:
-            self.ensure_active()
             self.gl_data['mesh_buffers']['BACKGROUND']['vertex_buffer'].delete()
             self.gl_data['mesh_buffers']['BACKGROUND']['face_buffer'].delete()
             del(self.gl_data['mesh_buffers']['BACKGROUND'])
@@ -887,8 +875,6 @@ class SplendorRender:
         crop : 4-tuple, optional
             Bottom, left, top, right crop values for the image
         """
-        
-        self.ensure_active()
         
         # if a texture asset name was provided, load that
         if texture_asset is not None:
@@ -967,7 +953,6 @@ class SplendorRender:
             GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
     
     def remove_texture(self, name):
-        self.ensure_active()
         if name in self.gl_data['texture_buffers']:
             GL.glDeleteTextures(
                 self.gl_data['texture_buffers'][name]['texture'])
@@ -1013,8 +998,6 @@ class SplendorRender:
         """
         Loads a cubemap
         """
-        
-        self.ensure_active()
         
         # if a cubemap asset name was provided, load that
         if cubemap_asset is not None:
@@ -1145,7 +1128,6 @@ class SplendorRender:
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
     
     def remove_cubemap(self, name):
-        self.ensure_active()
         if name in self.gl_data['cubemap_buffers']:
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
             GL.glDeleteTextures(
@@ -1771,7 +1753,6 @@ class SplendorRender:
         """
         Clears the frame.
         """
-        self.ensure_active()
         GL.glClearColor(*self.scene_description['background_color'])
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
@@ -1779,7 +1760,6 @@ class SplendorRender:
         """
         Force opengl to finish rendering before continuing.
         """
-        self.ensure_active()
         GL.glFinish()
 
     # color_render methods -----------------------------------------------------
@@ -1812,8 +1792,6 @@ class SplendorRender:
         finish = True
             Whether or not to finish the frame using glFinish
         """
-        
-        self.ensure_active()
         
         # clear
         if clear:
@@ -2331,8 +2309,6 @@ class SplendorRender:
             Whether or not to finish the frame using glFinish
         """
         
-        self.ensure_active()
-        
         # clear
         if clear:
             self.clear_frame()
@@ -2456,8 +2432,6 @@ class SplendorRender:
             Whether or not to finish the frame using glFinish
         """
         
-        self.ensure_active()
-        
         #clear
         if clear:
             self.clear_frame()
@@ -2516,8 +2490,6 @@ class SplendorRender:
             is no need to copy certain data to the GPU again.
         """
         
-        self.ensure_active()
-        
         instance_data = self.scene_description['instances'][instance_name]
 
         instance_mesh = instance_data['mesh_name']
@@ -2567,7 +2539,6 @@ class SplendorRender:
     # TODO Figure out what to do about these.
     
     def render_points(self, points, color, point_size = 1, flip_y = True):
-        self.ensure_active()
         GL.glPushMatrix()
         try:
             projection_matrix = self.scene_description['camera']['projection']
@@ -2592,7 +2563,6 @@ class SplendorRender:
         GL.glFinish()
 
     def render_line(self, start, end, color, flip_y = True, finish = True):
-        self.ensure_active()
         GL.glPushMatrix()
         try:
             projection_matrix = self.scene_description['camera']['projection']
@@ -2617,7 +2587,6 @@ class SplendorRender:
             self.finish_frame()
 
     def render_transform(self, transform, axis_length = 0.1, flip_y = True):
-        self.ensure_active()
         GL.glPushMatrix()
         try:
             projection_matrix = self.scene_description['camera']['projection']
