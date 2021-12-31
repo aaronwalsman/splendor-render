@@ -6,3 +6,6 @@ class SplendorAssetException(SplendorException):
 
 class SplendorContextException(SplendorException):
     pass
+
+class SplendorEmptyMeshException(SplendorException):
+    pass

@@ -18,7 +18,7 @@ from splendor.shader_library import ShaderLibrary
 import splendor.obj_mesh as obj_mesh
 from splendor.image import load_image, load_depth, validate_texture
 import splendor.json_numpy as json_numpy
-from splendor.exceptions import SplendorException
+from splendor.exceptions import SplendorException, SplendorEmptyMeshException
 from splendor.primitives import make_primitive
 
 max_num_lights = 8
@@ -438,6 +438,8 @@ class SplendorRender:
         mesh_buffers = {}
 
         vertex_floats = numpy.array(mesh['vertices'], dtype=numpy.float32)
+        if len(vertex_floats) == 0:
+            raise SplendorEmptyMeshException
         if vertex_floats.shape[1] > 3:
             vertex_floats = vertex_floats[:,:3]
         normal_floats = numpy.array(mesh['normals'], dtype=numpy.float32)

@@ -2,7 +2,11 @@ import os
 import configparser
 import zipfile
 
-from splendor.download import download, agree_to_zip_licenses
+try:
+    from splendor.download import download, agree_to_zip_licenses
+    download_available = True
+except ImportError:
+    download_available = False
 from splendor.home import get_splendor_home, make_splendor_home
 from splendor.exceptions import SplendorAssetException
 
@@ -33,6 +37,8 @@ def install_assets(
     overwrite=False,
     cleanup_zip=False,
 ):
+    assert download_available
+    
     print('='*80)
     print('Installing %s to: %s'%(name, url))
     make_splendor_home()
@@ -105,7 +111,7 @@ class AssetLibrary:
                         splendor_home, asset_package)
                 else:
                     raise SplendorAssetException(
-                        'Config path not found: %s'%config_path)
+                        'Config path not found: %s'%asset_package)
             self.load_config(asset_package_cfg, clear=False)
     
     @staticmethod
