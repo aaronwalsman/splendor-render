@@ -6,7 +6,8 @@ from splendor.assets import install_assets
 
 asset_urls = {
     'default_assets':
-        'https://drive.google.com/uc?id=1DfSVirWRjSWxfmIu2Lund_FMpHOPphZu',
+        #'https://drive.google.com/uc?id=1DfSVirWRjSWxfmIu2Lund_FMpHOPphZu',
+        'https://drive.google.com/uc?id=1JHtmy-nFQQj6UZbJJjxN1i42MUGT2xXb',
 }
 
 parser = argparse.ArgumentParser(description='Splendor Asset Installer')
