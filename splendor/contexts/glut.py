@@ -109,6 +109,7 @@ class GlutWindowWrapper:
     def enable_window(self):
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
         GL.glViewport(0, 0, self.width, self.height)
+        GL.glScissor(0, 0, self.width, self.height)
         if self.anti_alias:
             GL.glEnable(GL.GL_MULTISAMPLE)
         else:

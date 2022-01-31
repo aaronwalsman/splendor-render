@@ -96,6 +96,7 @@ class FrameBufferWrapper:
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.frame_buffer)
             GL.glDisable(GL.GL_MULTISAMPLE)
         GL.glViewport(0, 0, self.width, self.height)
+        GL.glScissor(0, 0, self.width, self.height)
 
     def read_pixels(self,
             read_alpha = False,
