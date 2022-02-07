@@ -1503,9 +1503,16 @@ class SplendorRender:
             A ditionary mapping instance names to integers.  Each integer will
             be assigned a unique color using the masks module.
         """
-        for instance_name, index in instance_indices.items():
-            instance_data = self.scene_description['instances'][instance_name]
-            instance_data['mask_color'] = masks.color_index_to_float(index)
+        indices = numpy.array(list(instance_indices.values()))
+        if indices.shape[0]:
+            colors = masks.color_index_to_float(indices)
+            for i, color in zip(instance_indices.keys(), colors):
+                instance_data = self.scene_description['instances'][i]
+                instance_data['mask_color'] = color
+            
+        #for instance_name, index in instance_indices.items():
+        #    instance_data = self.scene_description['instances'][instance_name]
+        #    instance_data['mask_color'] = masks.color_index_to_float(index)
 
     def set_instance_masks_to_mesh_indices(self, mesh_indices, instances=None):
         """
