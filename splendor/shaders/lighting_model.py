@@ -37,6 +37,7 @@ uniform int num_point_lights;
 uniform int num_direction_lights;
 
 uniform mat4 image_light_offset_matrix;
+uniform bool lock_image_light_to_camera;
 
 uniform vec3 point_light_data[2*MAX_NUM_LIGHTS];
 uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
@@ -78,8 +79,11 @@ void main(){
     
     vec3 eye = normalize(vec3(-fragment_position));
     vec3 normal = normalize(vec3(fragment_normal));
-    vec3 camera_normal = vec3(inverse(view_matrix) * vec4(normal, 0.));
-    
+    //vec3 camera_normal = vec3(inverse(view_matrix) * vec4(normal, 0.));
+    vec3 camera_normal = normal;
+    if(!lock_image_light_to_camera){
+        camera_normal = vec3(inverse(view_matrix) * vec4(camera_normal, 0.));
+    }
     // albedo ==================================================================
     #ifdef COMPILE_TEXTURE
     vec3 albedo = texture(texture_sampler, fragment_uv).rgb;

@@ -731,17 +731,19 @@ class SplendorRender:
     # image_light methods ======================================================
     
     def load_image_light(self,
-            name,
-            diffuse_cubemap,
-            reflect_cubemap,
-            offset_matrix = numpy.eye(4),
-            blur = 0.,
-            diffuse_gamma = 1.,
-            diffuse_bias = 0.,
-            reflect_gamma = 1.,
-            reflect_bias = 0.,
-            render_background = True,
-            set_active = False):
+        name,
+        diffuse_cubemap,
+        reflect_cubemap,
+        offset_matrix = numpy.eye(4),
+        blur = 0.,
+        diffuse_gamma = 1.,
+        diffuse_bias = 0.,
+        reflect_gamma = 1.,
+        reflect_bias = 0.,
+        render_background = True,
+        set_active = False,
+        lock_to_camera = False,
+    ):
         """
         Load an image light.
         
@@ -790,6 +792,7 @@ class SplendorRender:
         image_light_data['diffuse_bias'] = diffuse_bias
         image_light_data['reflect_gamma'] = reflect_gamma
         image_light_data['reflect_bias'] = reflect_bias
+        image_light_data['lock_to_camera'] = lock_to_camera
         self.scene_description['image_lights'][name] = image_light_data
         
         self.load_background_mesh()
@@ -1992,6 +1995,10 @@ class SplendorRender:
                             1, GL.GL_TRUE,
                             offset_matrix.astype(numpy.float32))
                     
+                    GL.glUniform1i(
+                            location_data['lock_image_light_to_camera'],
+                            image_light_data['lock_to_camera'])
+                    
                     image_light_properties = numpy.array([
                             image_light_data['diffuse_gamma'],
                             image_light_data['diffuse_bias'],
@@ -2228,9 +2235,12 @@ class SplendorRender:
 
         location_data = self.shader_library.get_shader_locations(
                 'background_shader')
-
+        
         # set the camera's view_matrix
-        view_matrix = self.scene_description['camera']['view_matrix']
+        if light_data['lock_to_camera']:
+            view_matrix = numpy.eye(4)
+        else:
+            view_matrix = self.scene_description['camera']['view_matrix']
         GL.glUniformMatrix4fv(
                 location_data['view_matrix'],
                 1, GL.GL_TRUE,
