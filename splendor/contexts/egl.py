@@ -133,7 +133,9 @@ def initialize_device(device=None, force=False):
 
 def delete_context():
     plugin_initialized, mode = initialization_state()
-    assert plugin_initialized and mode == 'egl'
+    #assert plugin_initialized and mode == 'egl'
+    if not plugin_initialized or mode != 'egl':
+        return
     
     from OpenGL.EGL import eglDestroyContext, eglTerminate
     if _egl_state['display'] is not None:
