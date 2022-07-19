@@ -7,7 +7,9 @@ from splendor.assets import install_assets
 asset_urls = {
     'default_assets':
         #'https://drive.google.com/uc?id=1DfSVirWRjSWxfmIu2Lund_FMpHOPphZu',
-        'https://drive.google.com/uc?id=1JHtmy-nFQQj6UZbJJjxN1i42MUGT2xXb',
+        #'https://drive.google.com/uc?id=1JHtmy-nFQQj6UZbJJjxN1i42MUGT2xXb',
+        #'https://drive.google.com/uc?id=1gPZw-D3zo_5DAQbpKyP2aOdCn-Wp02au',
+        'https://drive.google.com/uc?id=1ANZRTqF-23r0bVatLXqJUJ4PLg9BSa9G',
 }
 
 parser = argparse.ArgumentParser(description='Splendor Asset Installer')

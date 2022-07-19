@@ -10,4 +10,6 @@ class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, numpy.ndarray):
             return obj.tolist()
-        return json.JSONEncoder.default(self.obj)
+        elif hasattr(obj, 'item'):
+            return obj.item()
+        return json.JSONEncoder.default(self, obj)
