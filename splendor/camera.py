@@ -11,6 +11,8 @@ def projection_matrix(
         near_clip = 0.05,
         far_clip = 50):
     
+    # aspect ratio = x/y
+    
     x_limit = near_clip * math.tan(horizontal_field_of_view * 0.5)
     y_limit = x_limit / aspect_ratio
     

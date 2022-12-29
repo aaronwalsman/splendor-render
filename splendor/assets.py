@@ -99,7 +99,7 @@ class AssetLibrary:
             if isinstance(asset_packages, str):
                 asset_packages = asset_packages.split(',')
         for asset_package in asset_packages:
-            if os.path.exists(asset_package):
+            if os.path.exists(asset_package) and asset_package.endswith('.cfg'):
                 asset_package_cfg = asset_package
             else:
                 home_files = os.listdir(splendor_home)
