@@ -9,6 +9,7 @@ def make_primitive(shape, **kwargs):
         'disk' : disk,
         'cube' : cube,
         'barrel' : barrel,
+        'cylinder' : cylinder,
         'multi_cylinder' : multi_cylinder,
         'sphere' : sphere}
     
@@ -567,18 +568,19 @@ def multi_cylinder(
         previous_height = height
     
     caps = []
+    cap_normals = start_height < sections[0][1]
     if start_cap:
         cap = disk(
                 radius = sections[0][0],
                 radial_resolution = radial_resolution,
-                flip_normals = False)
+                flip_normals = cap_normals)
         cap['vertices'][:,1] = start_height
         caps.append(cap)
     if end_cap:
         cap = disk(
                 radius = sections[-1][0],
                 radial_resolution = radial_resolution,
-                flip_normals = True)
+                flip_normals = not cap_normals)
         cap['vertices'][:,1] = previous_height
         caps.append(cap)
     

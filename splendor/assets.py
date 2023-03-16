@@ -86,6 +86,13 @@ class PathFinder:
         
         raise SplendorAssetException(
             'No %s named "%s" found'%(self.asset_type, key))
+    
+    def __contains__(self, key):
+        try:
+            path = self[key]
+            return True
+        except SplendorAssetException:
+            return False
 
 class AssetLibrary:
     def __init__(self, asset_packages=None):
