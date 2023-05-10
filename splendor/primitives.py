@@ -194,7 +194,7 @@ def disk(
     vertices = numpy.zeros((4, total_vertices))
     normals = numpy.zeros((4, total_vertices))
     uvs = numpy.zeros((3, total_vertices))
-    faces = numpy.zeros((3, num_faces), dtype=numpy.long)
+    faces = numpy.zeros((3, num_faces), dtype=numpy.int_)
     
     theta_range = theta_extents[1] - theta_extents[0]
     vertices[1,:] = 0.
