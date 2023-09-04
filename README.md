@@ -105,7 +105,7 @@ Here we define a single mesh named `"cereal_box"`.  You can see it is constructe
 },
 ```
 
-Next we load two textures.  This is similar to the cubemaps we saw at the beginning where both are referred to using their asset name.  These also don't do anything util we use them for something.\
+Next we load two textures.  This is similar to the cubemaps we saw at the beginning where both are referred to using their asset name.  These also don't do anything util we use them for something.
 
 ```
 "materials": {
