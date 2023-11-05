@@ -95,8 +95,34 @@ class PathFinder:
             return False
 
 class AssetLibrary:
+    '''
+    Keeps track of the assets (image/mesh/etc. files on disk) that splendor
+    currently knows about and can reference by name.
+    
+    Initialize using:
+    # loads default assets
+    default_asset_library = AssetLibrary()
+    
+    # loads custom assets by file name
+    my_asset_library = AssetLibrary(asset_packages='path/to/my_assets.cfg')
+    
+    # loads custom assets installed under splendor_home (defaults to
+    # ~/.cache/splendor)
+    my_asset_library = AssetLibrary(asset_packages='my_assets')
+   
+    # loads multiple custom asset libraries
+    my_asset_library = AssetLibrary(asset_pacakges='my_asset1,my_assets2')
+    # or
+    my_asset_library = AssetLibrary(asset_pacakges=['my_asset1','my_assets2'])
+    
+    AssetLibrary provides an interface to lookup different asset types:
+    my_mesh_path = my_asset_library['meshes']['my_mesh']
+    my_scene_path = my_asset_library['scenes']['my_scene_12']
+    '''
     def __init__(self, asset_packages=None):
         self.clear()
+        
+        # use default assets if None was specified
         if asset_packages is None:
             if default_assets_installed:
                 asset_packages = ['default_assets']
@@ -105,6 +131,8 @@ class AssetLibrary:
         else:
             if isinstance(asset_packages, str):
                 asset_packages = asset_packages.split(',')
+        
+        # look for each asset package, first on disk, then in splendor_home
         for asset_package in asset_packages:
             if os.path.exists(asset_package) and asset_package.endswith('.cfg'):
                 asset_package_cfg = asset_package
