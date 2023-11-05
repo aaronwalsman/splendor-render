@@ -124,7 +124,7 @@ class FrameBufferWrapper:
                     GL.GL_DEPTH_COMPONENT, GL.GL_UNSIGNED_SHORT)
             image = numpy.frombuffer(pixels, dtype=numpy.ushort).reshape(
                     self.height, self.width, 1)
-            image = image.astype(numpy.float) / (2**16-1)
+            image = image.astype(numpy.float32) / (2**16-1)
             if numpy.all(projection[3,:3] == [0,0,0]):
                 image = image * (far - near) + near
             else:

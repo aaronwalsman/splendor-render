@@ -5,12 +5,12 @@ Shiny!!
 This package is designed to be a lightweight but nice looking 3D renderer in python.  It has primarily been designed to generate online training data for computer vision, reinforcement learning and robotics applications.
 
 There are a few other packages that do similar things that you may also want to check out:
-- [PyRender](https://github.com/mmatl/pyrender) is a really solid renderer and does a lot of what Splendor Render can do.  It is also probably much more stable and compliant with various specifications and supports more formats of things, and definitely has waaaaay better documentation than we do.  You should really go check out PyRender and see if that works for you.  I *think* the one thing we support that PyRender does not is image-based lighting, which is really nice and makes for shiny pictures that I'm *very* proud of.
+- [PyRender](https://github.com/mmatl/pyrender) is a really solid renderer and does a lot of what Splendor Render can do.  It is also supports more common formats, and has more robust documentation than you will find here.  Unlike PyRender, Splendor supports image-based lighting, which adds a very high level of realism if you are willing to spend the time to build good light maps.
 
-- [PyBullet](https://pybullet.org/wordpress/) is focused more on physics simulation, but some people use it for generating images as well.  I haven't looked into it, but I would be surprised if they have all the nice shader stuff and image-based lighting that we do.
+- [PyBullet](https://pybullet.org/wordpress/) is focused more on physics simulation, but some people use it for generating images as well.
 
 ### Features
-- **Splendor Render is shiny!**  Splendor Render uses various approximations of physically based rendering (PBR) for image-based lighting (IBL).  These were big buzzwords in video game development ten years ago, but they basically mean we use a lighting/material model that uses environment maps for lighting and provides relatively simple material controls (base reflectance, metal, roughness) that are designed to approximate physics.  
+- **Splendor Render is shiny!**  Splendor Render uses various approximations of physically based rendering (PBR) for image-based lighting (IBL).  This is the lighting model used in a lot of game engines, and basically means that the lighting/material model uses environment maps for lighting and provides relatively simple material controls (base reflectance, metal, roughness) that are designed to approximate physics.  
 
 - **Splendor Render is fast!** For simple scenes you can easily generate images using image-based lighting at faster than 1000hz (including copying images back from the graphics card) with a good GPU.
 
@@ -18,9 +18,10 @@ There are a few other packages that do similar things that you may also want to 
 
 - **Splendor Render is easy to use!**  I think.  If not, let me know and I'll try to make it better.
 
-- **Splendor Render does not support shadows!**  This is not a feature.  This is an anti-feature.  I really need to get shadows in here at some point.
+### Unsupported Features
+- **Splendor Render does not support shadows!**
 
-- **Splendor Render does not support transparent objects!**  This is also an anti-feature.  I'm just hoping that by publicly shaming myself in the README like this, I will some day take the time to implement this.
+- **Splendor Render does not support transparent objects!**
 
 ## Getting Started
 Install this package:
@@ -28,11 +29,11 @@ Install this package:
 pip install splendor-render
 ```
 
-Run a script to install the assets:
+Run a script to install some default assets:
 ```
 splendor_asset_installer
 ```
-This downloads about 15MB worth of images and textures that are used in various examples.  The install location defaults to `~/.cache/splendor` but can be changed by setting the `SPLENDOR_HOME` environment variable.
+This downloads about 15MB worth of images and textures that are used in various examples.  The install location defaults to `~/.cache/splendor` but can be changed by setting the `SPLENDOR_HOME` environment variable.  Some images come from external sources with Creative Commons licenses, see ~/.cache/splendor/default_assets/panoramas/LICENSE.txt for details.
 
 Run the interactive viewer:
 ```
@@ -104,7 +105,7 @@ Here we define a single mesh named `"cereal_box"`.  You can see it is constructe
 },
 ```
 
-Next we load two textures.  This is similar to the cubemaps we saw at the beginning where both are referred to using their asset name.  These also don't do anything util we use them for something.\
+Next we load two textures.  This is similar to the cubemaps we saw at the beginning where both are referred to using their asset name.  These also don't do anything util we use them for something.
 
 ```
 "materials": {

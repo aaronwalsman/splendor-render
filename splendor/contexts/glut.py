@@ -135,7 +135,7 @@ class GlutWindowWrapper:
             )
             image = numpy.frombuffer(pixels, dtype=numpy.ushort).reshape(
                     height, width, 1)
-            image = image.astype(numpy.float) / (2**16-1)
+            image = image.astype(float) / (2**16-1)
             image = 2.0 * image - 1.0
             image = 2.0 * near * far / (far + near - image * (far - near))
         else:

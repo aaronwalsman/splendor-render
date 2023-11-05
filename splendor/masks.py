@@ -18,7 +18,7 @@ def color_float_to_byte(f):
     return numpy.round(f*255).astype(numpy.uint8)
 
 def color_byte_to_float(b):
-    return numpy.array(b).astype(numpy.float) / 255
+    return numpy.array(b).astype(float) / 255
 
 def color_index_to_byte(index):
     scramble = color_index_to_scramble[index]
@@ -29,7 +29,7 @@ def color_index_to_byte(index):
     return rgb
 
 def color_byte_to_index(byte):
-    byte = numpy.array(byte).astype(numpy.int)//CELL_WIDTH
+    byte = numpy.array(byte).astype(int)//CELL_WIDTH
     r = byte[..., 0]
     g = byte[..., 1]
     b = byte[..., 2]
