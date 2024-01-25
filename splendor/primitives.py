@@ -591,7 +591,8 @@ def sphere(
         radius = 1,
         theta_extents = (0, math.pi*2),
         height_divisions = 16,
-        radial_resolution = 16):
+        radial_resolution = 16,
+        center=(0,0,0)):
     
     mesh = barrel(
         height_extents = height_extents,
@@ -606,13 +607,14 @@ def sphere(
         xz = math.sin(theta)
         y = math.cos(theta)
         
-        mesh['vertices'][r::row_vertices,0] *= xz
-        mesh['vertices'][r::row_vertices,1] = y
-        mesh['vertices'][r::row_vertices,2] *= xz
+        mesh['vertices'][r::row_vertices,0] *= xz * radius
+        mesh['vertices'][r::row_vertices,1] = y * radius
+        mesh['vertices'][r::row_vertices,2] *= xz * radius
         
         mesh['normals'][r::row_vertices,0] = mesh['vertices'][r::row_vertices,0]
         mesh['normals'][r::row_vertices,1] = mesh['vertices'][r::row_vertices,1]
         mesh['normals'][r::row_vertices,2] = mesh['vertices'][r::row_vertices,2]
-        
+    
+    mesh['vertices'] += center
     
     return mesh
