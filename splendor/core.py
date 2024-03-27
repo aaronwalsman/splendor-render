@@ -389,7 +389,7 @@ class SplendorRender:
             Dictionary containing args to the primitives.make_primitive function
         scale : float, default=1.0
             Global scale for the mesh
-        color_mode : {"textured", "vertex_color", "flat"}
+        color_mode : {"textured", "vertex_color", "flat_color"}
             Describes the color mode of the surface.  Can be one of:
             "textured" : requires uvs
             "vertex_color" : requires specified vertex colors
