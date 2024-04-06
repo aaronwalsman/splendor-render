@@ -100,6 +100,8 @@ class SplendorRender:
             'camera':{
                 'view_matrix':default_view_matrix,
                 'projection':default_camera_projection,
+                'radial_k1' : 0.,
+                'radial_k2' : 0.,
             },
             'image_lights':{},
             'active_image_light':None,
@@ -205,6 +207,10 @@ class SplendorRender:
                 self.set_view_matrix(scene['camera']['view_matrix'])
             if 'projection' in scene['camera']:
                 self.set_projection(scene['camera']['projection'])
+            if 'radial_k1' in scene['camera']:
+                self.set_radial_k1(scene['camera']['radial_k1'])
+            if 'radial_k2' in scene['camera']:
+                self.set_radial_k2(scene['camera']['radial_k2'])
 
     def clear_scene(self):
         """
@@ -296,6 +302,8 @@ class SplendorRender:
         """
         self.set_view_matrix(self.default_view_matrix)
         self.set_projection(self.default_camera_projection)
+        self.set_radial_k1(0.)
+        self.set_radial_k2(0.)
 
     def set_projection(self, projection_matrix):
         """
@@ -307,7 +315,7 @@ class SplendorRender:
         """
         self.scene_description['camera']['projection'] = numpy.array(
                 projection_matrix)
-
+    
     def get_projection(self):
         """
         Get the camera's projection matrix.
@@ -351,6 +359,18 @@ class SplendorRender:
         view_matrix : 4x4 numpy array
         """
         return self.scene_description['camera']['view_matrix']
+    
+    def set_radial_k1(self, radial_k1):
+        self.scene_description['camera']['radial_k1'] = radial_k1
+    
+    def get_radial_k1(self):
+        return self.scene_description['camera']['radial_k1']
+    
+    def set_radial_k2(self, radial_k2):
+        self.scene_description['camera']['radial_k2'] = radial_k2
+    
+    def get_radial_k2(self):
+        return self.scene_description['camera']['radial_k2']
 
     def camera_frame_scene(self, multiplier=3.0, *args, **kwargs):
         bbox = self.get_instance_center_bbox()
@@ -1290,6 +1310,11 @@ class SplendorRender:
         """
         return self.scene_description['materials'][name]['flat_color']
     
+    def set_material_flat_color(self, name, color):
+        """
+        """
+        self.scene_description['materials'][name]['flat_color'] = color
+    
     def get_material_texture(self, name):
         return self.scene_description['materials'][name]['texture_name']
     
@@ -1860,6 +1885,14 @@ class SplendorRender:
                     location_data['projection_matrix'],
                     1, GL.GL_TRUE,
                     projection_matrix.astype(numpy.float32))
+            
+            # set the radial parameters
+            GL.glUniform1f(
+                    location_data['radial_k1'],
+                    self.scene_description['camera']['radial_k1'])
+            GL.glUniform1f(
+                    location_data['radial_k2'],
+                    self.scene_description['camera']['radial_k2'])
 
             # render the depthmap instances
             for depthmap_instance_name in depthmap_instances:
@@ -1945,7 +1978,15 @@ class SplendorRender:
                         location_data['projection_matrix'],
                         1, GL.GL_TRUE,
                         projection_matrix.astype(numpy.float32))
-
+                
+                # set the radial distortion parameters
+                GL.glUniform1f(
+                        location_data['radial_k1'],
+                        self.scene_description['camera']['radial_k1'])
+                GL.glUniform1f(
+                        location_data['radial_k2'],
+                        self.scene_description['camera']['radial_k2'])
+                
                 # set the ambient light's color
                 ambient_color = self.scene_description['ambient_color']
                 GL.glUniform3fv(

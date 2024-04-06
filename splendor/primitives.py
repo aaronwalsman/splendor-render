@@ -615,6 +615,8 @@ def sphere(
         mesh['normals'][r::row_vertices,1] = mesh['vertices'][r::row_vertices,1]
         mesh['normals'][r::row_vertices,2] = mesh['vertices'][r::row_vertices,2]
     
+    if len(center) == 3:
+        center = (*center, 0)
     mesh['vertices'] += center
     
     return mesh

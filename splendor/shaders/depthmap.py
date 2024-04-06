@@ -5,6 +5,8 @@ layout(location=0) in float vertex_depth;
 uniform mat4 projection_matrix;
 uniform mat4 model_pose;
 uniform mat4 view_matrix;
+uniform float radial_k1;
+uniform float radial_k2;
 
 uniform vec2 focal_length;
 uniform int width;
@@ -32,6 +34,15 @@ void main() {
             focal_length.y;
 
     gl_Position = pvm * vec4(x, y, -vertex_depth, 1);
+    
+    // radial distortion
+    float xx = gl_Position.x/gl_Position.z;
+    float yy = gl_Position.y/gl_Position.z;
+    float r2 = xx*xx + yy*yy;
+    float r4 = r2*r2;
+    float d = max(1.0 + r2 * radial_k1 + r4 * radial_k2, 0.1);
+    gl_Position.x = gl_Position.x + gl_Position.x / d;
+    gl_Position.y = gl_Position.y + gl_Position.y / d;
 }
 '''
 

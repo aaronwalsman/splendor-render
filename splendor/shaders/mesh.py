@@ -43,6 +43,8 @@ out vec3 coord;
 uniform mat4 projection_matrix;
 uniform mat4 model_pose;
 uniform mat4 view_matrix;
+uniform float radial_k1;
+uniform float radial_k2;
 
 #ifdef COMPILE_FLAT_COLOR
 uniform vec3 box_min;
@@ -54,6 +56,15 @@ void main(){
     mat4 pvm = projection_matrix * vm;
     
     gl_Position = pvm * vec4(vertex_position,1);
+    
+    // radial distortion
+    float x = gl_Position.x/gl_Position.z;
+    float y = gl_Position.y/gl_Position.z;
+    float r2 = x*x + y*y;
+    float r4 = r2*r2;
+    float d = max(1.0 + r2 * radial_k1 + r4 * radial_k2, 0.01);
+    gl_Position.x = gl_Position.x + gl_Position.x / d;
+    gl_Position.y = gl_Position.y + gl_Position.y / d;
     
     #if defined(COMPILE_TEXTURE) || \
         defined(COMPILE_VERTEX_COLORS) || \

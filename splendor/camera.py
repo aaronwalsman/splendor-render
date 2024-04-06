@@ -130,10 +130,10 @@ def project(
     if len(position) == 3:
         position = numpy.append(position, [1])
     
-    rx = screen_resolution[1] - 1
-    ry = screen_resolution[0] - 1
+    rx = screen_resolution[1]# - 1
+    ry = screen_resolution[0]# - 1
     
-    projected = numpy.dot(numpy.dot(projection_matrix, camera_matrix), position)
+    projected = projection_matrix @ camera_matrix @ position
     projected_x = projected[0] / projected[3]
     projected_y = projected[1] / projected[3]
     
@@ -144,8 +144,8 @@ def project(
     y = ry * (projected_y + 1.) * 0.5
     
     if round_to_pixel:
-        x = round(x)
-        y = round(y)
+        x = math.floor(x)
+        y = math.floor(y)
     
     return x, y
 
