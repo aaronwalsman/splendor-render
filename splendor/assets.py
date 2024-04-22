@@ -10,8 +10,6 @@ except ImportError:
 from splendor.home import get_splendor_home, make_splendor_home
 from splendor.exceptions import SplendorAssetException
 
-splendor_home = get_splendor_home()
-
 asset_types = (
         'image_lights',
         'meshes',
@@ -33,11 +31,14 @@ asset_extensions = {
 def install_assets(
     url,
     name,
-    destination=splendor_home,
+    destination=None,
     overwrite=False,
     cleanup_zip=False,
 ):
     assert download_available
+    
+    if destination is None:
+        destination = get_splendor_home()
     
     print('='*80)
     print('Installing %s to: %s'%(name, url))
@@ -60,6 +61,7 @@ def install_assets(
         os.remove(asset_zip_path)
 
 def default_assets_installed():
+    splendor_home = get_splendor_home()
     return 'default_assets.cfg' in os.path.listdir(splendor_home)
 
 class PathFinder:
@@ -133,6 +135,7 @@ class AssetLibrary:
                 asset_packages = asset_packages.split(',')
         
         # look for each asset package, first on disk, then in splendor_home
+        splendor_home = get_splendor_home()
         for asset_package in asset_packages:
             if os.path.exists(asset_package) and asset_package.endswith('.cfg'):
                 asset_package_cfg = asset_package
