@@ -4,6 +4,7 @@
 # COMPILE_FLAT_COLORS
 # COMPILE_MASK
 # COMPILE_COORD
+# COMPILE_SHADOW
 mesh_vertex_shader = '''
 layout(location=0) in vec3 vertex_position;
 
@@ -58,13 +59,21 @@ void main(){
     gl_Position = pvm * vec4(vertex_position,1);
     
     // radial distortion
+    /*
     float x = gl_Position.x/gl_Position.z;
     float y = gl_Position.y/gl_Position.z;
     float r2 = x*x + y*y;
     float r4 = r2*r2;
-    float d = max(1.0 + r2 * radial_k1 + r4 * radial_k2, 0.01);
-    gl_Position.x = gl_Position.x + gl_Position.x / d;
-    gl_Position.y = gl_Position.y + gl_Position.y / d;
+    //float d = max(1.0 + r2 * radial_k1 + r4 * radial_k2, 0.01);
+    //gl_Position.x = gl_Position.x + gl_Position.x / d;
+    //gl_Position.y = gl_Position.y + gl_Position.y / d;
+    //gl_Position.x = gl_Position.x * d;
+    //gl_Position.y = gl_Position.y * d;
+    //gl_Position.x = gl_Position.x + r2 * radial_k1 + r4 * radial_k2;
+    //gl_Position.y = gl_Position.y + r2 * radial_k1 + r4 * radial_k2;
+    */
+    gl_Position.x = gl_Position.x + radial_k1 + radial_k2;
+    gl_Position.x = gl_Position.x - radial_k1 - radial_k2;
     
     #if defined(COMPILE_TEXTURE) || \
         defined(COMPILE_VERTEX_COLORS) || \

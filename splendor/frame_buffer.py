@@ -6,11 +6,12 @@ import splendor.camera as camera
 
 class FrameBufferWrapper:
     def __init__(self,
-            width,
-            height,
-            anti_alias=True,
-            anti_alias_samples=8,
-            color_format=GL.GL_RGBA8):
+        width,
+        height,
+        anti_alias=True,
+        anti_alias_samples=8,
+        color_format=GL.GL_RGBA8,
+    ):
 
         self.width = width
         self.height = height
@@ -99,9 +100,10 @@ class FrameBufferWrapper:
         GL.glScissor(0, 0, self.width, self.height)
 
     def read_pixels(self,
-            read_alpha = False,
-            read_depth = False,
-            projection = None):
+        read_alpha = False,
+        read_depth = False,
+        projection = None,
+    ):
 
         if self.anti_alias:
             GL.glBindFramebuffer(

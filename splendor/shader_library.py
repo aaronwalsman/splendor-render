@@ -2,19 +2,22 @@ import OpenGL.GL as gl
 import OpenGL.GL.shaders as shaders
 
 from splendor.shaders.color_render import (
-        textured_material_properties_vertex_shader,
-        textured_material_properties_fragment_shader,
-        textured_vertex_shader, textured_fragment_shader,
-        vertex_color_vertex_shader, vertex_color_fragment_shader,
-        flat_color_vertex_shader, flat_color_fragment_shader)
+    textured_material_properties_vertex_shader,
+    textured_material_properties_fragment_shader,
+    textured_vertex_shader, textured_fragment_shader,
+    vertex_color_vertex_shader, vertex_color_fragment_shader,
+    flat_color_vertex_shader, flat_color_fragment_shader,
+)
 from splendor.shaders.mask_render import (
-        mask_vertex_shader, mask_fragment_shader)
+    mask_vertex_shader, mask_fragment_shader)
 from splendor.shaders.coord_render import (
-        coord_vertex_shader, coord_fragment_shader)
+    coord_vertex_shader, coord_fragment_shader)
 from splendor.shaders.background import (
-        background_vertex_shader, background_fragment_shader)
+    background_vertex_shader, background_fragment_shader)
 from splendor.shaders.depthmap import (
-        textured_depthmap_vertex_shader, textured_depthmap_fragment_shader)
+    textured_depthmap_vertex_shader, textured_depthmap_fragment_shader)
+from splendor.shaders.shadows import (
+    depthmap_shadow_vertex_shader, depthmap_shadow_fragment_shader)
 
 default_shader_code = {
     'textured_material_properties_shader':(
@@ -34,7 +37,9 @@ default_shader_code = {
     'background_shader' :
         (background_vertex_shader, background_fragment_shader),
     'textured_depthmap_shader' :
-        (textured_depthmap_vertex_shader, textured_depthmap_fragment_shader)
+        (textured_depthmap_vertex_shader, textured_depthmap_fragment_shader),
+    'depthmap_shadow_shader' :
+        (depthmap_shadow_vertex_shader, depthmap_shadow_fragment_shader),
 }
 
 class ShaderLibrary:

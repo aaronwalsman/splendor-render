@@ -2081,34 +2081,49 @@ class SplendorRender:
         
         # enable the attribute arrays
         GL.glEnableVertexAttribArray(location_data['vertex_position'])
-        GL.glEnableVertexAttribArray(location_data['vertex_normal'])
+        if 'vertex_normal' in location_data:
+            GL.glEnableVertexAttribArray(location_data['vertex_normal'])
+        '''
         if shader_name in (
             'textured_shader', 'textured_material_properties_shader'):
             GL.glEnableVertexAttribArray(location_data['vertex_uv'])
         elif shader_name == 'vertex_color_shader':
             GL.glEnableVertexAttribArray(location_data['vertex_color'])
+        '''
+        if 'vertex_uv' in location_data:
+            GL.glEnableVertexAttribArray(location_data['vertex_uv'])
+        if 'vertex_color' in location_data:
+            GL.glEnableVertexAttribArray(location_data['vertex_color'])
         
         # load the pointers to the vertex, normal, uv and vertex color data
         stride = self.get_mesh_stride(mesh_name)
-        GL.glVertexAttribPointer(
+        if 'vertex_position' in location_data:
+            GL.glVertexAttribPointer(
                 location_data['vertex_position'],
                 3, GL.GL_FLOAT, False, stride,
-                mesh_buffers['vertex_buffer'])
-        GL.glVertexAttribPointer(
+                mesh_buffers['vertex_buffer'],
+            )
+        if 'vertex_normal' in location_data:
+            GL.glVertexAttribPointer(
                 location_data['vertex_normal'],
                 3, GL.GL_FLOAT, False, stride,
-                mesh_buffers['vertex_buffer']+((3)*4))
-        if shader_name in (
-            'textured_shader', 'textured_material_properties_shader'):
+                mesh_buffers['vertex_buffer']+((3)*4)
+            )
+        #if shader_name in (
+        #    'textured_shader', 'textured_material_properties_shader'):
+        if 'vertex_uv' in location_data:
             GL.glVertexAttribPointer(
-                    location_data['vertex_uv'],
-                    2, GL.GL_FLOAT, False, stride,
-                    mesh_buffers['vertex_buffer']+((3+3)*4))
-        elif shader_name == 'vertex_color_shader':
+                location_data['vertex_uv'],
+                2, GL.GL_FLOAT, False, stride,
+                mesh_buffers['vertex_buffer']+((3+3)*4),
+            )
+        #elif shader_name == 'vertex_color_shader':
+        if 'vertex_color' in location_data:
             GL.glVertexAttribPointer(
                     location_data['vertex_color'],
                     3, GL.GL_FLOAT, False, stride,
-                    mesh_buffers['vertex_buffer']+((3+3)*4))
+                    mesh_buffers['vertex_buffer']+((3+3)*4),
+            )
     
     def unload_mesh_shader_data(self, mesh_name):
         mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
@@ -2179,15 +2194,17 @@ class SplendorRender:
         
         # set the model pose
         GL.glUniformMatrix4fv(
-                location_data['model_pose'],
-                1, GL.GL_TRUE,
-                instance_data['transform'].astype(numpy.float32))
+            location_data['model_pose'],
+            1, GL.GL_TRUE,
+            instance_data['transform'].astype(numpy.float32),
+        )
         
         GL.glDrawElements(
-                GL.GL_TRIANGLES,
-                num_triangles*3,
-                GL.GL_UNSIGNED_INT,
-                None)
+            GL.GL_TRIANGLES,
+            num_triangles*3,
+            GL.GL_UNSIGNED_INT,
+            None,
+        )
     
     def color_render_depthmap_instance(self, depthmap_instance_name):
         """

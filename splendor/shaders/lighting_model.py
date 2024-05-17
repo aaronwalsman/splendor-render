@@ -21,7 +21,6 @@ out vec4 color;
 
 #ifndef COMPILE_TEXURED_MATERIAL_PROPERTIES
 uniform vec4 material_properties;
-//uniform vec3 material_properties;
 #endif
 
 uniform vec4 image_light_properties;
@@ -44,6 +43,9 @@ uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
 uniform mat4 view_matrix;
 
+uniform mat4 shadow_view_matrix;
+uniform mat4 shadow_projection_matrix;
+
 #ifdef COMPILE_TEXTURE
 layout(binding=0) uniform sampler2D texture_sampler;
 #endif
@@ -54,6 +56,8 @@ layout(binding=1) uniform sampler2D material_properties_sampler;
 
 layout(binding=2) uniform samplerCube diffuse_sampler;
 layout(binding=3) uniform samplerCube reflect_sampler;
+
+layout(binding=4) uniform sampler2D shadow_depth_sampler;
 
 const float MAX_MIPMAP = 4.;
 
@@ -79,7 +83,6 @@ void main(){
     
     vec3 eye = normalize(vec3(-fragment_position));
     vec3 normal = normalize(vec3(fragment_normal));
-    //vec3 camera_normal = vec3(inverse(view_matrix) * vec4(normal, 0.));
     vec3 camera_normal = normal;
     if(!lock_image_light_to_camera){
         camera_normal = vec3(inverse(view_matrix) * vec4(camera_normal, 0.));
@@ -128,7 +131,7 @@ void main(){
     
     // direction lights ========================================================
     for(int i = 0; i < num_direction_lights; ++i){
-        
+            
         vec3 light_color = vec3(direction_light_data[2*i]);
         vec3 light_direction = -normalize(direction_light_data[2*i+1]);
         light_direction = vec3(view_matrix * vec4(light_direction, 0.));
@@ -145,7 +148,19 @@ void main(){
             light_direction,
             light_color);
         
-        color += vec4(light_contribution, 0.);
+        vec4 shadow_fragment_position = (
+            shadow_projection_matrix * shadow_view_matrix * fragment_position);
+        vec3 shadow_p = (
+            shadow_fragment_position.xyz / shadow_fragment_position.w);
+        shadow_p = shadow_p * 0.5 + 0.5;
+        shadow_p.y = (shadow_p.y - 0.5) * 2 + 0.5;
+        shadow_p.x = (shadow_p.x - 0.5) * 2 + 0.5;
+        float shadow_depth = texture(shadow_depth_sampler, shadow_p.xy).x;
+        float shadow_bias = max(
+            0.05 * (1. - dot(normal, light_direction)), 0.005);
+        float in_shadow = shadow_p.z-shadow_bias > shadow_depth ? 1.0 : 0.0;
+        
+        color += vec4(light_contribution, 0.) * (1. - in_shadow);
     }
     
     // reflect =================================================================
