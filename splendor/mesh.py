@@ -4,65 +4,48 @@ from OpenGL.arrays import vbo
 
 from splendor.named_asset import NamedAsset
 
-def load_mesh_asset(name, asset_name):
-    asset_path = 
+def load_mesh_asset(name, asset_name, albedo='FLAT'):
+    asset_path = asset_library['mesh'][asset_name]
+    return Mesh(data, name=asset_name, albedo=albedo)
+
 
 class Mesh(NamedAsset):
     
+    ASSET_CLASS_NAME = 'mesh'
     SUPPORTED_ALBEDOS = ('FLAT', 'VERTEX_COLOR', 'TEXTURED')
     
     def __init__(self,
-        data,
         name=None,
-        #asset=None,
-        #path=None,
-        mesh_data=None,
-        #primitive=None,
+        mesh=None,
         albedo='FLAT',
     ):
-        super().__init__(data, name=name)
+        # verify/set albedo mode
+        #assert albedo in self.SUPPORTED_ALBEDOS, (
+        #    f'albedo must be in {self.SUPPORTED_ALBEDOS}')
+        #self.albedo = albedo
         
-        '''
-        specified_flags = [
-            name if value is not None
-            for name, value in (
-                ('asset', asset),
-                ('path', path),
-                ('mesh_data', mesh_data),
-                ('primitive', primitive),
-            )
-        ]
-        assert len(specified_flags) == 1, (
-            f'please specify exactly one data source, got: {specified_flags}')
+        # set internal data and register the name
+        super().__init__(
+            name=name,
+            mesh=mesh,
+            albedo=albedo,
+        )
         
-        self.asset = asset
-        self.path = path
-        self.mesh_data = mesh_data
-        self.primitive = primitive
-        
-        if asset is not None:
-            asset_path = asset_library['meshes'][asset]
-            self.mesh_data = load_mesh_data(asset_path)
-        if path is not None:
-            self.mesh_data = load_mesh_data(path)
-        if mesh_data is not None:
-            self.mesh_data = self.validate(mesh_data)
-        if primitive is not None:
-            self.primitive = 
-        '''
-        
-        assert albedo in self.SUPPORTED_ALBEDOS, (
-            f'albedo must be in {self.SUPPORTED_ALBEDOS}')
-        self.albedo = albedo
+        # initialize vertex/face buffers
+        self.vertex_buffer = vbo.VBO(np.zeros(0, dtype=np.float32))
+        self.face_buffer = vbo.VBO(
+            np.zeros(0, dtype=np.int32),
+            target=GL.GL_ELEMENT_ARRAY_BUFFER
+        )
     
     @staticmethod
-    def validate_data(mesh_data):
+    def validate_data(data):
         validated = {}
         
         # vertices
         # assert vertices exist
-        assert 'vertices' in mesh_data, 'mesh must have "vertices"'
-        vertices = mesh_data['vertices']
+        assert 'vertices' in data, 'mesh must have "vertices"'
+        vertices = data['vertices']
         # assert Nx3 shape
         assert len(vertices.shape) == 2 and vertices.shape[1] == 3, (
             'mesh vertices must have shape Nx3')
@@ -71,16 +54,16 @@ class Mesh(NamedAsset):
         
         # faces
         # assert faces exist
-        assert 'faces' in mesh_data, 'mesh must have "faces"'
-        faces = mesh_data['faces']
+        assert 'faces' in data, 'mesh must have "faces"'
+        faces = data['faces']
         # assert Nx3 shape
         assert len(faces.shape) == 2 and faces.shape[1] == 3, (
             'mesh faces must have shape Nx3')
         
         # normals
         # assert normals exist
-        assert 'normals' in mesh_data, 'mesh must have normals'
-        normals = mesh_data['normals']
+        assert 'normals' in data, 'mesh must have normals'
+        normals = data['normals']
         # assert Nx3 shape
         assert len(normals.shape) == 2 and normals.shape[1] == 3, (
             'mesh normals must have shape Nx3')
@@ -88,8 +71,8 @@ class Mesh(NamedAsset):
         validated['normals'] = np.array(normals, dtype=np.float32)
         
         # uvs
-        if 'uvs' in mesh_data:
-            uvs = mesh_data['uvs']
+        if 'uvs' in data:
+            uvs = data['uvs']
             # assert Nx2 shape
             assert len(uvs.shape) == 2 and uvs.shape[1] == 2, (
                 'mesh uvs must have shape Nx2')
@@ -97,8 +80,8 @@ class Mesh(NamedAsset):
             validated['uvs'] = np.array(uvs, dtype=np.float32)
         
         # vertex color
-        if 'vertex_color' in mesh_data:
-            vertex_color = mesh_data['vertex_color']
+        if 'vertex_color' in data:
+            vertex_color = data['vertex_color']
             # assert Nx3 shape
             assert (len(vertex_color.shape) == 2 and
                 vertex_color.shape[1] == 3), (
@@ -131,11 +114,8 @@ class Mesh(NamedAsset):
                 axis=1,
             )
         
-        self.vertex_buffer = vbo.VBO(combined_floats)
-        self.face_buffer = vbo.VBO(
-            self.data['faces'],
-            target=GL.GL_ELEMENT_ARRAY_BUFFER
-        )
+        self.vertex_buffer.set_array(combined_floats)
+        self.face_buffer.set_array(self.data['faces'])
     
     def cleanup_gl_data(self):
         self.vertex_buffer.delete()

@@ -9,15 +9,16 @@ class NamedAsset:
     def lookup_loaded_name(name):
         return _loaded_assets[name]
     
-    def __init__(self, data, name=None):
+    def __init__(self, name=None, **data):
         if name is None:
             i = str(len(self._loaded_assets))
         else:
             assert name not in self._loaded_assets, (
-                f'asset named "{name}" already exists')
-        self.data = data
+                f'{self.ASSET_CLASS_NAME} named "{name}" already exists')
+        
         self.name = name
         self._loaded_assets[name] = self
+        self.data = data
     
     def __del__(self):
         del(self._loaded_assets[self.name])
@@ -39,6 +40,15 @@ class NamedAsset:
     
     def cleanup_gl_data(self):
         pass
+    
+    def __getattr__(self, attr):
+        if attr in self.data:
+            return self.data[attr]
+        else:
+            super().__getattr__(attr)
+    
+    def __str__(self):
+        return name
 
 '''
     @classmethod

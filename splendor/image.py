@@ -55,3 +55,6 @@ def validate_texture(image):
     if image.shape[1] not in [1,2,4,8,16,32,64,128,256,512,1024,2048,4096]:
         raise ValueError('Image width must be a power of 2 '
                 'less than or equal to 4096 (Got %i)'%(image.shape[1]))
+
+    return image
+
