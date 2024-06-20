@@ -45,42 +45,26 @@ class Mesh(NamedAsset):
         )
         
         # load and validate the mesh_data
-        self.reload(
+        self.load_mesh(
             asset=asset,
             path=path,
-            #mesh_data=mesh_data,
             vertices=vertices,
             normals=normals,
             uvs=uvs,
             vertex_colors=vertex_colors,
             faces=faces,
-            #albedo=albedo,
         )
     
-    def reload(self,
+    def load_mesh(self,
         asset=None,
         path=None,
-        #mesh_data=None,
         vertices=None,
         normals=None,
         uvs=None,
         vertex_colors=None,
         faces=None,
-        albedo='FLAT',
     ):
-        # make sure only one source flag was specified
-        '''
-        source_flags = [
-            name for name, data in
-            (('asset', asset), ('path', path), ('mesh_data', mesh_data))
-            if data is not None
-        ]
-        assert len(source_flags) == 1, (
-            f'expected exactly one of "asset", "path" or "mesh_data" '
-            ' to be supplied to the Mesh constructor, got: {source_flags}.'
-        )
-        '''
-        
+        # make sure the arguments are coherent
         if asset is not None:
             assert path is None, (
                 'both "asset" and "path" were specified')
@@ -122,8 +106,69 @@ class Mesh(NamedAsset):
             vertex_colors = mesh_data.get('vertex_colors', none)
             faces = mesh_data.get('faces', none)
         
-        self.albedo = albedo
-        self.vertices = vertices
+        # validate vertices
+        # assert vertices exist
+        assert vertices is not None, 'mesh must have "vertices"'
+        # convert to float32
+        vertices = np.array(vertices, dtype=np.float32)
+        # assert Nx3 shape
+        assert len(vertices.shape) == 2 and vertices.shape[1] == 3, (
+            'mesh vertices must have shape Nx3')
+        # make read only
+        vertices.setflags(write=False)
+        self._vertices = vertices
+        
+        # validate faces
+        # assert faces exist
+        assert faces is not None, 'mesh must have "faces"'
+        # convert to int
+        faces = np.array(faces, dtype=np.int32)
+        # assert Nx3 shape
+        assert len(faces.shape) == 2 and faces.shape[1] == 3, (
+            'mesh faces must have shape Nx3')
+        # make read only
+        faces.setflags(write=False)
+        self._faces = faces
+        
+        # validate normals
+        # assert normals exist
+        assert normals is not None, 'mesh must have "normals"'
+        # convert to float32
+        normals = np.array(normals, dtype=np.float32)
+        # assert Nx3 shape
+        assert len(normals.shape) == 2 and normals.shape[1] == 3, (
+            'mesh normals must have shape Nx3')
+        # make read only
+        normals.setflags(write=False)
+        self._normals = normals
+        
+        # validate uvs
+        if uvs is not None:
+            # convert to float32
+            uvs = np.array(uvs, dtype=np.float32)
+            # assert Nx2 shape
+            assert len(uvs.shape) == 2 and uvs.shape[1] == 2, (
+                'mesh uvs must have shape Nx2')
+            # make read only
+            uvs.setflags(write=False)
+            self._uvs = uvs
+        else:
+            self._uvs = None
+        
+        # vertex color
+        if vertex_color is not None:
+            # convert to float32
+            vertex_color = np.array(vertex_color, dtype=np.float32)
+            # assert Nx3 shape
+            assert (len(vertex_color.shape) == 2 and
+                vertex_color.shape[1] == 3), (
+                'mesh vertex_color must have shape Nx3')
+            # make read only
+            vertex_color.setflags(write=False)
+            self._vertex_color = vertex_color
+        else:
+            self._vertex_color = None
+        
     
     '''
     @property
@@ -136,7 +181,7 @@ class Mesh(NamedAsset):
         self._mesh_data = validated_mesh_data
         self._update_gl_data()
     '''
-    
+    '''
     @property
     def albedo(self):
         return self._albedo
@@ -146,7 +191,9 @@ class Mesh(NamedAsset):
         assert albedo in self.SUPPORTED_ALBEDOS, (
             f'albedo "{albedo}" not {self.SUPPORTED_ALBEDOS}')
         self._albedo = albedo
+    '''
     
+    '''
     @staticmethod
     def validate_mesh(mesh_data):
         validated = {}
@@ -211,6 +258,7 @@ class Mesh(NamedAsset):
             validated['vertex_color'] = vertex_color
         
         return validated
+    '''
     
     def _update_gl_data(self):
         # determine how many floats each vertex has
