@@ -1,35 +1,41 @@
 import numpy as np
 
+import OpenGL.GL as GL
 from OpenGL.arrays import vbo
 
 from splendor.named_asset import NamedAsset
 
-def load_mesh_asset(name, asset_name, albedo='FLAT'):
-    asset_path = asset_library['mesh'][asset_name]
-    return Mesh(data, name=asset_name, albedo=albedo)
-
-
 class Mesh(NamedAsset):
     
-    ASSET_CLASS_NAME = 'mesh'
-    SUPPORTED_ALBEDOS = ('FLAT', 'VERTEX_COLOR', 'TEXTURED')
+    SUPPORTED_ALBEDOS = ('FLAT', 'VERTEX_COLOR', 'TEXTURE')
+    
+    _loaded_assets = {}
+    
+    _active_mesh = None
     
     def __init__(self,
         name=None,
-        mesh=None,
-        albedo='FLAT',
+        asset=None,
+        path=None,
+        #mesh_data=None,
+        vertices=None,
+        normals=None,
+        uvs=None,
+        vertex_colors=None,
+        faces=None,
+        #albedo='FLAT',
     ):
-        # verify/set albedo mode
-        #assert albedo in self.SUPPORTED_ALBEDOS, (
-        #    f'albedo must be in {self.SUPPORTED_ALBEDOS}')
-        #self.albedo = albedo
         
-        # set internal data and register the name
-        super().__init__(
-            name=name,
-            mesh=mesh,
-            albedo=albedo,
-        )
+        # if no name was specified, but an asset or path was provided, change
+        # the default name
+        if name is None:
+            if asset is not None:
+                name, _ = os.path.splitext(os.path.basename(asset))
+            elif path is not None:
+                name, _ = os.path.splitext(os.path.basename(path))
+        
+        # register a unique name for this mesh
+        super().__init__(name=name)
         
         # initialize vertex/face buffers
         self.vertex_buffer = vbo.VBO(np.zeros(0, dtype=np.float32))
@@ -37,87 +43,204 @@ class Mesh(NamedAsset):
             np.zeros(0, dtype=np.int32),
             target=GL.GL_ELEMENT_ARRAY_BUFFER
         )
+        
+        # load and validate the mesh_data
+        self.reload(
+            asset=asset,
+            path=path,
+            #mesh_data=mesh_data,
+            vertices=vertices,
+            normals=normals,
+            uvs=uvs,
+            vertex_colors=vertex_colors,
+            faces=faces,
+            #albedo=albedo,
+        )
+    
+    def reload(self,
+        asset=None,
+        path=None,
+        #mesh_data=None,
+        vertices=None,
+        normals=None,
+        uvs=None,
+        vertex_colors=None,
+        faces=None,
+        albedo='FLAT',
+    ):
+        # make sure only one source flag was specified
+        '''
+        source_flags = [
+            name for name, data in
+            (('asset', asset), ('path', path), ('mesh_data', mesh_data))
+            if data is not None
+        ]
+        assert len(source_flags) == 1, (
+            f'expected exactly one of "asset", "path" or "mesh_data" '
+            ' to be supplied to the Mesh constructor, got: {source_flags}.'
+        )
+        '''
+        
+        if asset is not None:
+            assert path is None, (
+                'both "asset" and "path" were specified')
+            assert (
+                vertices is None and
+                normals is None and
+                uvs is None and
+                vertex_colors is None and
+                faces is None
+            ), 'both "asset" and raw mesh data were specified'
+            self.source_type = 'asset'
+        elif path is not None:
+            assert (
+                vertices is None and
+                normals is None and
+                uvs is None and
+                vertex_colors is None and
+                faces is None
+            ), 'both "path" and raw mesh data were specified'
+            self.source_type = 'path'
+        else:
+            self.source_type = 'raw'
+        
+        self.source_type = source_flags[0]
+        self.asset = asset
+        self.path = path
+        
+        # load the mesh_data from the provided asset or path if necessary
+        if self.source_type in ('asset', 'path'):
+            if self.source_type == 'asset':
+                asset_path = AssetLibrary['mesh'][asset]
+                mesh_data = load_mesh_data(asset_path)
+            elif self.source_type == 'path':
+                mesh_data = load_mesh_data(path)
+            
+            vertices = mesh_data.get('vertices', None)
+            normals = mesh_data.get('normals', none)
+            uvs = mesh_data.get('uvs', none)
+            vertex_colors = mesh_data.get('vertex_colors', none)
+            faces = mesh_data.get('faces', none)
+        
+        self.albedo = albedo
+        self.vertices = vertices
+    
+    '''
+    @property
+    def mesh_data(self):
+        return self._mesh_data
+    
+    @mesh_data.setter
+    def mesh_data(self, mesh_data):
+        validated_mesh_data = self.validate_mesh(mesh_data)
+        self._mesh_data = validated_mesh_data
+        self._update_gl_data()
+    '''
+    
+    @property
+    def albedo(self):
+        return self._albedo
+    
+    @albedo.setter
+    def albedo(self, albedo):
+        assert albedo in self.SUPPORTED_ALBEDOS, (
+            f'albedo "{albedo}" not {self.SUPPORTED_ALBEDOS}')
+        self._albedo = albedo
     
     @staticmethod
-    def validate_data(data):
+    def validate_mesh(mesh_data):
         validated = {}
         
         # vertices
         # assert vertices exist
-        assert 'vertices' in data, 'mesh must have "vertices"'
-        vertices = data['vertices']
+        assert 'vertices' in mesh_data, 'mesh must have "vertices"'
+        # convert to float32
+        vertices = np.array(mesh_data['vertices'], dtype=np.float32)
         # assert Nx3 shape
         assert len(vertices.shape) == 2 and vertices.shape[1] == 3, (
             'mesh vertices must have shape Nx3')
-        # convert to float32
-        validated['vertices'] = np.array(vertices, dtype=np.float32)
+        # make read only
+        vertices.setflags(write=False)
+        validated['vertices'] = vertices
         
         # faces
         # assert faces exist
-        assert 'faces' in data, 'mesh must have "faces"'
-        faces = data['faces']
+        assert 'faces' in mesh_data, 'mesh must have "faces"'
+        # convert to int
+        faces = np.array(mesh_data['faces'], dtype=np.int32)
         # assert Nx3 shape
         assert len(faces.shape) == 2 and faces.shape[1] == 3, (
             'mesh faces must have shape Nx3')
+        # make read only
+        faces.setflags(write=False)
+        validated['faces'] = faces
         
         # normals
         # assert normals exist
-        assert 'normals' in data, 'mesh must have normals'
-        normals = data['normals']
+        assert 'normals' in mesh_data, 'mesh must have normals'
+        # convert to float32
+        normals = np.array(mesh_data['normals'], dtype=np.float32)
         # assert Nx3 shape
         assert len(normals.shape) == 2 and normals.shape[1] == 3, (
             'mesh normals must have shape Nx3')
-        # convert to float32
-        validated['normals'] = np.array(normals, dtype=np.float32)
+        # make read only
+        normals.setflags(write=False)
+        validated['normals'] = normals
         
         # uvs
-        if 'uvs' in data:
-            uvs = data['uvs']
+        if 'uvs' in mesh_data:
+            # convert to float32
+            uvs = np.array(mesh_data['uvs'], dtype=np.float32)
             # assert Nx2 shape
             assert len(uvs.shape) == 2 and uvs.shape[1] == 2, (
                 'mesh uvs must have shape Nx2')
-            # convert to float32
-            validated['uvs'] = np.array(uvs, dtype=np.float32)
+            # make read only
+            uvs.setflags(write=False)
+            validated['uvs'] = uvs
         
         # vertex color
-        if 'vertex_color' in data:
-            vertex_color = data['vertex_color']
+        if 'vertex_color' in mesh_data:
+            # convert to float32
+            vertex_color = np.array(mesh_data['vertex_color'], dtype=np.float32)
             # assert Nx3 shape
             assert (len(vertex_color.shape) == 2 and
                 vertex_color.shape[1] == 3), (
                 'mesh vertex_color must have shape Nx3')
-            # convert to float32
-            validated['vertex_color'] = np.array(
-                vertex_color, dtype=np.float32)
+            # make read only
+            vertex_color.setflags(write=False)
+            validated['vertex_color'] = vertex_color
         
         return validated
     
-    def update_gl_data(self):
+    def _update_gl_data(self):
+        # determine how many floats each vertex has
         if self.albedo == 'FLAT':
             combined_floats = np.concatenate(
-                self.data['vertices'],
-                self.data['normals'],
+                (self.mesh_data['vertices'], self.mesh_data['normals']),
                 axis=1
             )
         elif self.albedo == 'VERTEX_COLOR':
             combined_floats = np.concatenate(
-                self.data['vertices'],
-                self.data['normals'],
-                self.data['vertex_color'],
+                (self.mesh_data['vertices'],
+                 self.mesh_data['normals'],
+                 self.mesh_data['vertex_color']),
                 axis=1,
             )
-        elif self.albedo == 'TEXTURED':
+        elif self.albedo == 'TEXTURE':
             combined_floats = np.concatenate(
-                self.data['vertices'],
-                self.data['normals'],
-                self.data['uvs'],
+                (self.mesh_data['vertices'],
+                 self.mesh_data['normals'],
+                 self.mesh_data['uvs']),
                 axis=1,
             )
         
+        # send the vertex floats to opengl
         self.vertex_buffer.set_array(combined_floats)
-        self.face_buffer.set_array(self.data['faces'])
+        
+        # send the face ints to opengl
+        self.face_buffer.set_array(self.mesh_data['faces'])
     
-    def cleanup_gl_data(self):
+    def _cleanup_gl_data(self):
         self.vertex_buffer.delete()
         self.face_buffer.delete()
     
@@ -127,5 +250,42 @@ class Mesh(NamedAsset):
             return (3+3) * 4
         elif self.albedo == 'VERTEX_COLOR':
             return (3+3+3) * 4
-        elif self.albedo == 'TEXTURED':
+        elif self.albedo == 'TEXTURE':
             return (3+3+2) * 4
+    
+    def activate(self, shader_locations):
+        if not self._active_mesh is not self:
+            
+            if self._active_mesh is not None:
+                self._active_mesh.deactivate()
+            
+            self.face_buffer.bind()
+            self.vertex_buffer.bind()
+            
+            GL.glEnableVertexAttribArray(shader_locations['vertex_position'])
+            if 'vertex_normal' in shader_locations:
+                GL.glEnableVertexAttribArray(shader_locations['vertex_normal'])
+            if 'vertex_position' in shader_locations:
+                GL.glVertexAttribPointer(
+                    shader_locations['vertex_position'],
+                    3,
+                    GL.GL_FLOAT,
+                    False,
+                    self.vertex_stride,
+                    self.vertex_buffer,
+                )
+            if 'vertex_normal' in shader_locations:
+                GL.glVertexAttribPointer(
+                    shader_locations['vertex_normal'],
+                    3,
+                    GL.GL_FLOAT,
+                    False,
+                    self.vertex_stride,
+                    self.vertex_buffer + ((3)*4),
+                )
+            self._active_mesh = self
+    
+    def deactivate(self, shader_locations):
+        self.face_buffer.unbind()
+        self.vertex_buffer.unbind()
+        self._active_mesh = None
