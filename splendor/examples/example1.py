@@ -1,43 +1,81 @@
-from splendor import EGLRenderer, Scene, Mesh, Material, Texture
+'''
+from splendor import (
+    EGLContext,
+    Scene,
+    Mesh,
+    Material,
+    Texture,
+    MeshInstance,
+    PinholeCamera,
+)
+'''
+
+import math
+
+import numpy as np
+
+#from splendor.contexts.egl import EGLContext
+from splendor.session import RenderSession
+from splendor.mesh import Mesh
+from splendor.texture import Texture2D
+from splendor.material import SurfaceMaterial
+from splendor.instance import MeshInstance
+from splendor.camera import PinholeCamera
+from splendor.image import save_image
 
 def example():
-    # intialize the renderer
-    renderer = EGLRenderer()
+    # intialize the session
+    #context = EGLContext()
+    session = RenderSession(context_type='EGL')
     
-    # load the assets we are going to use
-    cereal_mesh = asset_library['mesh']['cereal']
-    texture = asset_library['texture']['cereal_rgb']
-    material_property_texture = asset_library['material']['cereal_mat']
-    material = SurfaceMaterial(SOMETHING)
+    with session:
     
-    # build a new scene
-    scene = Scene()
-    
-    # set the scene properties
-    scene.set_background_color((1,0,0))
-    scene.set_ambient_color((1,1,1))
-    
-    # add a new cereal box instance
-    cereal_transform = np.array([
-        [ 1, 0, 0,   0],
-        [ 0, 1, 0,   0],
-        [ 0, 0, 1, -10],
-        [ 0, 0, 0,   1],
-    ])
-    instance = scene.add_instance(
-        mesh=cereal_mesh,
-        material=cereal_material,
-        transform=cereal_transform,
-    )
-    
-    # add a camera
-    camera = scene.add_camera(
-        transform=np.eye(4),
-        horizontal_fov=math.radians(90.)
-    )
-    
-    # render a new image
-    image = renderer.color_render(scene, camera)
-    
-    # save the scene so it can be used again later
-    renderer.save('./example1_scene.json')
+        # load the assets we are going to use
+        cereal_mesh = Mesh(
+            name='cereal_mesh',
+            vertices=[[-1,-1,0],[1,-1,0],[1,1,0],[-1,1,0]],
+            normals=[[0,0,1],[0,0,1],[0,0,1],[0,0,1]],
+            uvs=[[0,0],[1,0],[1,1],[0,1]],
+            faces=[[0,1,2],[0,2,3]],
+        )
+        
+        #cereal_texture = Texture2D(
+        #    name='cereal_texture', path='./cereal_texture.png')
+        
+        cereal_material = SurfaceMaterial(
+            name='cereal_material',
+            flat_color=(1,1,0),
+        )
+        
+        # add a new cereal box instance
+        cereal_transform = np.array([
+            [ 1, 0, 0,   0],
+            [ 0, 1, 0,   0],
+            [ 0, 0, 1,  -5],
+            [ 0, 0, 0,   1],
+        ])
+        instance = MeshInstance(
+            name='cereal_instance',
+            mesh=cereal_mesh,
+            material=cereal_material,
+            transform=cereal_transform,
+        )
+        
+        # add a camera
+        camera = PinholeCamera(
+            fov=math.radians(30.),
+        )
+        
+        # render a new image
+        image, = camera.render(
+            instances=(instance,),
+            background_color=(0,0,0,0),
+        )
+        
+        save_image(image, './tmp.png')
+        
+        # save the scene so it can be used again later
+        #scene.save('./example1_scene.json')
+
+if __name__ == '__main__':
+    example()

@@ -1,63 +1,77 @@
-from splendor.shaders.utils import phong_fn
 from splendor.shaders.pbr import pbr_fns
 from splendor.shaders.skybox import skybox_fn
-from splendor.shaders.utils import softish_step_fn
 
-lighting_model_fragment_shader = '''
-const int MAX_NUM_LIGHTS = 8;
+surface_vertex_shader = '''#version 460 core
+layout(location=0) in vec3 vertex_position;
+layout(location=1) in vec3 vertex_normal;
+layout(location=2) in vec2 vertex_uv;
 
+out vec4 fragment_position;
+out vec4 fragment_normal;
+out vec2 fragment_uv;
+out vec3 fragment_local_position;
+
+uniform mat4 projection_matrix;
+uniform mat4 model_pose;
+uniform mat4 view_matrix;
+
+void main(){
+    mat4 vm = view_matrix * model_pose;
+    mat4 pvm = projection_matrix * vm;
+    gl_Position = pvm * vec4(vertex_position,1);
+    
+    fragment_position = vm * vec4(vertex_position,1);
+    fragment_normal = vm * vec4(vertex_normal,0);
+    
+    //fragment_uv.x = vertex_uv.x;
+    //fragment_uv.y =-vertex_uv.y;
+    fragment_uv = vertex_uv;
+    
+    fragment_local_position = vertex_position;
+}
+'''
+
+surface_fragment_shader = '''#version 460 core
 in vec4 fragment_position;
 in vec4 fragment_normal;
-
-#ifdef COMPILE_TEXTURE
 in vec2 fragment_uv;
-#endif
-
-#ifdef COMPILE_VERTEX_COLORS
-in vec3 fragment_color;
-#endif
+in vec3 fragment_location_position;
 
 out vec4 color;
 
-#ifndef COMPILE_TEXURED_MATERIAL_PROPERTIES
+uniform int use_textured_material_properties;
 uniform vec4 material_properties;
-#endif
-
 uniform vec4 image_light_properties;
 uniform bool image_light_active;
 uniform vec3 background_color;
 
-#ifdef COMPILE_FLAT_COLOR
+uniform int is_textured;
 uniform vec3 flat_color;
-#endif
 
 uniform vec3 ambient_color;
-uniform int num_point_lights;
-uniform int num_direction_lights;
+//uniform int num_point_lights;
+//uniform int num_direction_lights;
 
 uniform mat4 image_light_offset_matrix;
 uniform bool lock_image_light_to_camera;
 
-uniform vec3 point_light_data[2*MAX_NUM_LIGHTS];
-uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
+//uniform vec3 point_light_data[2*MAX_NUM_LIGHTS];
+//uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 
 uniform mat4 view_matrix;
 
-uniform mat4 shadow_view_matrix;
-uniform mat4 shadow_projection_matrix;
+//uniform mat4 shadow_view_matrix;
+//uniform mat4 shadow_projection_matrix;
 
-#ifdef COMPILE_TEXTURE
 layout(binding=0) uniform sampler2D texture_sampler;
-#endif
-
-#ifdef COMPILE_TEXTURED_MATERIAL_PROPERTIES
 layout(binding=1) uniform sampler2D material_properties_sampler;
-#endif
 
+/*
 layout(binding=2) uniform samplerCube diffuse_sampler;
 layout(binding=3) uniform samplerCube reflect_sampler;
+*/
 
-layout(binding=4) uniform sampler2D shadow_depth_sampler;
+//layout(binding=4) uniform sampler2D shadow_depth_sampler;
 
 const float MAX_MIPMAP = 4.;
 
@@ -67,14 +81,26 @@ const float MAX_MIPMAP = 4.;
 void main(){
     
     // material properties =====================================================
-#ifdef COMPILE_TEXTURED_MATERIAL_PROPERTIES
-    vec4 material_properties = texture(
-        material_properties_sampler, fragment_uv);
-#endif
-    float metal = material_properties.x;
-    float rough = material_properties.y;
-    float base_reflect = material_properties.z;
-    float ambient = material_properties.w;
+    float metal = 0;
+    float rough = 1;
+    float base_reflect = 2;
+    float ambient = 3;
+    /*
+    if(bool(use_textured_material_properties)){
+        vec4 textured_material_properties = texture(
+            material_properties_sampler, fragment_uv);
+        metal = textured_material_properties.x;
+        rough = textured_material_properties.y;
+        base_reflect = textured_material_properties.z;
+        ambient = textured_material_properties.w;
+    }
+    else{
+    */
+        metal = material_properties.x;
+        rough = material_properties.y;
+        base_reflect = material_properties.z;
+        ambient = material_properties.w;
+    //}
     
     float diffuse_gamma = image_light_properties.x;
     float diffuse_bias = image_light_properties.y;
@@ -88,22 +114,16 @@ void main(){
         camera_normal = vec3(inverse(view_matrix) * vec4(camera_normal, 0.));
     }
     // albedo ==================================================================
-    #ifdef COMPILE_TEXTURE
-    vec3 albedo = texture(texture_sampler, fragment_uv).rgb;
-    #endif
-    
-    #ifdef COMPILE_VERTEX_COLORS
-    vec3 albedo = fragment_color;
-    #endif
-    
-    #ifdef COMPILE_FLAT_COLOR
     vec3 albedo = flat_color;
-    #endif
+    if(bool(is_textured)){
+        albedo = texture(texture_sampler, fragment_uv).rgb;
+    }
     
     vec3 f0 = mix(vec3(base_reflect), albedo, metal);
     
     color = vec4(0., 0., 0., 1.);
     
+    /*
     // point lights ============================================================
     for(int i = 0; i < num_point_lights; ++i){
         
@@ -162,12 +182,14 @@ void main(){
         
         color += vec4(light_contribution, 0.) * (1. - in_shadow);
     }
+    */
     
     // reflect =================================================================
     float cos_theta = dot(normal, eye);
     vec3 ks = fresnel_schlick_rough(cos_theta, f0, rough);
     vec3 kd = (1. - ks) * (1. - metal);
     
+    /*
     // image light =============================================================
     if(image_light_active){
         
@@ -207,6 +229,7 @@ void main(){
         reflect_color = reflect_color * ks;
         color += vec4(reflect_color, 0.);
     }
+    */
     
     // ambient and background ==================================================
     color += vec4(kd * ambient_color * ambient * albedo, 0.);

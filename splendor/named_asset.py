@@ -1,54 +1,42 @@
+from splendor.session import RenderSession
+
 class NamedAsset:
-    _loaded_assets = {}
     
     @staticmethod
-    def all_loaded_names():
+    def list_assets():
         return set(_loaded_assets.keys())
     
     @staticmethod
     def lookup_loaded_name(name):
         return _loaded_assets[name]
     
-    def __init__(self, name=None, **data):
+    def __init__(self, name=None):
+        
+        # if no name was specified, construct a unique name automatically
         if name is None:
-            i = str(len(self._loaded_assets))
+            while True:
+                suffix = len(self._loaded_assets)
+                name = f'{self.__class__.__name__}_{suffix}'
+                if name not in self._loaded_assets:
+                    break
+                suffix += 1
+        
+        # make sure the specified name does not already exist
         else:
             assert name not in self._loaded_assets, (
                 f'{self.ASSET_CLASS_NAME} named "{name}" already exists')
         
         self.name = name
         self._loaded_assets[name] = self
-        self.data = data
+        
+        #active_session = RenderSession.active_session
+        #active_session.add_asset(self)
     
     def __del__(self):
         del(self._loaded_assets[self.name])
     
-    @property
-    def data(self):
-        return self._data
-    
-    @data.setter(self, data):
-        self._data = self.validate_data(data)
-        self.update_gl_data()
-    
-    @staticmethod
-    def validate_data(data):
-        return data
-    
-    def update_gl_data(self):
-        pass
-    
-    def cleanup_gl_data(self):
-        pass
-    
-    def __getattr__(self, attr):
-        if attr in self.data:
-            return self.data[attr]
-        else:
-            super().__getattr__(attr)
-    
     def __str__(self):
-        return name
+        return self.name
 
 '''
     @classmethod

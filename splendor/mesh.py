@@ -20,7 +20,6 @@ class Mesh(NamedAsset):
         vertices=None,
         normals=None,
         uvs=None,
-        #vertex_colors=None,
         faces=None,
     ):
         
@@ -38,7 +37,7 @@ class Mesh(NamedAsset):
         # initialize vertex/face buffers
         self.vertex_buffer = vbo.VBO(np.zeros(0, dtype=np.float32))
         self.face_buffer = vbo.VBO(
-            np.zeros(0, dtype=np.int32),
+            np.zeros(0, dtype=np.uint32),
             target=GL.GL_ELEMENT_ARRAY_BUFFER
         )
         #self.vertex_vao = GL.glGenVertexArrays(1)
@@ -53,7 +52,6 @@ class Mesh(NamedAsset):
             vertices=vertices,
             normals=normals,
             uvs=uvs,
-            vertex_colors=vertex_colors,
             faces=faces,
         )
     
@@ -63,7 +61,6 @@ class Mesh(NamedAsset):
         vertices=None,
         normals=None,
         uvs=None,
-        vertex_colors=None,
         faces=None,
     ):
         # make sure the arguments are coherent
@@ -74,7 +71,6 @@ class Mesh(NamedAsset):
                 vertices is None and
                 normals is None and
                 uvs is None and
-                vertex_colors is None and
                 faces is None
             ), 'both "asset" and raw mesh data were specified'
             self.source_type = 'asset'
@@ -83,7 +79,6 @@ class Mesh(NamedAsset):
                 vertices is None and
                 normals is None and
                 uvs is None and
-                vertex_colors is None and
                 faces is None
             ), 'both "path" and raw mesh data were specified'
             self.source_type = 'path'
@@ -104,7 +99,6 @@ class Mesh(NamedAsset):
             vertices = mesh_data.get('vertices', None)
             normals = mesh_data.get('normals', none)
             uvs = mesh_data.get('uvs', none)
-            vertex_colors = mesh_data.get('vertex_colors', none)
             faces = mesh_data.get('faces', none)
         
         # validate vertices
@@ -123,7 +117,7 @@ class Mesh(NamedAsset):
         # assert faces exist
         assert faces is not None, 'mesh must have "faces"'
         # convert to int
-        faces = np.array(faces, dtype=np.int32)
+        faces = np.array(faces, dtype=np.uint32)
         # assert Nx3 shape
         assert len(faces.shape) == 2 and faces.shape[1] == 3, (
             'mesh faces must have shape Nx3')
@@ -156,20 +150,6 @@ class Mesh(NamedAsset):
         else:
             self._uvs = None
         
-        # vertex colors
-        if vertex_colors is not None:
-            # convert to float32
-            vertex_colors = np.array(vertex_colors, dtype=np.float32)
-            # assert Nx3 shape
-            assert (len(vertex_colors.shape) == 2 and
-                vertex_colors.shape[1] == 3), (
-                'mesh vertex_colors must have shape Nx3')
-            # make read only
-            vertex_colors.setflags(write=False)
-            self._vertex_colors = vertex_colors
-        else:
-            self._vertex_colors = None
-        
         self._update_gl_data()
         
     @property
@@ -179,10 +159,6 @@ class Mesh(NamedAsset):
     @property
     def normals(self):
         return self._normals
-    
-    @property
-    def vertex_colors(self):
-        return self._vertex_colors
     
     @property
     def uvs(self):
@@ -217,16 +193,29 @@ class Mesh(NamedAsset):
         '''
         
         combined_floats = np.concatenate(
-            (self.vertices, self.normals, self.uvs, self.vertex_colors),
+            (self.vertices, self.normals, self.uvs),
             axis=1,
         )
         
-        # send the vertex floats to opengl
-        self.vertex_buffer.set_array(combined_floats)
+        if False:
+            # send the vertex floats to opengl
+            vertex_bytes = combined_floats.size * combined_floats.itemsize
+            self.vertex_buffer.set_array(combined_floats, vertex_bytes)
+            self.vertex_buffer.create_buffers()
+            self.vertex_buffer.copy_data()
+            
+            # send the face ints to opengl
+            face_bytes = self.faces.size * self.faces.itemsize
+            self.face_buffer.set_array(self.faces.reshape(-1), face_bytes)
+            self.face_buffer.create_buffers()
+            self.face_buffer.copy_data()
         
-        # send the face ints to opengl
-        self.face_buffer.set_array(self.faces)
-    
+        self.vertex_buffer = vbo.VBO(combined_floats)
+        self.face_buffer = vbo.VBO(
+            self.faces,
+            target=GL.GL_ELEMENT_ARRAY_BUFFER
+        )
+        
     def _cleanup_gl_data(self):
         self.vertex_buffer.delete()
         self.face_buffer.delete()
@@ -241,7 +230,7 @@ class Mesh(NamedAsset):
         elif self.albedo == 'TEXTURE':
             return (3+3+2) * 4
         '''
-        return (3+3+2+3) * 4
+        return (3+3+2) * 4
     
     def activate(self, shader_locations):
         if not self._active_mesh is not self:
@@ -251,6 +240,35 @@ class Mesh(NamedAsset):
             
             self.face_buffer.bind()
             self.vertex_buffer.bind()
+            
+            # TODO: This probably only needs to be run once?
+            GL.glEnableVertexAttribArray(location_data['vertex_position'])
+            GL.glEnableVertexAttribArray(location_data['vertex_normal'])
+            GL.glEnableVertexAttribArray(location_data['vertex_uv'])
+            GL.glVertexAttribPointer(
+                shader_locations['vertex_position'],
+                3,
+                GL.GL_FLOAT,
+                False,
+                self.vertex_stride,
+                self.vertex_buffer,
+            )
+            GL.glVertexAttribPointer(
+                shader_locations['vertex_normal'],
+                3,
+                GL.GL_FLOAT,
+                False,
+                self.vertex_stride,
+                self.vertex_buffer + ((3)*4),
+            )
+            GL.glVertexAttribPointer(
+                shader_locations['vertex_uv'],
+                2,
+                GL.GL_FLOAT,
+                False,
+                self.vertex_stride,
+                self.vertex_buffer + ((3+3)*4),
+            )
             
             '''
             GL.glEnableVertexAttribArray(shader_locations['vertex_position'])

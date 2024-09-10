@@ -1,0 +1,41 @@
+In v<2, when everything was a method of the monolithic Renderer class, the "load_mesh" "load_texture" etc. methods all had multiple ways of providing the data specified by using different arguments and an assertion check to make sure that only one of the flags was actually passed in.
+
+Then in that function, the "scene_description" (the serialization data) was built out differently depending on those arguments.
+
+Now, every asset type is a class.  I can do the same thing as before, but on initialization.  Each of these classes inherits from a single NamedAsset class which handles the unique naming of all class instances as well as a few other things.  I started doing a thing where I included a "data" element in this class which represents the python data corresponding to the object (the mesh json data, or a numpy array for a texture for example).
+
+I guess I had the idea to then use that data for serialization, but I think that might be a mistake.  I think each asset type needs a custom serialization mechanism, and I don't think that all python data for a particular asset type should be shoved into a single variable.  Some assets, like materials, are better described by class-level attributes (roughness, base_reflection, etc.) and I want the user to be able to access that via my_material.roughness rather than my_material.data['roughness'].  Also, making everything have it's own custom serialization method means you can easily handle the different ways of providing the data.  Pushing things back to the individual asset classes also makes it easier to deal with some asset types (Material, Instance) that have easily changeable variables (Material.roughness, Instance.transform) that the user should feel free to modify, and other asset types (Mesh, Texture) where the data must be updated to the device whenever it's changed.
+
+Next though: for meshes, I want primitives to exist, and I want these to function exactly like meshes when rendering.  But then I also want them to serialize in a special way.  I also don't really want the Mesh class to have to know about them.  So should primitive just inherit from Mesh?  But then does that mean we have a seperate "primitive" section in the serialization data?  Seems fine I guess.  The other question is about assets.  These should also serialize in a way that preserves their connection to the original asset name.  But I don't want to subclass a MeshAsset for example.  But I'm also not sure I want the Mesh class to know about the AssetLibrary.  It seems like the ideal way to handle this in code would be:
+
+my_library = AssetLibrary('my_stuff')
+my_mesh = my_library.meshes['my_mesh']
+
+and then when serializing my_mesh, it just always knows to load the asset "my_mesh".  One issue though.  Does this mean we also need to serialize the libraries as well?  I guess so, because if you create multiple of them, you'd want to know where each one came from.  That seems fine though.  An asset library is a type of asset.
+
+Another question.  How does a person control what gets serialized?  Like if they load an asset library, but never use it, or load a mesh but never use it.  Oh, they can just delete it, which will remove it from the _loaded_assets diectionary, that's fine.
+
+Ok, so back to serialization.  If we load meshes from the asset library as above, what happems to make the mesh serialization (which is handled by the Mesh class) know where it came from?  Do we just have the asset_library make some internal modification to the mesh, or have some hook that can be called or something?  With meshes, there are actually four sources: primitives (we will use a subclass), asset (the AssetLibrary will load it), raw mesh data (the serialization will just be all the vertices and faces) and a file path.  This last one is another open question.  Do we have an argument to the Mesh class?
+
+my_mesh = Mesh(path='/path/to/my/mesh.obj')
+
+Or do we have a separate function that loads from a file and replaces the serialization data similar to the AssetLibrary?
+
+my_mesh = Mesh.load_from_file('/path/to/my/mesh.obj')
+
+or
+
+my_mesh = load_mesh_from_file('/path/to/my/mesh.obj')
+
+Oh right, jeez, ok, here we come back to the original problem though: when deserializing, I want to just be able to pass the serialized data to one function as kwargs.  This screws up the whole idea of having an AssetLoader that simply constructs a mesh and then changes the serialization data because you can't pass that serialization data back to the Mesh constructor.  So maybe the only way to construct new Meshes is with the Mesh constructor?
+
+my_explicit_mesh = Mesh(mesh_data={'vertices':[...], 'faces':[...]})
+my_loaded_mesh = Mesh(path='/path/to/my/mesh.obj')
+my_asset_mesh = Mesh(asset='my_mesh_asset.obj')
+my_primitive_mesh = Mesh(primitive={shape='sphere', ...})
+
+If we make primitives their own Mesh subclass, then the last one can be:
+
+my_primitive_mesh = Primitive(shape='sphere', ...)
+
+The alternative is to make the deserializer more complicated.  But I really want to avoid that I think.

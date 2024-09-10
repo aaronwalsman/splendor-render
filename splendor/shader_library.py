@@ -1,6 +1,7 @@
 import OpenGL.GL as gl
 import OpenGL.GL.shaders as shaders
 
+'''
 from splendor.shaders.color_render import (
     textured_material_properties_vertex_shader,
     textured_material_properties_fragment_shader,
@@ -8,6 +9,10 @@ from splendor.shaders.color_render import (
     vertex_color_vertex_shader, vertex_color_fragment_shader,
     flat_color_vertex_shader, flat_color_fragment_shader,
 )
+'''
+from splendor.shaders.surface_shader import (
+    surface_vertex_shader, surface_fragment_shader)
+'''
 from splendor.shaders.mask_render import (
     mask_vertex_shader, mask_fragment_shader)
 from splendor.shaders.coord_render import (
@@ -18,7 +23,8 @@ from splendor.shaders.depthmap import (
     textured_depthmap_vertex_shader, textured_depthmap_fragment_shader)
 from splendor.shaders.shadows import (
     depthmap_shadow_vertex_shader, depthmap_shadow_fragment_shader)
-
+'''
+'''
 default_shader_code = {
     'textured_material_properties_shader':(
         textured_material_properties_vertex_shader,
@@ -41,6 +47,11 @@ default_shader_code = {
     'depthmap_shadow_shader' :
         (depthmap_shadow_vertex_shader, depthmap_shadow_fragment_shader),
 }
+'''
+
+default_shader_code = {
+    'surface_shader' : (surface_vertex_shader, surface_fragment_shader)
+}
 
 class ShaderLibrary:
     def __init__(self, shader_code=None):
@@ -52,17 +63,29 @@ class ShaderLibrary:
             self.gl_data[shader_name] = {}
             
             # compile shaders
-            vertex_shader = shaders.compileShader(
-                    vertex_code, gl.GL_VERTEX_SHADER)
-            fragment_shader = shaders.compileShader(
-                    fragment_code, gl.GL_FRAGMENT_SHADER)
+            try:
+                vertex_shader = shaders.compileShader(
+                        vertex_code, gl.GL_VERTEX_SHADER)
+            except:
+                print(f'Failed to compile {shader_name} vertex shader')
+                raise
+            try:
+                fragment_shader = shaders.compileShader(
+                        fragment_code, gl.GL_FRAGMENT_SHADER)
+            except:
+                print(f'Failed to compile {shader_name} fragment shader')
+                raise
             self.gl_data[shader_name]['vertex_shader'] = vertex_shader
             self.gl_data[shader_name]['fragment_shader'] = fragment_shader
             
             # compile programs
-            program = shaders.compileProgram(
-                    self.gl_data[shader_name]['vertex_shader'],
-                    self.gl_data[shader_name]['fragment_shader'])
+            try:
+                program = shaders.compileProgram(
+                        self.gl_data[shader_name]['vertex_shader'],
+                        self.gl_data[shader_name]['fragment_shader'])
+            except:
+                print('Failed to compile {shader_name} program') 
+                raise
             self.gl_data[shader_name]['program'] = program
             
             # get locations

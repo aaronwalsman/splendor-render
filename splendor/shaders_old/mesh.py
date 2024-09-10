@@ -47,7 +47,7 @@ uniform mat4 view_matrix;
 uniform float radial_k1;
 uniform float radial_k2;
 
-#ifdef COMPILE_FLAT_COLOR
+#ifdef COMPILE_COORD
 uniform vec3 box_min;
 uniform vec3 box_max;
 #endif
@@ -91,7 +91,7 @@ void main(){
     fragment_color = vertex_color;
     #endif
     
-    #ifdef COMIPLE_COORD
+    #ifdef COMPILE_COORD
     coord = (vertex_position - box_min) / (box_max - box_min);
     #endif
 }
