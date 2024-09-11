@@ -20,9 +20,15 @@ def start_viewer(
     assets = None,
     print_fps = False,
 ):
-
+    
     glut.initialize()
-    window = glut.GlutWindowWrapper('Color', width, height)
+    window = glut.GlutWindowWrapper(
+        'Color',
+        width,
+        height,
+        anti_alias=anti_alias,
+        anti_alias_samples=anti_alias_samples,
+    )
     
     renderer = core.SplendorRender(assets=assets)
     window.show_window()

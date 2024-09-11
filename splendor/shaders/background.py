@@ -1,6 +1,6 @@
 from splendor.shaders.skybox import skybox_fn
 
-background_vertex_shader = '''#version 460 core
+background_vertex_shader = '''#version 330 core
 #define FAR 1-(1e-4)
 
 uniform mat4 projection_matrix;
@@ -35,7 +35,7 @@ void main(){
 }
 '''
 
-background_2D_fragment_shader = '''#version 460 core
+background_2D_fragment_shader = '''#version 330 core
 in vec2 fragment_uv;
 out vec3 color;
 
@@ -46,7 +46,7 @@ void main(){
 }
 '''
 
-background_fragment_shader = '''#version 460 core
+background_fragment_shader = '''#version 330 core
 in vec3 fragment_direction;
 out vec3 color;
 

@@ -16,7 +16,7 @@ vec4 skybox_texture(samplerCube sampler, vec4 v, float level){
 }
 '''
 
-panorama_to_cube_fragment_shader = '''#version 460 core
+panorama_to_cube_fragment_shader = '''#version 330 core
 #define M_PI 3.1415926535897932384626433832795
 
 in vec3 fragment_direction;

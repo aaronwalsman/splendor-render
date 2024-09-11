@@ -22,7 +22,9 @@ def main():
 
     width, height = (int(wh) for wh in args.resolution.lower().split('x'))
     anti_alias = args.anti_alias_samples != 0
-
+    print(anti_alias)
+    print(args.anti_alias_samples)
+    
     viewer.start_viewer(
         args.file_path,
         width,
