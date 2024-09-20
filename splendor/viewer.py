@@ -5,7 +5,8 @@ import os
 
 import numpy
 
-import splendor.contexts.glut as glut
+#import splendor.contexts.glut as glut
+import splendor.contexts.pyglet as pyglet
 import splendor.core as core
 import splendor.camera as camera
 from splendor.interactive_camera import InteractiveCamera
@@ -21,13 +22,20 @@ def start_viewer(
     print_fps = False,
 ):
     
-    glut.initialize()
-    window = glut.GlutWindowWrapper(
-        'Color',
-        width,
-        height,
+    #glut.initialize()
+    #window = glut.GlutWindowWrapper(
+    #    'Color',
+    #    width,
+    #    height,
+    #    anti_alias=anti_alias,
+    #    anti_alias_samples=anti_alias_samples,
+    #)
+    window = pyglet.PygletWindow(
+        width=width,
+        height=height,
         anti_alias=anti_alias,
         anti_alias_samples=anti_alias_samples,
+        visible=True,
     )
     
     renderer = core.SplendorRender(assets=assets)
@@ -76,6 +84,7 @@ def start_viewer(
         state['steps'] += 1
         renderer.color_render(flip_y=False)
     
+    '''
     window.register_callbacks(
             glutDisplayFunc = render,
             glutIdleFunc = render,
@@ -83,3 +92,4 @@ def start_viewer(
             glutMotionFunc = camera_control.mouse_move)
     
     glut.start_main_loop()
+    '''

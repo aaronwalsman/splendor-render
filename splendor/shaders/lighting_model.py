@@ -45,15 +45,15 @@ uniform vec3 direction_light_data[2*MAX_NUM_LIGHTS];
 uniform mat4 view_matrix;
 
 #ifdef COMPILE_TEXTURE
-layout(binding=0) uniform sampler2D texture_sampler;
+uniform sampler2D texture_sampler;
 #endif
 
 #ifdef COMPILE_TEXTURED_MATERIAL_PROPERTIES
-layout(binding=1) uniform sampler2D material_properties_sampler;
+uniform sampler2D material_properties_sampler;
 #endif
 
-layout(binding=2) uniform samplerCube diffuse_sampler;
-layout(binding=3) uniform samplerCube reflect_sampler;
+uniform samplerCube diffuse_sampler;
+uniform samplerCube reflect_sampler;
 
 const float MAX_MIPMAP = 4.;
 
