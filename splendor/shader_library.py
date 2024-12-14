@@ -1,3 +1,5 @@
+import numpy as np
+
 import OpenGL.GL as gl
 import OpenGL.GL.shaders as shaders
 
@@ -34,8 +36,8 @@ default_shader_code = {
         (flat_color_vertex_shader, flat_color_fragment_shader),
     'mask_shader' :
         (mask_vertex_shader, mask_fragment_shader),
-    'coord_shader' :
-        (coord_vertex_shader, coord_fragment_shader),
+    #'coord_shader' :
+    #    (coord_vertex_shader, coord_fragment_shader),
     'background_shader' :
         (background_vertex_shader, background_fragment_shader),
     'textured_depthmap_shader' :
@@ -48,10 +50,79 @@ class ShaderLibrary:
             shader_code = default_shader_code
         
         tmp_vao = gl.glGenVertexArrays(1)
+        tmp_image = np.zeros((16,16,3), dtype=np.uint8)
+        #tmp_tex = [
+        tex0 = gl.glGenTextures(1)
+        gl.glActiveTexture(gl.GL_TEXTURE0)
+        gl.glBindTexture(gl.GL_TEXTURE_2D, tex0)
+        gl.glTexImage2D(
+            gl.GL_TEXTURE_2D,
+            0,
+            gl.GL_RGB,
+            tmp_image.shape[1],
+            tmp_image.shape[0],
+            0,
+            gl.GL_RGB,
+            gl.GL_UNSIGNED_BYTE,
+            tmp_image,
+        )
+        
+        tex1 = gl.glGenTextures(1)
+        gl.glActiveTexture(gl.GL_TEXTURE1)
+        gl.glBindTexture(gl.GL_TEXTURE_2D, tex1)
+        gl.glTexImage2D(
+            gl.GL_TEXTURE_2D,
+            0,
+            gl.GL_RGB,
+            tmp_image.shape[1],
+            tmp_image.shape[0],
+            0,
+            gl.GL_RGB,
+            gl.GL_UNSIGNED_BYTE,
+            tmp_image,
+        )
+        
+        tex2 = gl.glGenTextures(1)
+        gl.glActiveTexture(gl.GL_TEXTURE2)
+        gl.glBindTexture(gl.GL_TEXTURE_CUBE_MAP, tex2)
+        for i in range(6):
+            gl.glTexImage2D(
+                gl.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                0,
+                gl.GL_RGB,
+                16,
+                16,
+                0,
+                gl.GL_RGB,
+                gl.GL_UNSIGNED_BYTE,
+                tmp_image,
+            )
+        
+        tex3 = gl.glGenTextures(1)
+        gl.glActiveTexture(gl.GL_TEXTURE3)
+        gl.glBindTexture(gl.GL_TEXTURE_CUBE_MAP, tex3)
+        for i in range(6):
+            gl.glTexImage2D(
+                gl.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                0,
+                gl.GL_RGB,
+                16,
+                16,
+                0,
+                gl.GL_RGB,
+                gl.GL_UNSIGNED_BYTE,
+                tmp_image,
+            )
+        
         
         self.gl_data = {}
         for shader_name, (vertex_code, fragment_code) in shader_code.items():
+            print('compiling', shader_name)
             self.gl_data[shader_name] = {}
+            
+            # bind temporary textures as necessary
+            #n_sampler2d = fragment_code.count('sampler2D')
+            #n_samplerCube = fragment_code.count('samplerCube')
             
             # compile shaders
             vertex_shader = shaders.compileShader(
@@ -64,9 +135,22 @@ class ShaderLibrary:
             gl.glBindVertexArray(tmp_vao)
             
             # compile programs
-            program = shaders.compileProgram(
+            try:
+                program = shaders.compileProgram(
                     self.gl_data[shader_name]['vertex_shader'],
-                    self.gl_data[shader_name]['fragment_shader'])
+                    self.gl_data[shader_name]['fragment_shader'],
+                    validate=False,
+                )
+            except:
+                print(f'Compiling {shader_name} failed.')
+                #breakpoint()
+                raise
+            else:
+                print(f'Compiled {shader_name} successfully.')
+                #breakpoint()
+            
+            gl.glBindVertexArray(0)
+            
             self.gl_data[shader_name]['program'] = program
             
             # get locations
@@ -97,7 +181,7 @@ class ShaderLibrary:
             if 'cubemap_sampler' in locations:
                 gl.glUniform1i(locations['cubemap_sampler'], 0)
         
-        gl.glDeleteVertexArray(tmp_vao)
+        gl.glDeleteVertexArrays(1, [tmp_vao])
     
     def get_shader_locations(self, shader):
         return self.gl_data[shader]['locations']
@@ -107,3 +191,6 @@ class ShaderLibrary:
     
     def use_program(self, shader_name):
         gl.glUseProgram(self.gl_data[shader_name]['program'])
+
+    def get_program_id(self, shader_name):
+        return self.gl_data[shader_name]['program']

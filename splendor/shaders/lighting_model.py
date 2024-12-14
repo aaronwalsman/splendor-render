@@ -21,7 +21,6 @@ out vec4 color;
 
 #ifndef COMPILE_TEXURED_MATERIAL_PROPERTIES
 uniform vec4 material_properties;
-//uniform vec3 material_properties;
 #endif
 
 uniform vec4 image_light_properties;
@@ -163,6 +162,7 @@ void main(){
                 diffuse_sampler, offset_fragment_normal));
         diffuse_color =
                 pow(diffuse_color, vec3(diffuse_gamma));
+        //vec3 diffuse_color = vec3(1,0,0);
         
         // This correction is based on the very crude approximation that
         // the distribution of intensities in the reflection image is uniform
@@ -183,6 +183,7 @@ void main(){
                 reflect_sampler, reflected_direction, rough*MAX_MIPMAP));
         reflect_color =
                 pow(reflect_color, vec3(reflect_gamma));
+        //vec3 reflect_color = vec3(0,1,0);
         
         // See note above about diffuse correction
         float reflect_correction = (reflect_gamma+1)/2;
@@ -194,8 +195,10 @@ void main(){
     }
     
     // ambient and background ==================================================
+    //float z = 0.;
     color += vec4(kd * ambient_color * ambient * albedo, 0.);
     color += vec4(ks * background_color, 0.);
-    
+    //color += vec4(z * background_color, 0.);
+    //color = color * z + vec4(albedo, 1.);
 }
 '''
