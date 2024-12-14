@@ -51,7 +51,6 @@ class ShaderLibrary:
         
         tmp_vao = gl.glGenVertexArrays(1)
         tmp_image = np.zeros((16,16,3), dtype=np.uint8)
-        #tmp_tex = [
         tex0 = gl.glGenTextures(1)
         gl.glActiveTexture(gl.GL_TEXTURE0)
         gl.glBindTexture(gl.GL_TEXTURE_2D, tex0)
@@ -120,10 +119,6 @@ class ShaderLibrary:
             print('compiling', shader_name)
             self.gl_data[shader_name] = {}
             
-            # bind temporary textures as necessary
-            #n_sampler2d = fragment_code.count('sampler2D')
-            #n_samplerCube = fragment_code.count('samplerCube')
-            
             # compile shaders
             vertex_shader = shaders.compileShader(
                     vertex_code, gl.GL_VERTEX_SHADER)
@@ -136,6 +131,7 @@ class ShaderLibrary:
             
             # compile programs
             try:
+                print('Still not validating!')
                 program = shaders.compileProgram(
                     self.gl_data[shader_name]['vertex_shader'],
                     self.gl_data[shader_name]['fragment_shader'],

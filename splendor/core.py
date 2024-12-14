@@ -1627,10 +1627,6 @@ class SplendorRender:
             for i, color in zip(instance_indices.keys(), colors):
                 instance_data = self.scene_description['instances'][i]
                 instance_data['mask_color'] = color
-            
-        #for instance_name, index in instance_indices.items():
-        #    instance_data = self.scene_description['instances'][instance_name]
-        #    instance_data['mask_color'] = masks.color_index_to_float(index)
 
     def set_instance_masks_to_mesh_indices(self, mesh_indices, instances=None):
         """
@@ -1930,21 +1926,6 @@ class SplendorRender:
             image_light_data = self.get_image_light(image_light_name)
             if image_light_data['render_background']:
                 self.render_background(image_light_name, flip_y = flip_y)
-            
-            '''
-            diffuse_cubemap = image_light_data['diffuse_cubemap']
-            reflect_cubemap = image_light_data['reflect_cubemap']
-            GL.glActiveTexture(GL.GL_TEXTURE2)
-            GL.glBindTexture(
-                GL.GL_TEXTURE_CUBE_MAP,
-                self.gl_data['cubemap_buffers'][diffuse_cubemap]['cubemap'],
-            )
-            GL.glActiveTexture(GL.GL_TEXTURE3)
-            GL.glBindTexture(
-                GL.GL_TEXTURE_CUBE_MAP,
-                self.gl_data['cubemap_buffers'][reflect_cubemap]['cubemap'],
-            )
-            '''
 
         # depthmap_instances
         if depthmap_instances is None:
@@ -2054,27 +2035,23 @@ class SplendorRender:
                 if 'diffuse_sampler' in location_data:
                     diffuse_cubemap = image_light_data['diffuse_cubemap']
                     GL.glActiveTexture(GL.GL_TEXTURE2)
+                    diffuse_data = (
+                        self.gl_data['cubemap_buffers'][diffuse_cubemap])
                     GL.glBindTexture(
                         GL.GL_TEXTURE_CUBE_MAP,
-                        self.gl_data['cubemap_buffers'][diffuse_cubemap]['cubemap'],
+                        diffuse_data['cubemap'],
                     )
                     GL.glUniform1i(location_data['diffuse_sampler'], 2)
-                    print('DIFFUSE:', self.gl_data['cubemap_buffers'][diffuse_cubemap]['cubemap'])
                 if 'reflect_sampler' in location_data:
                     reflect_cubemap = image_light_data['reflect_cubemap']
                     GL.glActiveTexture(GL.GL_TEXTURE3)
+                    reflect_data = (
+                        self.gl_data['cubemap_buffers'][reflect_cubemap])
                     GL.glBindTexture(
                         GL.GL_TEXTURE_CUBE_MAP,
-                        self.gl_data['cubemap_buffers'][reflect_cubemap]['cubemap'],
+                        reflect_data['cubemap'],
                     )
                     GL.glUniform1i(location_data['reflect_sampler'], 3)
-                    print('REFLECT:', self.gl_data['cubemap_buffers'][reflect_cubemap]['cubemap'])
-                
-                '''
-                SOMETHING HERE IS WRONG.  THE texture indices are not correct
-                for diffuse and reflect, and show up as 0 I think.
-                '''
-                print_locations(self.shader_library.get_program_id(shader_name), location_data)
                 
                 # set the camera's view matrix
                 view_matrix = self.scene_description['camera']['view_matrix']
@@ -2179,8 +2156,6 @@ class SplendorRender:
                         self.load_mesh_color_shader_data(mesh_name, shader_name)
                         instances = shader_instances[material_name][mesh_name]
                         for instance in instances:
-                            shader = self.shader_library.get_program_id(shader_name)
-                            print_locations(shader, location_data)
                             self.color_render_instance(
                                     instance, shader_name)
                         self.unload_mesh_shader_data(mesh_name)
@@ -2195,44 +2170,7 @@ class SplendorRender:
         
         # bind mesh buffers
         mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
-        #mesh_buffers['face_buffer'].bind()
-        #mesh_buffers['vertex_buffer'].bind()
-        
         GL.glBindVertexArray(mesh_buffers['vao'])
-        
-        # get the shader variable locations
-        #location_data = self.shader_library.get_shader_locations(shader_name)
-        
-        # enable the attribute arrays
-        #GL.glEnableVertexAttribArray(location_data['vertex_position'])
-        #GL.glEnableVertexAttribArray(location_data['vertex_normal'])
-        #if shader_name in (
-        #    'textured_shader', 'textured_material_properties_shader'):
-        #    GL.glEnableVertexAttribArray(location_data['vertex_uv'])
-        #elif shader_name == 'vertex_color_shader':
-        #    GL.glEnableVertexAttribArray(location_data['vertex_color'])
-        
-        # load the pointers to the vertex, normal, uv and vertex color data
-        #stride = self.get_mesh_stride(mesh_name)
-        #GL.glVertexAttribPointer(
-        #        location_data['vertex_position'],
-        #        3, GL.GL_FLOAT, False, stride,
-        #        mesh_buffers['vertex_buffer'])
-        #GL.glVertexAttribPointer(
-        #        location_data['vertex_normal'],
-        #        3, GL.GL_FLOAT, False, stride,
-        #        mesh_buffers['vertex_buffer']+((3)*4))
-        #if shader_name in (
-        #    'textured_shader', 'textured_material_properties_shader'):
-        #    GL.glVertexAttribPointer(
-        #            location_data['vertex_uv'],
-        #            2, GL.GL_FLOAT, False, stride,
-        #            mesh_buffers['vertex_buffer']+((3+3)*4))
-        #elif shader_name == 'vertex_color_shader':
-        #    GL.glVertexAttribPointer(
-        #            location_data['vertex_color'],
-        #            3, GL.GL_FLOAT, False, stride,
-        #            mesh_buffers['vertex_buffer']+((3+3)*4))
     
     def unload_mesh_shader_data(self, mesh_name):
         mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
@@ -2440,8 +2378,6 @@ class SplendorRender:
         GL.glUniform1f(location_data['blur'], blur)
         
         GL.glBindVertexArray(mesh_buffers['vao'])
-        #mesh_buffers['face_buffer'].bind()
-        #mesh_buffers['vertex_buffer'].bind()
 
         GL.glActiveTexture(GL.GL_TEXTURE0)
         GL.glBindTexture(
@@ -2457,18 +2393,11 @@ class SplendorRender:
         # BUT WORSE HERE.  MAYBE THE RIGHT THING IS TO GENERATE BLURRED
         # MIPMAPS AND DO EXPLICIT LOD LOOKUPS INSTEAD OF BIAS???
 
-        try:
-            GL.glDrawElements(
-                    GL.GL_TRIANGLES,
-                    2*3,
-                    GL.GL_UNSIGNED_INT,
-                    None)
-
-        finally:
-            #mesh_buffers['face_buffer'].unbind()
-            #mesh_buffers['vertex_buffer'].unbind()
-            #GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
-            pass
+        GL.glDrawElements(
+                GL.GL_TRIANGLES,
+                2*3,
+                GL.GL_UNSIGNED_INT,
+                None)
 
     # mask_render methods ------------------------------------------------------
     
