@@ -2031,27 +2031,27 @@ class SplendorRender:
                 
                 # set the cubemap samplers
                 
-                
-                if 'diffuse_sampler' in location_data:
-                    diffuse_cubemap = image_light_data['diffuse_cubemap']
-                    GL.glActiveTexture(GL.GL_TEXTURE2)
-                    diffuse_data = (
-                        self.gl_data['cubemap_buffers'][diffuse_cubemap])
-                    GL.glBindTexture(
-                        GL.GL_TEXTURE_CUBE_MAP,
-                        diffuse_data['cubemap'],
-                    )
-                    GL.glUniform1i(location_data['diffuse_sampler'], 2)
-                if 'reflect_sampler' in location_data:
-                    reflect_cubemap = image_light_data['reflect_cubemap']
-                    GL.glActiveTexture(GL.GL_TEXTURE3)
-                    reflect_data = (
-                        self.gl_data['cubemap_buffers'][reflect_cubemap])
-                    GL.glBindTexture(
-                        GL.GL_TEXTURE_CUBE_MAP,
-                        reflect_data['cubemap'],
-                    )
-                    GL.glUniform1i(location_data['reflect_sampler'], 3)
+                if self.get_active_image_light() is not None:
+                    if 'diffuse_sampler' in location_data:
+                        diffuse_cubemap = image_light_data['diffuse_cubemap']
+                        GL.glActiveTexture(GL.GL_TEXTURE2)
+                        diffuse_data = (
+                            self.gl_data['cubemap_buffers'][diffuse_cubemap])
+                        GL.glBindTexture(
+                            GL.GL_TEXTURE_CUBE_MAP,
+                            diffuse_data['cubemap'],
+                        )
+                        GL.glUniform1i(location_data['diffuse_sampler'], 2)
+                    if 'reflect_sampler' in location_data:
+                        reflect_cubemap = image_light_data['reflect_cubemap']
+                        GL.glActiveTexture(GL.GL_TEXTURE3)
+                        reflect_data = (
+                            self.gl_data['cubemap_buffers'][reflect_cubemap])
+                        GL.glBindTexture(
+                            GL.GL_TEXTURE_CUBE_MAP,
+                            reflect_data['cubemap'],
+                        )
+                        GL.glUniform1i(location_data['reflect_sampler'], 3)
                 
                 # set the camera's view matrix
                 view_matrix = self.scene_description['camera']['view_matrix']

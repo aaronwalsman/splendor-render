@@ -104,6 +104,9 @@ def start_viewer(
     if window_manager == 'glfw':
         camera_control = InteractiveCameraGLFW(window, renderer)
         window.set_mouse_button_callback(camera_control.mouse_callback)
+        window.set_cursor_pos_callback(camera_control.mouse_move)
+        window.set_key_callback(camera_control.key_callback)
+        window.set_scroll_callback(camera_control.scroll_callback)
         while not window.should_close():
             window.poll_events()
             render()

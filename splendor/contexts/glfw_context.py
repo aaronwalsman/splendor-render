@@ -120,6 +120,15 @@ class GLFWWindowWrapper:
     def set_mouse_button_callback(self, fn):
         glfw.set_mouse_button_callback(self.glfw_window, fn)
     
+    def set_cursor_pos_callback(self, fn):
+        glfw.set_cursor_pos_callback(self.glfw_window, fn)
+    
+    def set_key_callback(self, fn):
+        glfw.set_key_callback(self.glfw_window, fn)
+    
+    def set_scroll_callback(self, fn):
+        glfw.set_scroll_callback(self.glfw_window, fn)
+    
     def framebuffer_size(self):
         return glfw.get_framebuffer_size(self.glfw_window)
 
