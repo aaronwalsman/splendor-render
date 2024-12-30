@@ -56,8 +56,6 @@ class GLFWWindowWrapper:
             glfw.terminate()
             raise Exception('GLFW window cannot be created')
         
-        self.width, self.height = glfw.get_framebuffer_size(self.glfw_window) 
-        
         self.set_active()
         
     def set_active(self):
@@ -77,8 +75,9 @@ class GLFWWindowWrapper:
     
     def enable_window(self):
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
-        GL.glViewport(0, 0, self.width, self.height)
-        GL.glScissor(0, 0, self.width, self.height)
+        fbw, fbh = glfw.get_framebuffer_wize(self.glfw_window)
+        GL.glViewport(0, 0, fbw, fbh)
+        GL.glScissor(0, 0, fbw, fbh)
         if self.anti_alias:
             GL.glEnable(GL.GL_MULTISAMPLE)
         else:
@@ -87,8 +86,8 @@ class GLFWWindowWrapper:
     def read_pixels(self, read_depth=False, projection=None):
         self.enable_window()
         fbw, fbh = glfw.get_framebuffer_size(self.glfw_window)
-        width = fbw #self.width
-        height = fbh #self.height
+        width = fbw
+        height = fbh
         anti_alias = self.anti_alias
 
         if read_depth:
