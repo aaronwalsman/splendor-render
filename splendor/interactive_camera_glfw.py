@@ -34,10 +34,11 @@ class InteractiveCameraGLFW:
                 read_depth=True,
                 projection=self.renderer.get_projection(),
             )
-            z = depth[self.window.height-y, x]
+            fbh, fbw = glfw.get_framebuffer_size(window)
+            z = depth[fbh-y, x]
             
             color = self.window.read_pixels()
-            r,g,b,a = color[self.window.height-y, x]
+            r,g,b,a = color[fbh-y, x]
             
             self.mouse_down_button = glfw.MOUSE_BUTTON_LEFT
             self.mouse_position = (x,y)
@@ -103,7 +104,8 @@ class InteractiveCameraGLFW:
             read_depth=True,
             projection=self.renderer.get_projection(),
         )
-        z = depth[self.window.height-y, x]
+        fbh, fbw = glfw.get_framebuffer_size(window)
+        z = depth[fbh-y, x]
         self.mouse_click_depth = z
         
         view_matrix = self.renderer.get_view_matrix()
