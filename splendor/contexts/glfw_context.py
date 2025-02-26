@@ -75,7 +75,7 @@ class GLFWWindowWrapper:
     
     def enable_window(self):
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
-        fbw, fbh = glfw.get_framebuffer_wize(self.glfw_window)
+        fbw, fbh = glfw.get_framebuffer_size(self.glfw_window)
         GL.glViewport(0, 0, fbw, fbh)
         GL.glScissor(0, 0, fbw, fbh)
         if self.anti_alias:
