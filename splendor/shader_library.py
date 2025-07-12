@@ -44,6 +44,14 @@ default_shader_code = {
         (textured_depthmap_vertex_shader, textured_depthmap_fragment_shader)
 }
 
+def gl_name_to_str(gl_name):
+    if isinstance(gl_name, np.ndarray):
+        gl_name = gl_name.to_bytes()
+    str_name = gl_name.decode('utf-8')
+    str_name = str_name.split('[')[0]
+    str_name = str_name.rstrip('\x00')
+    return str_name
+
 class ShaderLibrary:
     def __init__(self, shader_code=None):
         if shader_code is None:
@@ -154,15 +162,17 @@ class ShaderLibrary:
             num_attributes = gl.glGetProgramiv(program, gl.GL_ACTIVE_ATTRIBUTES)
             for i in range(num_attributes):
                 attribute_name, _, _ = gl.glGetActiveAttrib(program, i)
-                attribute_name = attribute_name.decode('utf-8')
-                attribute_name = attribute_name.split('[')[0]
+                #attribute_name = attribute_name.decode('utf-8')
+                #attribute_name = attribute_name.split('[')[0]
+                attribute_name = gl_name_to_str(attribute_name)
                 location = gl.glGetAttribLocation(program, attribute_name)
                 locations[attribute_name] = location
             num_uniforms = gl.glGetProgramiv(program, gl.GL_ACTIVE_UNIFORMS)
             for i in range(num_uniforms):
                 uniform_name, _, _ = gl.glGetActiveUniform(program, i)
-                uniform_name = uniform_name.decode('utf-8')
-                uniform_name = uniform_name.split('[')[0]
+                #uniform_name = uniform_name.decode('utf-8')
+                #uniform_name = uniform_name.split('[')[0]
+                uniform_name = gl_name_to_str(uniform_name)
                 location = gl.glGetUniformLocation(program, uniform_name)
                 locations[uniform_name] = location
             self.gl_data[shader_name]['locations'] = locations

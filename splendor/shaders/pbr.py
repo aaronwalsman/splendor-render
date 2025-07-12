@@ -105,7 +105,6 @@ vec3 cook_torrance(
     vec3 diffuse = (vec3(1.) - fresnel) * (1. - metal);
     
     float lambert = max(dot(normal, light_direction), 0.0);
-    lambert = lambert;
     
     vec3 result = (diffuse * albedo / PI + specular) * light_color * lambert;
     return result;
