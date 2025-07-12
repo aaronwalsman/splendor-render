@@ -46,7 +46,7 @@ default_shader_code = {
 
 def gl_name_to_str(gl_name):
     if isinstance(gl_name, np.ndarray):
-        gl_name = gl_name.to_bytes()
+        gl_name = gl_name.tobytes()
     str_name = gl_name.decode('utf-8')
     str_name = str_name.split('[')[0]
     str_name = str_name.rstrip('\x00')
