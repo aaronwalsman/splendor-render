@@ -2492,18 +2492,19 @@ class SplendorRender:
         
         # bind mesh buffers
         mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
-        mesh_buffers['face_buffer'].bind()
-        mesh_buffers['vertex_buffer'].bind()
+        #mesh_buffers['face_buffer'].bind()
+        #mesh_buffers['vertex_buffer'].bind()
+        GL.glBindVertexArray(mesh_buffers['vao'])
         
-        # get the shader variable locations
-        location_data = self.shader_library.get_shader_locations('mask_shader')
-        
-        GL.glEnableVertexAttribArray(location_data['vertex_position'])
-        stride = self.get_mesh_stride(mesh_name)
-        GL.glVertexAttribPointer(
-                location_data['vertex_position'],
-                3, GL.GL_FLOAT, False, stride,
-                mesh_buffers['vertex_buffer'])
+        ## get the shader variable locations
+        #location_data = self.shader_library.get_shader_locations('mask_shader')
+        #
+        #GL.glEnableVertexAttribArray(location_data['vertex_position'])
+        #stride = self.get_mesh_stride(mesh_name)
+        #GL.glVertexAttribPointer(
+        #        location_data['vertex_position'],
+        #        3, GL.GL_FLOAT, False, stride,
+        #        mesh_buffers['vertex_buffer'])
     
     def mask_render_instance(self, instance_name):
         instance_data = self.scene_description['instances'][instance_name]

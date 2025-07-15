@@ -13,9 +13,15 @@ class InteractiveCameraGLFW:
         self.mouse_click_depth = None
         self.shift_down = False
     
+    def get_raw_mouse_pixel_position(self, window):
+        w, h = glfw.get_window_size(window)
+        raw_x, raw_y = glfw.get_cursor_pos(window)
+        return round(raw_x), round(raw_y)
+    
     def get_mouse_pixel_position(self, window, raw_xy=None):
         w, h = glfw.get_window_size(window)
-        fbw, fbh = glfw.get_framebuffer_size(window)
+        #fbw, fbh = glfw.get_framebuffer_size(window)
+        fbw, fbh = self.window.framebuffer_size()
         if raw_xy is None:
             raw_x, raw_y = glfw.get_cursor_pos(window)
         else:
@@ -34,7 +40,7 @@ class InteractiveCameraGLFW:
                 read_depth=True,
                 projection=self.renderer.get_projection(),
             )
-            fbh, fbw = glfw.get_framebuffer_size(window)
+            fbw, fbh = glfw.get_framebuffer_size(window)
             z = depth[fbh-y, x]
             
             color = self.window.read_pixels()
