@@ -2,7 +2,7 @@ from splendor.shaders.utils import softish_step_fn, intensity_fn
 from splendor.shaders.skybox import skybox_fn
 
 def reflect_to_diffuse_fragment_shader(num_samples=512):
-    return f'''#version 460 core
+    return f'''#version 410 core
 #define NUM_SAMPLES {num_samples}''' + '''
 in vec3 fragment_direction;
 in vec2 fragment_uv;

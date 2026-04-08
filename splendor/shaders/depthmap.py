@@ -1,6 +1,6 @@
-textured_depthmap_vertex_shader = '''#version 460 core
+textured_depthmap_vertex_shader = '''#version 410 core
 
-layout(location=0) in float vertex_depth;
+in float vertex_depth;
 
 uniform mat4 projection_matrix;
 uniform mat4 model_pose;
@@ -21,10 +21,10 @@ void main() {
     int u_pixel = gl_VertexID % width;
     int v_pixel = gl_VertexID / width;
     
-    float u = float(u_pixel) / width;
-    float v = float(v_pixel) / height;
+    float u = float(u_pixel) / float(width);
+    float v = float(v_pixel) / float(height);
     
-    float height_ratio = float(height) / width;
+    float height_ratio = float(height) / float(width);
     
     fragment_uv.x = u;
     fragment_uv.y = v * height_ratio;
@@ -46,8 +46,8 @@ void main() {
 }
 '''
 
-textured_depthmap_fragment_shader = '''#version 460 core
-layout(binding=0) uniform sampler2D texture_sampler;
+textured_depthmap_fragment_shader = '''#version 410 core
+uniform sampler2D texture_sampler;
 in vec2 fragment_uv;
 out vec3 color;
 

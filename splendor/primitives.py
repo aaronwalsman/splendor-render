@@ -235,6 +235,15 @@ def disk(
                     else:
                         faces[:,i] = [c,b,a]
                         faces[:,radial_resolution+i] = [c,d,b]
+            else:
+                b = (i+1) % radial_vertices
+                d = (i+1) % radial_vertices + radial_vertices
+                if flip_normals:
+                    faces[:,i] = [a,b,c]
+                    faces[:,radial_resolution+i] = [b,d,c]
+                else:
+                    faces[:,i] = [c,b,a]
+                    faces[:,radial_resolution+i] = [c,d,b]
         
         else:
             # make one face

@@ -2,6 +2,7 @@
 import math
 import json
 import os
+import ctypes
 
 # opengl
 from OpenGL import GL
@@ -465,7 +466,7 @@ class SplendorRender:
         normal_floats = numpy.array(mesh['normals'], dtype=numpy.float32)
         if normal_floats.shape[1] > 3:
             normal_floats = normal_floats[:,:3]
-
+        
         if color_mode == 'textured':
             #if not len(mesh['uvs']) and create_uvs:
             #    mesh['uvs'] = [[0,0] for _ in mesh['vertices']]
@@ -475,7 +476,8 @@ class SplendorRender:
                 uv_floats = uv_floats[:,:2]
             combined_floats = numpy.concatenate(
                     (vertex_floats, normal_floats, uv_floats), axis=1)
-            mesh_buffers['vertex_buffer'] = vbo.VBO(combined_floats)
+            shader_name = 'textured_shader'
+            stride = (3+3+2) * 4
 
         elif color_mode == 'vertex_color':
             assert 'vertex_colors' in mesh
@@ -483,17 +485,74 @@ class SplendorRender:
                     mesh['vertex_colors'], dtype=numpy.float32)
             combined_floats = numpy.concatenate(
                     (vertex_floats, normal_floats, vertex_color_floats), axis=1)
-            mesh_buffers['vertex_buffer'] = vbo.VBO(combined_floats)
+            shader_name = 'vertex_color_shader'
+            stride = (3+3+3) * 4
 
         elif color_mode == 'flat_color':
             combined_floats = numpy.concatenate(
                     (vertex_floats, normal_floats), axis=1)
-            mesh_buffers['vertex_buffer'] = vbo.VBO(combined_floats)
-
+            shader_name = 'flat_color_shader'
+            stride = (3+3) * 4
+        
+        # make the vao
+        mesh_buffers['vao'] = GL.glGenVertexArrays(1)
+        GL.glBindVertexArray(mesh_buffers['vao'])
+        
+        # make the vbo
+        #mesh_buffers['vertex_buffer'] = vbo.VBO(combined_floats)
+        mesh_buffers['vbo'] = GL.glGenBuffers(1)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, mesh_buffers['vbo'])
+        GL.glBufferData(
+            GL.GL_ARRAY_BUFFER,
+            combined_floats.nbytes,
+            combined_floats,
+            GL.GL_STATIC_DRAW,
+        )
+        
+        # make the ebo
         face_ints = numpy.array(mesh['faces'], dtype=numpy.int32)
-        mesh_buffers['face_buffer'] = vbo.VBO(
-                face_ints,
-                target = GL.GL_ELEMENT_ARRAY_BUFFER)
+        #mesh_buffers['face_buffer'] = vbo.VBO(
+        #        face_ints,
+        #        target = GL.GL_ELEMENT_ARRAY_BUFFER)
+        mesh_buffers['ebo'] = GL.glGenBuffers(1)
+        GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, mesh_buffers['ebo'])
+        GL.glBufferData(
+            GL.GL_ELEMENT_ARRAY_BUFFER,
+            face_ints.nbytes,
+            face_ints,
+            GL.GL_STATIC_DRAW,
+        )
+        
+        # vertex attribute setup
+        shader_locations = self.shader_library.get_shader_locations(shader_name)
+        
+        GL.glVertexAttribPointer(
+            shader_locations['vertex_position'],
+            3, GL.GL_FLOAT, False, stride,
+            ctypes.c_void_p(0),
+        )
+        GL.glEnableVertexAttribArray(0)
+        GL.glVertexAttribPointer(
+            shader_locations['vertex_normal'],
+            3, GL.GL_FLOAT, False, stride,
+            ctypes.c_void_p((3)*4),
+        )
+        GL.glEnableVertexAttribArray(1)
+        
+        if color_mode == 'textured':
+            GL.glVertexAttribPointer(
+                shader_locations['vertex_uv'],
+                2, GL.GL_FLOAT, False, stride,
+                ctypes.c_void_p((3+3)*4),
+            )
+            GL.glEnableVertexAttribArray(2)
+        elif color_mode == 'vertex_color':
+            GL.glVertexAttribPointer(
+                shader_locations['vertex_color'],
+                3, GL.GL_FLOAT, False, stride,
+                ctypes.c_void_p((3+3)*4),
+            )
+            GL.glEnableVertexAttribArray(2)
 
         # store the loaded and gl data
         self.loaded_data['meshes'][name] = mesh
@@ -507,19 +566,38 @@ class SplendorRender:
         
         if 'BACKGROUND' not in self.gl_data['mesh_buffers']:
             mesh_buffers = {}
+            mesh_buffers['vao'] = GL.glGenVertexArrays(1)
+            GL.glBindVertexArray(mesh_buffers['vao'])
+            
             vertex_floats = numpy.array([
                     [-1,-1,0],
                     [-1, 1,0],
                     [ 1, 1,0],
                     [ 1,-1,0]])
-            mesh_buffers['vertex_buffer'] = vbo.VBO(vertex_floats)
+            #mesh_buffers['vertex_buffer'] = vbo.VBO(vertex_floats)
+            mesh_buffers['vbo'] = GL.glGenBuffers(1)
+            GL.glBindBuffer(GL.GL_ARRAY_BUFFER, mesh_buffers['vbo'])
+            GL.glBufferData(
+                GL.GL_ARRAY_BUFFER,
+                vertex_floats.nbytes,
+                vertex_floats,
+                GL.GL_STATIC_DRAW,
+            )
 
             face_ints = numpy.array([
                     [0,1,2],
                     [2,3,0]], dtype=numpy.int32)
-            mesh_buffers['face_buffer'] = vbo.VBO(
-                    face_ints,
-                    target = GL.GL_ELEMENT_ARRAY_BUFFER)
+            #mesh_buffers['face_buffer'] = vbo.VBO(
+            #        face_ints,
+            #        target = GL.GL_ELEMENT_ARRAY_BUFFER)
+            mesh_buffers['ebo'] = GL.glGenBuffers(1)
+            GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, mesh_buffers['ebo'])
+            GL.glBufferData(
+                GL.GL_ELEMENT_ARRAY_BUFFER,
+                face_ints.nbytes,
+                face_ints,
+                GL.GL_STATIC_DRAW,
+            )
             self.gl_data['mesh_buffers']['BACKGROUND'] = mesh_buffers
 
     def remove_mesh(self, name):
@@ -532,8 +610,13 @@ class SplendorRender:
         """
         
         del(self.scene_description['meshes'][name])
-        self.gl_data['mesh_buffers'][name]['vertex_buffer'].delete()
-        self.gl_data['mesh_buffers'][name]['face_buffer'].delete()
+        #self.gl_data['mesh_buffers'][name]['vertex_buffer'].delete()
+        #self.gl_data['mesh_buffers'][name]['face_buffer'].delete()
+        GL.glDeleteVertexArrays(1, [self.gl_data['mesh_buffers'][name]['vao']])
+        GL.glDeleteBuffers(1, [
+            self.gl_data['mesh_buffers'][name]['vbo'],
+            self.gl_data['mesh_buffers'][name]['ebo'],
+        ])
         del(self.gl_data['mesh_buffers'][name])
         del(self.loaded_data['meshes'][name])
 
@@ -832,8 +915,14 @@ class SplendorRender:
 
         # delete the background mesh if there are no image lights left
         if len(self.scene_description['image_lights']) == 0:
-            self.gl_data['mesh_buffers']['BACKGROUND']['vertex_buffer'].delete()
-            self.gl_data['mesh_buffers']['BACKGROUND']['face_buffer'].delete()
+            #self.gl_data['mesh_buffers']['BACKGROUND']['vertex_buffer'].delete()
+            #self.gl_data['mesh_buffers']['BACKGROUND']['face_buffer'].delete()
+            GL.glDeleteVertexArrays(
+                1, [self.gl_data['mesh_buffers']['BACKGROUND']['vao']])
+            GL.glDeleteBuffers(1, [
+                self.gl_data['mesh_buffers']['BACKGROUND']['vbo'],
+                self.gl_data['mesh_buffers']['BACKGROUND']['ebo'],
+            ])
             del(self.gl_data['mesh_buffers']['BACKGROUND'])
 
     def clear_image_lights(self):
@@ -1103,8 +1192,8 @@ class SplendorRender:
                     for j, mipmap in enumerate(mipmaps[i]):
                         mipmap = numpy.array(mipmap)
                         validate_texture(mipmap)
-                        Gl.glTexImage2d(
-                            Gl.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                        GL.glTexImage2d(
+                            GL.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
                             j+1,
                             gl_color_mode,
                             mipmap.shape[1],
@@ -1123,7 +1212,8 @@ class SplendorRender:
             GL.glTexParameteri(
                 GL.GL_TEXTURE_CUBE_MAP,
                 GL.GL_TEXTURE_MIN_FILTER,
-                GL.GL_LINEAR_MIPMAP_LINEAR,
+                #GL.GL_LINEAR_MIPMAP_LINEAR,
+                GL.GL_LINEAR,
             )
             if mipmaps is None:
                 GL.glGenerateMipmap(GL.GL_TEXTURE_CUBE_MAP)
@@ -1537,10 +1627,6 @@ class SplendorRender:
             for i, color in zip(instance_indices.keys(), colors):
                 instance_data = self.scene_description['instances'][i]
                 instance_data['mask_color'] = color
-            
-        #for instance_name, index in instance_indices.items():
-        #    instance_data = self.scene_description['instances'][instance_name]
-        #    instance_data['mask_color'] = masks.color_index_to_float(index)
 
     def set_instance_masks_to_mesh_indices(self, mesh_indices, instances=None):
         """
@@ -1841,19 +1927,6 @@ class SplendorRender:
             if image_light_data['render_background']:
                 self.render_background(image_light_name, flip_y = flip_y)
 
-            diffuse_cubemap = image_light_data['diffuse_cubemap']
-            reflect_cubemap = image_light_data['reflect_cubemap']
-            GL.glActiveTexture(GL.GL_TEXTURE2)
-            GL.glBindTexture(
-                GL.GL_TEXTURE_CUBE_MAP,
-                self.gl_data['cubemap_buffers'][diffuse_cubemap]['cubemap'],
-            )
-            GL.glActiveTexture(GL.GL_TEXTURE3)
-            GL.glBindTexture(
-                GL.GL_TEXTURE_CUBE_MAP,
-                self.gl_data['cubemap_buffers'][reflect_cubemap]['cubemap'],
-            )
-
         # depthmap_instances
         if depthmap_instances is None:
             depthmap_instances = self.scene_description['depthmap_instances']
@@ -1951,10 +2024,34 @@ class SplendorRender:
 
             # turn on the shader
             self.shader_library.use_program(shader_name)
-
+            
             try:
                 location_data = self.shader_library.get_shader_locations(
-                        shader_name)
+                    shader_name)
+                
+                # set the cubemap samplers
+                
+                if self.get_active_image_light() is not None:
+                    if 'diffuse_sampler' in location_data:
+                        diffuse_cubemap = image_light_data['diffuse_cubemap']
+                        GL.glActiveTexture(GL.GL_TEXTURE2)
+                        diffuse_data = (
+                            self.gl_data['cubemap_buffers'][diffuse_cubemap])
+                        GL.glBindTexture(
+                            GL.GL_TEXTURE_CUBE_MAP,
+                            diffuse_data['cubemap'],
+                        )
+                        GL.glUniform1i(location_data['diffuse_sampler'], 2)
+                    if 'reflect_sampler' in location_data:
+                        reflect_cubemap = image_light_data['reflect_cubemap']
+                        GL.glActiveTexture(GL.GL_TEXTURE3)
+                        reflect_data = (
+                            self.gl_data['cubemap_buffers'][reflect_cubemap])
+                        GL.glBindTexture(
+                            GL.GL_TEXTURE_CUBE_MAP,
+                            reflect_data['cubemap'],
+                        )
+                        GL.glUniform1i(location_data['reflect_sampler'], 3)
                 
                 # set the camera's view matrix
                 view_matrix = self.scene_description['camera']['view_matrix']
@@ -2073,62 +2170,13 @@ class SplendorRender:
         
         # bind mesh buffers
         mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
-        mesh_buffers['face_buffer'].bind()
-        mesh_buffers['vertex_buffer'].bind()
-        
-        # get the shader variable locations
-        location_data = self.shader_library.get_shader_locations(shader_name)
-        
-        # enable the attribute arrays
-        GL.glEnableVertexAttribArray(location_data['vertex_position'])
-        if 'vertex_normal' in location_data:
-            GL.glEnableVertexAttribArray(location_data['vertex_normal'])
-        '''
-        if shader_name in (
-            'textured_shader', 'textured_material_properties_shader'):
-            GL.glEnableVertexAttribArray(location_data['vertex_uv'])
-        elif shader_name == 'vertex_color_shader':
-            GL.glEnableVertexAttribArray(location_data['vertex_color'])
-        '''
-        if 'vertex_uv' in location_data:
-            GL.glEnableVertexAttribArray(location_data['vertex_uv'])
-        if 'vertex_color' in location_data:
-            GL.glEnableVertexAttribArray(location_data['vertex_color'])
-        
-        # load the pointers to the vertex, normal, uv and vertex color data
-        stride = self.get_mesh_stride(mesh_name)
-        if 'vertex_position' in location_data:
-            GL.glVertexAttribPointer(
-                location_data['vertex_position'],
-                3, GL.GL_FLOAT, False, stride,
-                mesh_buffers['vertex_buffer'],
-            )
-        if 'vertex_normal' in location_data:
-            GL.glVertexAttribPointer(
-                location_data['vertex_normal'],
-                3, GL.GL_FLOAT, False, stride,
-                mesh_buffers['vertex_buffer']+((3)*4)
-            )
-        #if shader_name in (
-        #    'textured_shader', 'textured_material_properties_shader'):
-        if 'vertex_uv' in location_data:
-            GL.glVertexAttribPointer(
-                location_data['vertex_uv'],
-                2, GL.GL_FLOAT, False, stride,
-                mesh_buffers['vertex_buffer']+((3+3)*4),
-            )
-        #elif shader_name == 'vertex_color_shader':
-        if 'vertex_color' in location_data:
-            GL.glVertexAttribPointer(
-                    location_data['vertex_color'],
-                    3, GL.GL_FLOAT, False, stride,
-                    mesh_buffers['vertex_buffer']+((3+3)*4),
-            )
+        GL.glBindVertexArray(mesh_buffers['vao'])
     
     def unload_mesh_shader_data(self, mesh_name):
         mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
-        mesh_buffers['face_buffer'].unbind()
-        mesh_buffers['vertex_buffer'].unbind()
+        #mesh_buffers['face_buffer'].unbind()
+        #mesh_buffers['vertex_buffer'].unbind()
+        GL.glBindVertexArray(0)
     
     def load_material_shader_data(self, material_name, shader_name):
         material_data = (
@@ -2145,6 +2193,7 @@ class SplendorRender:
                 self.gl_data['texture_buffers'][mat_prop_texture]['texture'])
             GL.glActiveTexture(GL.GL_TEXTURE1)
             GL.glBindTexture(GL.GL_TEXTURE_2D, mat_prop_texture_buffer)
+            GL.glUniform1i(location_data['material_properties_sampler'], 1)
         else:
             material_properties = numpy.array([
                     material_data['metal'],
@@ -2164,6 +2213,7 @@ class SplendorRender:
             texture_buffer = self.gl_data['texture_buffers'][texture]['texture']
             GL.glActiveTexture(GL.GL_TEXTURE0)
             GL.glBindTexture(GL.GL_TEXTURE_2D, texture_buffer)
+            GL.glUniform1i(location_data['texture_sampler'], 0)
         
         if shader_name == 'flat_color_shader':
             flat_color = self.get_material_flat_color(material_name)
@@ -2198,7 +2248,7 @@ class SplendorRender:
             1, GL.GL_TRUE,
             instance_data['transform'].astype(numpy.float32),
         )
-        
+
         GL.glDrawElements(
             GL.GL_TRIANGLES,
             num_triangles*3,
@@ -2329,15 +2379,15 @@ class SplendorRender:
         # set the blur
         blur = light_data['blur']
         GL.glUniform1f(location_data['blur'], blur)
-
-        mesh_buffers['face_buffer'].bind()
-        mesh_buffers['vertex_buffer'].bind()
+        
+        GL.glBindVertexArray(mesh_buffers['vao'])
 
         GL.glActiveTexture(GL.GL_TEXTURE0)
         GL.glBindTexture(
             GL.GL_TEXTURE_CUBE_MAP,
             cubemap_buffers['cubemap'],
         )
+        GL.glUniform1i(location_data['cubemap_sampler'], 0)
         #GL.glTexParameterf(
         #        GL.GL_TEXTURE_CUBE_MAP,
         #        GL.GL_TEXTURE_MIN_LOD,
@@ -2346,17 +2396,11 @@ class SplendorRender:
         # BUT WORSE HERE.  MAYBE THE RIGHT THING IS TO GENERATE BLURRED
         # MIPMAPS AND DO EXPLICIT LOD LOOKUPS INSTEAD OF BIAS???
 
-        try:
-            GL.glDrawElements(
-                    GL.GL_TRIANGLES,
-                    2*3,
-                    GL.GL_UNSIGNED_INT,
-                    None)
-
-        finally:
-            mesh_buffers['face_buffer'].unbind()
-            mesh_buffers['vertex_buffer'].unbind()
-            GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
+        GL.glDrawElements(
+                GL.GL_TRIANGLES,
+                2*3,
+                GL.GL_UNSIGNED_INT,
+                None)
 
     # mask_render methods ------------------------------------------------------
     
@@ -2451,18 +2495,19 @@ class SplendorRender:
         
         # bind mesh buffers
         mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
-        mesh_buffers['face_buffer'].bind()
-        mesh_buffers['vertex_buffer'].bind()
+        #mesh_buffers['face_buffer'].bind()
+        #mesh_buffers['vertex_buffer'].bind()
+        GL.glBindVertexArray(mesh_buffers['vao'])
         
-        # get the shader variable locations
-        location_data = self.shader_library.get_shader_locations('mask_shader')
-        
-        GL.glEnableVertexAttribArray(location_data['vertex_position'])
-        stride = self.get_mesh_stride(mesh_name)
-        GL.glVertexAttribPointer(
-                location_data['vertex_position'],
-                3, GL.GL_FLOAT, False, stride,
-                mesh_buffers['vertex_buffer'])
+        ## get the shader variable locations
+        #location_data = self.shader_library.get_shader_locations('mask_shader')
+        #
+        #GL.glEnableVertexAttribArray(location_data['vertex_position'])
+        #stride = self.get_mesh_stride(mesh_name)
+        #GL.glVertexAttribPointer(
+        #        location_data['vertex_position'],
+        #        3, GL.GL_FLOAT, False, stride,
+        #        mesh_buffers['vertex_buffer'])
     
     def mask_render_instance(self, instance_name):
         instance_data = self.scene_description['instances'][instance_name]
@@ -2720,3 +2765,21 @@ class SplendorRender:
     def render_vertices(self, instance_name, flip_y = True):
         #TODO: add this for debugging purposes
         raise NotImplementedError
+
+def print_locations(shader, location_data):
+    for k,v in location_data.items():
+        print(k)
+        print(f'  {v}')
+        if k in ('texture_sampler', 'material_properties_sampler'):
+            texture_unit = numpy.array([0], dtype=numpy.int32)
+            GL.glGetUniformiv(shader, v, texture_unit)
+            GL.glActiveTexture(GL.GL_TEXTURE0 + texture_unit[0])
+            t = GL.glGetIntegerv(GL.GL_TEXTURE_BINDING_2D)
+            print(' ', texture_unit[0], t)
+        
+        if k in ('reflect_sampler', 'diffuse_sampler'): 
+            texture_unit = numpy.array([0], dtype=numpy.int32)
+            GL.glGetUniformiv(shader, v, texture_unit)
+            GL.glActiveTexture(GL.GL_TEXTURE0 + texture_unit[0])
+            t = GL.glGetIntegerv(GL.GL_TEXTURE_BINDING_CUBE_MAP)
+            print(' ', texture_unit[0], t)

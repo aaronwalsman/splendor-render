@@ -54,7 +54,7 @@ class GlutWindowWrapper:
     Wraps a single GLUT window.
     '''
     def __init__(self,
-            name = 'RENDERPY',
+            name = 'SPLENDOR',
             width = 128,
             height = 128,
             anti_alias = True,

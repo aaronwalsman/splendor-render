@@ -18,6 +18,7 @@ setuptools.setup(
         'gdown',
         'PyOpenGL>=3.1.5',
         'tqdm',
+        'glfw',
     ],
     packages=setuptools.find_packages(),
     entry_points={

@@ -47,15 +47,15 @@ uniform mat4 shadow_view_matrix;
 uniform mat4 shadow_projection_matrix;
 
 #ifdef COMPILE_TEXTURE
-layout(binding=0) uniform sampler2D texture_sampler;
+uniform sampler2D texture_sampler;
 #endif
 
 #ifdef COMPILE_TEXTURED_MATERIAL_PROPERTIES
-layout(binding=1) uniform sampler2D material_properties_sampler;
+uniform sampler2D material_properties_sampler;
 #endif
 
-layout(binding=2) uniform samplerCube diffuse_sampler;
-layout(binding=3) uniform samplerCube reflect_sampler;
+uniform samplerCube diffuse_sampler;
+uniform samplerCube reflect_sampler;
 
 layout(binding=4) uniform sampler2D shadow_depth_sampler;
 
@@ -178,6 +178,7 @@ void main(){
                 diffuse_sampler, offset_fragment_normal));
         diffuse_color =
                 pow(diffuse_color, vec3(diffuse_gamma));
+        //vec3 diffuse_color = vec3(1,0,0);
         
         // This correction is based on the very crude approximation that
         // the distribution of intensities in the reflection image is uniform
@@ -198,6 +199,7 @@ void main(){
                 reflect_sampler, reflected_direction, rough*MAX_MIPMAP));
         reflect_color =
                 pow(reflect_color, vec3(reflect_gamma));
+        //vec3 reflect_color = vec3(0,1,0);
         
         // See note above about diffuse correction
         float reflect_correction = (reflect_gamma+1)/2;
@@ -209,8 +211,10 @@ void main(){
     }
     
     // ambient and background ==================================================
+    //float z = 0.;
     color += vec4(kd * ambient_color * ambient * albedo, 0.);
     color += vec4(ks * background_color, 0.);
-    
+    //color += vec4(z * background_color, 0.);
+    //color = color * z + vec4(albedo, 1.);
 }
 '''

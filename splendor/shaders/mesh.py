@@ -6,20 +6,20 @@
 # COMPILE_COORD
 # COMPILE_SHADOW
 mesh_vertex_shader = '''
-layout(location=0) in vec3 vertex_position;
+layout(location = 0) in vec3 vertex_position;
 
 #if defined(COMPILE_TEXTURE) || \
     defined(COMPILE_VERTEX_COLORS) || \
     defined(COMPILE_FLAT_COLOR)
-layout(location=1) in vec3 vertex_normal;
+layout(location = 1) in vec3 vertex_normal;
 #endif
 
 #ifdef COMPILE_TEXTURE
-layout(location=2) in vec2 vertex_uv;
+layout(location = 2) in vec2 vertex_uv;
 #endif
 
 #ifdef COMPILE_VERTEX_COLORS
-layout(location=2) in vec3 vertex_color;
+layout(location = 2) in vec3 vertex_color;
 #endif
 
 #if defined(COMPILE_TEXTURE) || \
