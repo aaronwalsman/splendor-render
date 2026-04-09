@@ -39,8 +39,8 @@ default_shader_code = {
         (flat_color_vertex_shader, flat_color_fragment_shader),
     'mask_shader' :
         (mask_vertex_shader, mask_fragment_shader),
-    #'coord_shader' :
-    #    (coord_vertex_shader, coord_fragment_shader),
+    'coord_shader' :
+        (coord_vertex_shader, coord_fragment_shader),
     'background_shader' :
         (background_vertex_shader, background_fragment_shader),
     'textured_depthmap_shader' :
@@ -144,7 +144,6 @@ class ShaderLibrary:
             
             # compile programs
             try:
-                print('Still not validating!')
                 program = shaders.compileProgram(
                     self.gl_data[shader_name]['vertex_shader'],
                     self.gl_data[shader_name]['fragment_shader'],
