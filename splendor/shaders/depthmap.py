@@ -1,4 +1,4 @@
-textured_depthmap_vertex_shader = '''#version 410 core
+textured_depthmap_vertex_shader = '''#version 330 core
 
 in float vertex_depth;
 
@@ -46,7 +46,7 @@ void main() {
 }
 '''
 
-textured_depthmap_fragment_shader = '''#version 410 core
+textured_depthmap_fragment_shader = '''#version 330 core
 uniform sampler2D texture_sampler;
 in vec2 fragment_uv;
 out vec3 color;

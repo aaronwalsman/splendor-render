@@ -57,7 +57,7 @@ uniform sampler2D material_properties_sampler;
 uniform samplerCube diffuse_sampler;
 uniform samplerCube reflect_sampler;
 
-layout(binding=4) uniform sampler2D shadow_depth_sampler;
+uniform sampler2D shadow_depth_sampler;
 
 const float MAX_MIPMAP = 4.;
 

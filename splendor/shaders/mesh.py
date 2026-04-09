@@ -91,7 +91,7 @@ void main(){
     fragment_color = vertex_color;
     #endif
     
-    #ifdef COMIPLE_COORD
+    #ifdef COMPILE_COORD
     coord = (vertex_position - box_min) / (box_max - box_min);
     #endif
 }

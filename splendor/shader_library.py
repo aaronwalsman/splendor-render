@@ -190,6 +190,8 @@ class ShaderLibrary:
                 gl.glUniform1i(locations['reflect_sampler'], 3)
             if 'cubemap_sampler' in locations:
                 gl.glUniform1i(locations['cubemap_sampler'], 0)
+            if 'shadow_depth_sampler' in locations:
+                gl.glUniform1i(locations['shadow_depth_sampler'], 4)
         
         gl.glDeleteVertexArrays(1, [tmp_vao])
     
