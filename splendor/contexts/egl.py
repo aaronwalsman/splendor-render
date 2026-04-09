@@ -1,83 +1,175 @@
-# parts of this file written using pyrender as a reference
 import os
 import ctypes
-
-import numpy
 
 from OpenGL import GL
 import OpenGL.platform
 
-from splendor.contexts.initialization import (
-        initialization_state, register_context)
+from splendor.contexts import _register_context
 
 EGL_PLATFORM_DEVICE_EXT = 0x313F
 EGL_DRM_DEVICE_FILE_EXT = 0x3233
 
 _egl_state = {
-    'initialized' : False,
-    'module' : None,
-    'functions' : {},
-    'structs' : {},
-    'device' : None,
-    'display' : None,
-    'context' : None,
+    'plugin_initialized': False,
+    'module': None,
+    'functions': {},
+    'structs': {},
 }
 
-def initialize_plugin():
-    new_context = register_context('egl')
-    if new_context:
-        plugin = OpenGL.platform.PlatformPlugin.by_name('egl')
-        if plugin is None:
-            raise RuntimeError('Cannot find EGL plugin.')
-        plugin_class = plugin.load()
-        plugin.loaded = True
-        plugin = plugin_class()
-        plugin.install(vars(OpenGL.platform))
-    
+def _initialize_plugin():
+    if _egl_state['plugin_initialized']:
+        return
+    _register_context('egl')
+    plugin = OpenGL.platform.PlatformPlugin.by_name('egl')
+    if plugin is None:
+        raise RuntimeError('Cannot find EGL plugin.')
+    plugin_class = plugin.load()
+    plugin.loaded = True
+    plugin = plugin_class()
+    plugin.install(vars(OpenGL.platform))
+
     from OpenGL import EGL
     _egl_state['module'] = EGL
-    
-    _egl_state['structs']['EGLDeviceEXT'] = get_egl_struct('EGLDeviceEXT')
-    _egl_state['functions']['eglGetPlatformDisplayEXT'] = get_egl_function(
-            'eglGetPlatformDisplayEXT', _egl_state['module'].EGLDisplay)
-    _egl_state['functions']['eglQueryDevicesEXT'] = get_egl_function(
-            'eglQueryDevicesEXT', _egl_state['module'].EGLBoolean)
-    _egl_state['functions']['eglQueryDeviceStringEXT'] = get_egl_function(
-            'eglQueryDeviceStringEXT', ctypes.c_char_p)
-    
-def initialize_device(device=None, force=False):
-    plugin_initialized, mode = initialization_state()
-    assert plugin_initialized and mode == 'egl'
-    
-    if device is None:
-        device = get_default_device()
-    elif isinstance(device, int):
-        all_devices = query_devices()
-        device = all_devices[device]
-    
-    if _egl_state['initialized']:
-        if device == _egl_state['device'] and not force:
-            return False
-        else:
-            delete_context()
-    
-    _egl_state['initialized'] = True
-    _egl_state['device'] = device
-    
-    from OpenGL.EGL import (
+    _egl_state['structs']['EGLDeviceEXT'] = _get_egl_struct('EGLDeviceEXT')
+    _egl_state['functions']['eglGetPlatformDisplayEXT'] = _get_egl_function(
+        'eglGetPlatformDisplayEXT', EGL.EGLDisplay)
+    _egl_state['functions']['eglQueryDevicesEXT'] = _get_egl_function(
+        'eglQueryDevicesEXT', EGL.EGLBoolean)
+    _egl_state['functions']['eglQueryDeviceStringEXT'] = _get_egl_function(
+        'eglQueryDeviceStringEXT', ctypes.c_char_p)
+    _egl_state['plugin_initialized'] = True
+
+def _get_egl_function(function_name, return_type, *argtypes):
+    address = _egl_state['module'].eglGetProcAddress(function_name)
+    if address is None:
+        return None
+    proto = ctypes.CFUNCTYPE(return_type)
+    proto.argtypes = argtypes
+    return proto(address)
+
+def _get_egl_struct(struct_name):
+    from OpenGL._opaque import opaque_pointer_cls
+    return opaque_pointer_cls(struct_name)
+
+
+class EGLDevice:
+    """Represents a single EGL-capable GPU device."""
+
+    def __init__(self, display=None):
+        self.display = display
+
+    def get_display(self):
+        EGL = _egl_state['module']
+        if self.display is None:
+            return EGL.eglGetDisplay(EGL.EGL_DEFAULT_DISPLAY)
+        return _egl_state['functions']['eglGetPlatformDisplayEXT'](
+            EGL_PLATFORM_DEVICE_EXT, self.display, None)
+
+    @property
+    def name(self):
+        if self.display is None:
+            return 'default'
+        name = _egl_state['functions']['eglQueryDeviceStringEXT'](
+            self.display, EGL_DRM_DEVICE_FILE_EXT)
+        if name is None:
+            return None
+        return name.decode('ascii')
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __repr__(self):
+        return f'<EGLDevice(name={self.name})>'
+
+
+def query_devices():
+    """
+    Return a list of available EGL devices.
+
+    EGLContext must have been created before calling this.
+
+    Returns
+    -------
+    list of EGLDevice
+    """
+    if not _egl_state['plugin_initialized']:
+        raise RuntimeError(
+            'query_devices() requires an EGLContext to be created first.')
+    if _egl_state['functions'].get('eglQueryDevicesEXT') is None:
+        raise RuntimeError('EGL device query extension not available.')
+    EGL = _egl_state['module']
+    num_devices = EGL.EGLint()
+    success = _egl_state['functions']['eglQueryDevicesEXT'](
+        0, None, ctypes.pointer(num_devices))
+    if not success or num_devices.value < 0:
+        return []
+    devices = (_egl_state['structs']['EGLDeviceEXT'] * num_devices.value)()
+    success = _egl_state['functions']['eglQueryDevicesEXT'](
+        num_devices.value, devices, ctypes.pointer(num_devices))
+    if not success or num_devices.value < 1:
+        return []
+    return [EGLDevice(devices[i]) for i in range(num_devices.value)]
+
+
+class EGLContext:
+    """
+    Headless OpenGL context backed by EGL.
+
+    Does not create a framebuffer — attach one or more FrameBufferWrappers
+    to render into.  Supports use as a context manager.
+
+    Parameters
+    ----------
+    device : int, EGLDevice, or None
+        Which GPU to use.  None selects the default device.  An integer
+        indexes into the list returned by query_devices().
+
+    Examples
+    --------
+    ::
+
+        with EGLContext() as ctx:
+            fb = FrameBufferWrapper(512, 512)
+            renderer = SplendorRender()
+            fb.enable()
+            renderer.color_render()
+            image = fb.read_pixels()
+    """
+
+    def __init__(self, device=None):
+        _initialize_plugin()
+
+        # resolve device
+        if device is None:
+            if _egl_state['functions'].get('eglQueryDevicesEXT') is None:
+                device = EGLDevice(None)
+            else:
+                device = query_devices()[0]
+        elif isinstance(device, int):
+            device = query_devices()[device]
+
+        self._device = device
+        self._display = None
+        self._context = None
+        self._init_context()
+
+    def _init_context(self):
+        from OpenGL.EGL import (
             EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
             EGL_BLUE_SIZE, EGL_RED_SIZE, EGL_GREEN_SIZE, EGL_DEPTH_SIZE,
             EGL_COLOR_BUFFER_TYPE, EGL_RGB_BUFFER,
             EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT, EGL_CONFORMANT,
-            EGL_NONE, EGL_DEFAULT_DISPLAY, EGL_NO_CONTEXT,
+            EGL_NONE, EGL_NO_CONTEXT,
             EGL_OPENGL_API, EGL_CONTEXT_MAJOR_VERSION,
             EGL_CONTEXT_MINOR_VERSION,
             EGL_CONTEXT_OPENGL_PROFILE_MASK,
             EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
-            eglGetDisplay, eglInitialize, eglChooseConfig,
-            eglBindAPI, eglCreateContext, EGLConfig)
-    
-    config_attributes = GL.arrays.GLintArray.asArray([
+            eglInitialize, eglChooseConfig,
+            eglBindAPI, eglCreateContext, eglMakeCurrent,
+            EGL_NO_SURFACE, EGLConfig,
+        )
+
+        config_attributes = GL.arrays.GLintArray.asArray([
             EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
             EGL_BLUE_SIZE, 8,
             EGL_RED_SIZE, 8,
@@ -86,151 +178,50 @@ def initialize_device(device=None, force=False):
             EGL_COLOR_BUFFER_TYPE, EGL_RGB_BUFFER,
             EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
             EGL_CONFORMANT, EGL_OPENGL_BIT,
-            EGL_NONE])
-
-    context_attributes = GL.arrays.GLintArray.asArray([
+            EGL_NONE,
+        ])
+        context_attributes = GL.arrays.GLintArray.asArray([
             EGL_CONTEXT_MAJOR_VERSION, 3,
-            EGL_CONTEXT_MINOR_VERSION, 1,
+            EGL_CONTEXT_MINOR_VERSION, 3,
             EGL_CONTEXT_OPENGL_PROFILE_MASK,
             EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
-            EGL_NONE])
-    
-    major = ctypes.c_long()
-    minor = ctypes.c_long()
-    num_configs = ctypes.c_long()
-    configs = (EGLConfig * 1)()
-    
-    original_display = None
-    if 'DISPLAY' in os.environ:
-        original_display = os.environ['DISPLAY']
-        del os.environ['DISPLAY']
-    
-    _egl_state['display'] = _egl_state['device'].get_display()
-    if original_display is not None:
-        os.environ['DISPLAY'] = original_display
-    
-    assert eglInitialize(_egl_state['display'], major, minor)
-    assert eglChooseConfig(
-            _egl_state['display'], config_attributes, configs, 1, num_configs)
-    assert eglBindAPI(EGL_OPENGL_API)
-    
-    _egl_state['context'] = eglCreateContext(
-            _egl_state['display'],
-            configs[0],
-            EGL_NO_CONTEXT,
-            context_attributes)
-    
-    from OpenGL.EGL import eglMakeCurrent, EGL_NO_SURFACE
-    assert eglMakeCurrent(
-            _egl_state['display'],
-            EGL_NO_SURFACE,
-            EGL_NO_SURFACE,
-            _egl_state['context'])
-    
-    GL.glEnable(GL.GL_MULTISAMPLE)
-    
-    return True
+            EGL_NONE,
+        ])
 
-def delete_context():
-    plugin_initialized, mode = initialization_state()
-    #assert plugin_initialized and mode == 'egl'
-    if not plugin_initialized or mode != 'egl':
-        return
-    
-    from OpenGL.EGL import eglDestroyContext, eglTerminate
-    if _egl_state['display'] is not None:
-        if _egl_state['context'] is not None:
-            eglDestroyContext(_egl_state['display'], _egl_state['context'])
-            _egl_state['context'] = None
-        eglTerminate(_egl_state['display'])
-        _egl_state['display'] = None
-    
-    _egl_state['device'] = None
+        major = ctypes.c_long()
+        minor = ctypes.c_long()
+        num_configs = ctypes.c_long()
+        configs = (EGLConfig * 1)()
 
-def get_egl_function(function_name, return_type, *argtypes):
-    plugin_initialized, mode = initialization_state()
-    assert plugin_initialized and mode == 'egl'
-    
-    address = _egl_state['module'].eglGetProcAddress(function_name)
-    if address is None:
-        return None
-    
-    proto = ctypes.CFUNCTYPE(return_type)
-    proto.argtypes = argtypes
-    function = proto(address)
-    return function
+        # temporarily remove DISPLAY so EGL doesn't try to connect to X11
+        original_display = os.environ.pop('DISPLAY', None)
+        self._display = self._device.get_display()
+        if original_display is not None:
+            os.environ['DISPLAY'] = original_display
 
-def get_egl_struct(struct_name):
-    plugin_initialized, mode = initialization_state()
-    assert plugin_initialized and mode == 'egl'
-    
-    from OpenGL._opaque import opaque_pointer_cls
-    return opaque_pointer_cls(struct_name)
+        assert eglInitialize(self._display, major, minor)
+        assert eglChooseConfig(
+            self._display, config_attributes, configs, 1, num_configs)
+        assert eglBindAPI(EGL_OPENGL_API)
+        self._context = eglCreateContext(
+            self._display, configs[0], EGL_NO_CONTEXT, context_attributes)
+        assert eglMakeCurrent(
+            self._display, EGL_NO_SURFACE, EGL_NO_SURFACE, self._context)
 
-class EGLDevice:
-    def __init__(self, display=None):
-        plugin_initialized, mode = initialization_state()
-        assert plugin_initialized and mode == 'egl'
-        
-        self.display = display
-    
-    def get_display(self):
-        if self.display is None:
-            return _egl_state['module'].eglGetDisplay(EGL.EGL_DEFAULT_DISPLAY)
-        
-        return _egl_state['functions']['eglGetPlatformDisplayEXT'](
-                EGL_PLATFORM_DEVICE_EXT, self.display, None)
-    
-    @property
-    def name(self):
-        if self.display is None:
-            return 'default'
-        
-        name = _egl_state['functions']['eglQueryDeviceStringEXT'](
-                self.display, EGL_DRM_DEVICE_FILE_EXT)
-        if name is None:
-            return None
-        
-        return name.decode('ascii')
-    
-    def __eq__(self, other):
-        return self.name == other.name
-    
-    def __repr__(self):
-        return '<EGLDevice(name={})>'.format(self.name)
+        GL.glEnable(GL.GL_MULTISAMPLE)
 
-def query_devices():
-    plugin_initialized, mode = initialization_state()
-    assert plugin_initialized and mode == 'egl'
-    
-    if _egl_state['functions']['eglQueryDevicesEXT'] is None:
-        raise RuntimeError('EGL query extension not available')
-    
-    num_devices = _egl_state['module'].EGLint()
-    success = _egl_state['functions']['eglQueryDevicesEXT'](
-            0, None, ctypes.pointer(num_devices))
-    if not success or num_devices.value < 0:
-        return []
-    
-    devices = (_egl_state['structs']['EGLDeviceEXT'] * num_devices.value)()
-    success = _egl_state['functions']['eglQueryDevicesEXT'](
-            num_devices.value, devices, ctypes.pointer(num_devices))
-    if not success or num_devices.value < 1:
-        return []
-    
-    return [EGLDevice(devices[i]) for i in range(num_devices.value)]
+    def close(self):
+        """Release the EGL context and display."""
+        from OpenGL.EGL import eglDestroyContext, eglTerminate
+        if self._display is not None:
+            if self._context is not None:
+                eglDestroyContext(self._display, self._context)
+                self._context = None
+            eglTerminate(self._display)
+            self._display = None
 
-def get_default_device():
-    plugin_initialized, mode = initialization_state()
-    assert plugin_initialized and mode == 'egl'
-    
-    if _egl_state['functions']['eglQueryDevicesEXT'] is None:
-        return EGLDevice(None)
-    
-    return query_devices()[0]
+    def __enter__(self):
+        return self
 
-'''
-def finish():
-    GL.glFlush()
-    GL.glFinish()
-'''
+    def __exit__(self, *args):
+        self.close()
