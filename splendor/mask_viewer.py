@@ -1,3 +1,4 @@
+import glfw as _glfw
 from splendor.contexts.glfw import GLFWContext
 import splendor.core as core
 import splendor.camera as camera
@@ -35,7 +36,6 @@ def start_viewer(file_path):
             cursor['y'] = y
 
         def mouse_button_callback(window, button, action, mods):
-            import glfw as _glfw
             if action == _glfw.PRESS:
                 x = int(cursor['x'])
                 y = int(cursor['y'])
