@@ -731,7 +731,7 @@ class SplendorRender:
 
         # if an asset was provided, load that
         if depthmap_asset is not None:
-            depthmap_path = self.asset_library['depthmaps'][depthmap_path]
+            depthmap_path = self.asset_library['depthmaps'][depthmap_asset]
             depthmap = load_depth(depthmap_path)
             self.scene_description['depthmaps'][name] = {
                     'depthmap_asset':depthmap_asset}
