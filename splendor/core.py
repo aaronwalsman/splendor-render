@@ -6,7 +6,6 @@ import ctypes
 
 # opengl
 from OpenGL import GL
-from OpenGL.arrays import vbo
 
 # numpy
 import numpy
@@ -499,7 +498,6 @@ class SplendorRender:
         GL.glBindVertexArray(mesh_buffers['vao'])
         
         # make the vbo
-        #mesh_buffers['vertex_buffer'] = vbo.VBO(combined_floats)
         mesh_buffers['vbo'] = GL.glGenBuffers(1)
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, mesh_buffers['vbo'])
         GL.glBufferData(
@@ -511,9 +509,6 @@ class SplendorRender:
         
         # make the ebo
         face_ints = numpy.array(mesh['faces'], dtype=numpy.int32)
-        #mesh_buffers['face_buffer'] = vbo.VBO(
-        #        face_ints,
-        #        target = GL.GL_ELEMENT_ARRAY_BUFFER)
         mesh_buffers['ebo'] = GL.glGenBuffers(1)
         GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, mesh_buffers['ebo'])
         GL.glBufferData(
@@ -574,7 +569,6 @@ class SplendorRender:
                     [-1, 1,0],
                     [ 1, 1,0],
                     [ 1,-1,0]])
-            #mesh_buffers['vertex_buffer'] = vbo.VBO(vertex_floats)
             mesh_buffers['vbo'] = GL.glGenBuffers(1)
             GL.glBindBuffer(GL.GL_ARRAY_BUFFER, mesh_buffers['vbo'])
             GL.glBufferData(
@@ -587,9 +581,6 @@ class SplendorRender:
             face_ints = numpy.array([
                     [0,1,2],
                     [2,3,0]], dtype=numpy.int32)
-            #mesh_buffers['face_buffer'] = vbo.VBO(
-            #        face_ints,
-            #        target = GL.GL_ELEMENT_ARRAY_BUFFER)
             mesh_buffers['ebo'] = GL.glGenBuffers(1)
             GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, mesh_buffers['ebo'])
             GL.glBufferData(
@@ -610,10 +601,8 @@ class SplendorRender:
         """
         
         del(self.scene_description['meshes'][name])
-        #self.gl_data['mesh_buffers'][name]['vertex_buffer'].delete()
-        #self.gl_data['mesh_buffers'][name]['face_buffer'].delete()
         GL.glDeleteVertexArrays(1, [self.gl_data['mesh_buffers'][name]['vao']])
-        GL.glDeleteBuffers(1, [
+        GL.glDeleteBuffers(2, [
             self.gl_data['mesh_buffers'][name]['vbo'],
             self.gl_data['mesh_buffers'][name]['ebo'],
         ])
@@ -759,18 +748,47 @@ class SplendorRender:
         self.scene_description['depthmaps'][name]['width'] = depthmap.shape[1]
         self.scene_description['depthmaps'][name]['focal_length'] = focal_length
 
-        # create depth VBO
         depthmap_buffers = {}
-        depthmap_buffers['depth_buffer'] = vbo.VBO(depthmap)
 
-        # create index VBO
+        depthmap_buffers['vao'] = GL.glGenVertexArrays(1)
+        GL.glBindVertexArray(depthmap_buffers['vao'])
+
+        # create depth vbo
+        depth_floats = depthmap.flatten()
+        depthmap_buffers['vbo'] = GL.glGenBuffers(1)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, depthmap_buffers['vbo'])
+        GL.glBufferData(
+            GL.GL_ARRAY_BUFFER,
+            depth_floats.nbytes,
+            depth_floats,
+            GL.GL_STATIC_DRAW,
+        )
+
+        # create index ebo
         if indices is None:
             indices = numpy.arange(
                     depthmap.shape[0] * depthmap.shape[1],
-                    dtype = numpy.int32)
-        depthmap_buffers['index_buffer'] = vbo.VBO(
-                indices,
-                target = GL.GL_ELEMENT_ARRAY_BUFFER)
+                    dtype=numpy.int32)
+        depthmap_buffers['ebo'] = GL.glGenBuffers(1)
+        GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, depthmap_buffers['ebo'])
+        GL.glBufferData(
+            GL.GL_ELEMENT_ARRAY_BUFFER,
+            indices.nbytes,
+            indices,
+            GL.GL_STATIC_DRAW,
+        )
+
+        # vertex attribute setup
+        shader_locations = self.shader_library.get_shader_locations(
+            'textured_depthmap_shader')
+        GL.glVertexAttribPointer(
+            shader_locations['vertex_depth'],
+            1, GL.GL_FLOAT, False, 4,
+            ctypes.c_void_p(0),
+        )
+        GL.glEnableVertexAttribArray(shader_locations['vertex_depth'])
+
+        GL.glBindVertexArray(0)
 
         # store the loaded and gl data
         self.loaded_data['depthmaps'][name] = depthmap
@@ -786,7 +804,12 @@ class SplendorRender:
         """
         
         del(self.scene_description['depthmaps'][name])
-        self.gl_data['depthmap_buffers'][name]['depth_buffer'].delete()
+        GL.glDeleteVertexArrays(
+            1, [self.gl_data['depthmap_buffers'][name]['vao']])
+        GL.glDeleteBuffers(2, [
+            self.gl_data['depthmap_buffers'][name]['vbo'],
+            self.gl_data['depthmap_buffers'][name]['ebo'],
+        ])
         del(self.gl_data['depthmap_buffers'][name])
         del(self.loaded_data['depthmaps'][name])
 
@@ -2294,30 +2317,17 @@ class SplendorRender:
 
         GL.glPointSize(depthmap_instance_data['point_size'])
 
-        depthmap_buffers['depth_buffer'].bind()
-        depthmap_buffers['index_buffer'].bind()
+        GL.glBindVertexArray(depthmap_buffers['vao'])
         GL.glActiveTexture(GL.GL_TEXTURE0)
         GL.glBindTexture(GL.GL_TEXTURE_2D, texture_buffers['texture'])
-        try:
-            GL.glEnableVertexAttribArray(location_data['vertex_depth'])
-
-            stride = 4
-            GL.glVertexAttribPointer(
-                    location_data['vertex_depth'],
-                    1, GL.GL_FLOAT, False, stride,
-                    depthmap_buffers['depth_buffer'])
-            depth_data = self.loaded_data['depthmaps'][depthmap_instance_name]
-            num_points = depth_data.shape[0] * depth_data.shape[1]
-            GL.glDrawElements(
-                    GL.GL_POINTS,
-                    num_points,
-                    GL.GL_UNSIGNED_INT,
-                    None)
-
-        finally:
-            depthmap_buffers['depth_buffer'].unbind()
-            depthmap_buffers['index_buffer'].unbind()
-            GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        num_points = depth_data.shape[0] * depth_data.shape[1]
+        GL.glDrawElements(
+                GL.GL_POINTS,
+                num_points,
+                GL.GL_UNSIGNED_INT,
+                None)
+        GL.glBindVertexArray(0)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
 
     def render_background(self, image_light_name, flip_y=True):
         """
@@ -2635,27 +2645,13 @@ class SplendorRender:
                 location_data['box_max'],
                 1, numpy.array(coord_box[1], dtype=numpy.float32))
 
-        mesh_buffers['face_buffer'].bind()
-        mesh_buffers['vertex_buffer'].bind()
-
-        try:
-            GL.glEnableVertexAttribArray(location_data['vertex_position'])
-
-            stride = self.get_mesh_stride(instance_mesh)
-            GL.glVertexAttribPointer(
-                    location_data['vertex_position'],
-                    3, GL.GL_FLOAT, False, stride,
-                    mesh_buffers['vertex_buffer'])
-
-            GL.glDrawElements(
-                    GL.GL_TRIANGLES,
-                    len(mesh['faces'])*3,
-                    GL.GL_UNSIGNED_INT,
-                    None)
-
-        finally:
-            mesh_buffers['face_buffer'].unbind()
-            mesh_buffers['vertex_buffer'].unbind()
+        GL.glBindVertexArray(mesh_buffers['vao'])
+        GL.glDrawElements(
+                GL.GL_TRIANGLES,
+                len(mesh['faces'])*3,
+                GL.GL_UNSIGNED_INT,
+                None)
+        GL.glBindVertexArray(0)
 
     # misc render methods ------------------------------------------------------
     # TODO Figure out what to do about these.
