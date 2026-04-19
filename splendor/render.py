@@ -1,44 +1,88 @@
-import splendor.contexts.egl as egl
+import math
+import warnings
+
+from splendor.contexts.egl import EGLContext
 import splendor.core as core
+import splendor.camera as camera
 from splendor.image import save_image, save_depth
-from splendor.frame_buffer import FrameBufferWrapper
+
+DEFAULT_RESOLUTION = '512x512'
+DEFAULT_ANTI_ALIAS_SAMPLES = 8
 
 def render_scene(
     scene,
-    width,
-    height,
-    assets = None,
-    output_file = None,
-    anti_alias = True,
-    anti_alias_samples = 8,
-    render_mode = 'color',
-    device = None,
+    assets=None,
+    output_file=None,
+    camera='main',
+    sensor='output',
+    resolution=None,
+    anti_alias_samples=None,
+    render_mode='color',
+    device=None,
 ):
-    
-    egl.initialize_plugin()
-    egl.initialize_device(device)
-    
-    framebuffer = FrameBufferWrapper(
-            width, height, anti_alias, anti_alias_samples)
-    framebuffer.enable()
-    renderer = core.SplendorRender(assets=assets)
-    renderer.load_scene(scene, clear_scene=True)
-        
-    if render_mode == 'color' or render_mode == 'depth':
-        renderer.color_render(flip_y=True)
-    elif render_mode == 'mask':
-        renderer.mask_render(flip_y=True)
-    else:
-        raise NotImplementedError
-    
-    image = framebuffer.read_pixels(
-            read_depth=(render_mode=='depth'),
-            projection=renderer.get_projection())
-    
+    ctx = EGLContext(device=device)
+    try:
+        renderer = core.SplendorRender(assets=assets)
+        renderer.load_scene(scene)
+
+        # Ensure the named camera exists and has a resolution-appropriate projection.
+        # If the scene defined the camera (with a view_matrix but no projection),
+        # load_camera's default 90° 1:1 is already in place; we only create/replace
+        # when the camera is absent entirely.
+        if not renderer.camera_exists(camera):
+            proj = _default_projection(resolution)
+            renderer.load_camera(camera, projection=proj)
+
+        # Resolve the sensor: use scene-defined one or create from CLI args
+        if renderer.sensor_exists(sensor):
+            if resolution is not None or anti_alias_samples is not None:
+                warnings.warn(
+                    f'Sensor {sensor!r} is already defined in the scene; '
+                    f'--resolution and --anti-alias-samples are ignored.')
+        else:
+            w, h = _parse_resolution(resolution or DEFAULT_RESOLUTION)
+            samples = (anti_alias_samples
+                       if anti_alias_samples is not None
+                       else DEFAULT_ANTI_ALIAS_SAMPLES)
+            anti_alias = samples != 0
+            k1 = renderer.get_camera_radial_k1(camera)
+            k2 = renderer.get_camera_radial_k2(camera)
+            renderer.load_sensor(
+                sensor, w, h,
+                enable_radial_distortion=(k1 != 0.0 or k2 != 0.0),
+                anti_alias=anti_alias,
+                anti_alias_samples=samples,
+            )
+
+        if render_mode in ('color', 'depth'):
+            renderer.color_render(camera, sensor=sensor, flip_y=True)
+        elif render_mode == 'mask':
+            renderer.mask_render(camera, sensor=sensor, flip_y=True)
+        else:
+            raise ValueError(f'Unknown render_mode: {render_mode!r}')
+
+        image = renderer.read_sensor(
+            sensor,
+            read_depth=(render_mode == 'depth'),
+            projection=renderer.get_camera_projection(camera),
+        )
+
+    finally:
+        ctx.close()
+
     if output_file is not None:
         if render_mode == 'depth':
             save_depth(image, output_file)
         else:
             save_image(image, output_file)
-    
+
     return image
+
+
+def _parse_resolution(resolution):
+    w, h = resolution.lower().split('x')
+    return int(w), int(h)
+
+def _default_projection(resolution):
+    w, h = _parse_resolution(resolution or DEFAULT_RESOLUTION)
+    return camera.projection_matrix(math.radians(90.), w / h)

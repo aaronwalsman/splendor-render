@@ -20,11 +20,9 @@ from splendor.image import load_image, load_depth, validate_texture
 import splendor.json_numpy as json_numpy
 from splendor.exceptions import SplendorException, SplendorEmptyMeshException
 from splendor.primitives import make_primitive
+from splendor.shaders.lighting_model import MAX_SHADOW_CASTERS
 
 max_num_lights = 8
-default_default_view_matrix = numpy.eye(4)
-default_default_camera_projection = camera.projection_matrix(
-        math.radians(90.), 1.0)
 
 class SplendorRender:
     """
@@ -46,16 +44,16 @@ class SplendorRender:
             ('instance', 'instances'),
             ('depthmap_instance', 'depthmap_instances'),
             ('point_light', 'point_lights'),
-            ('direction_light', 'direction_lights'))
+            ('direction_light', 'direction_lights'),
+            ('coord_frame', 'coord_frames'),
+            ('frustum', 'frustums'))
 
     def __init__(self,
         assets=None,
-        default_view_matrix=None,
-        default_camera_projection=None,
     ):
         """
         SplendorRender initialization
-        
+
         Parameters
         ----------
         assets : str or AssetLibrary, optional
@@ -63,12 +61,6 @@ class SplendorRender:
             AssetLibrary object.  This is used to load assets such as meshes
             and textures by name rather than their full path.  If not provided,
             this will load the splendor-render default asset library.
-        default_view_matrix : 4x4 numpy matrix, optional
-            The default view matrix for the renderer.  This is the inverse of
-            thre 3D pose of the camera object.  Identity if not specified.
-        default_camera_projection : 4x4 numpy matrix, optional
-            The default projection matrix for the renderer.
-            A square projection with a 90 degree fov is used if not specified.
         """
         # asset library
         if isinstance(assets, AssetLibrary):
@@ -76,14 +68,6 @@ class SplendorRender:
         else:
             self.asset_library = AssetLibrary(assets)
 
-        # default camera settings
-        if default_view_matrix is None:
-            default_view_matrix = default_default_view_matrix
-        self.default_view_matrix = default_view_matrix
-        if default_camera_projection is None:
-            default_camera_projection = default_default_camera_projection
-        self.default_camera_projection = default_camera_projection
-        
         # scene data
         self.scene_description = {
             'meshes':{},
@@ -97,12 +81,10 @@ class SplendorRender:
             'ambient_color':numpy.array([0,0,0]),
             'point_lights':{},
             'direction_lights':{},
-            'camera':{
-                'view_matrix':default_view_matrix,
-                'projection':default_camera_projection,
-                'radial_k1' : 0.,
-                'radial_k2' : 0.,
-            },
+            'coord_frames':{},
+            'frustums':{},
+            'cameras':{},
+            'sensors':{},
             'image_lights':{},
             'active_image_light':None,
         }
@@ -119,10 +101,13 @@ class SplendorRender:
             'depthmap_buffers':{},
             'texture_buffers':{},
             'cubemap_buffers':{},
+            'sensor_buffers':{},
+            'coord_frame_buffers': None,
         }
         
         self.opengl_init()
         self.shader_library = ShaderLibrary()
+        self._init_coord_frame_buffers()
     
     def get_json_description(self, **kwargs):
         """
@@ -152,6 +137,9 @@ class SplendorRender:
         GL.glDepthRange(0.0, 1.0)
 
         GL.glClearColor(0.,0.,0.,0.)
+
+        # Empty VAO for attribute-less draws (e.g. fullscreen warp pass)
+        self.empty_vao = GL.glGenVertexArrays(1)
     
     def viewport_scissor(self, x, y, width, height):
         GL.glViewport(x, y, width, height)
@@ -202,15 +190,13 @@ class SplendorRender:
                 set_fn = getattr(self, 'set_' + global_parameter)
                 set_fn(scene[global_parameter])
 
-        if 'camera' in scene:
-            if 'view_matrix' in scene['camera']:
-                self.set_view_matrix(scene['camera']['view_matrix'])
-            if 'projection' in scene['camera']:
-                self.set_projection(scene['camera']['projection'])
-            if 'radial_k1' in scene['camera']:
-                self.set_radial_k1(scene['camera']['radial_k1'])
-            if 'radial_k2' in scene['camera']:
-                self.set_radial_k2(scene['camera']['radial_k2'])
+        if 'cameras' in scene:
+            for camera_name, camera_args in scene['cameras'].items():
+                self.load_camera(camera_name, **camera_args)
+
+        if 'sensors' in scene:
+            for sensor_name, sensor_args in scene['sensors'].items():
+                self.load_sensor(sensor_name, **sensor_args)
 
     def clear_scene(self):
         """
@@ -223,7 +209,8 @@ class SplendorRender:
         self.set_ambient_color([0,0,0])
         self.set_background_color([0,0,0,0])
         self.scene_description['active_image_light'] = None
-        self.reset_camera()
+        self.clear_cameras()
+        self.clear_sensors()
 
     # global settings ==========================================================
     
@@ -295,89 +282,228 @@ class SplendorRender:
         return self.scene_description['active_image_light']
 
     # camera methods ===========================================================
-    
-    def reset_camera(self):
-        """
-        Resets the camera to the default view matrix and projection.
-        """
-        self.set_view_matrix(self.default_view_matrix)
-        self.set_projection(self.default_camera_projection)
-        self.set_radial_k1(0.)
-        self.set_radial_k2(0.)
 
-    def set_projection(self, projection_matrix):
+    def load_camera(self,
+        name,
+        view_matrix=None,
+        projection=None,
+        radial_k1=0.,
+        radial_k2=0.,
+    ):
         """
-        Sets the camera projection matrix.
-        
+        Load a named camera into the scene.
+
         Parameters:
         -----------
-        projection_matrix : 4x4 array-like
+        name : str
+            Unique name for this camera.
+        view_matrix : 4x4 array-like or azimuthal parameters, optional
+            The view matrix (inverse of the camera's world pose).
+            Accepts the same formats as camera.view_matrix().
+            Defaults to the identity (camera at origin looking down -Z).
+        projection : 4x4 array-like, optional
+            The projection matrix.  Defaults to a 90-degree FOV square
+            projection.
+        radial_k1 : float, default=0.
+            First radial distortion coefficient.
+        radial_k2 : float, default=0.
+            Second radial distortion coefficient.
         """
-        self.scene_description['camera']['projection'] = numpy.array(
-                projection_matrix)
-    
-    def get_projection(self):
-        """
-        Get the camera's projection matrix.
-        
-        Returns:
-        --------
-        4x4 numpy array
-        """
-        return self.scene_description['camera']['projection']
+        if view_matrix is None:
+            view_matrix = numpy.eye(4)
+        if projection is None:
+            projection = camera.projection_matrix(math.radians(90.), 1.0)
+        view_matrix = camera.view_matrix(view_matrix)
+        self.scene_description['cameras'][name] = {
+            'view_matrix': numpy.array(view_matrix),
+            'projection': numpy.array(projection),
+            'radial_k1': float(radial_k1),
+            'radial_k2': float(radial_k2),
+        }
 
-    def set_view_matrix(self, view_matrix):
+    def remove_camera(self, name):
+        del self.scene_description['cameras'][name]
+
+    def camera_exists(self, name):
+        return name in self.scene_description['cameras']
+
+    def clear_cameras(self):
+        self.scene_description['cameras'].clear()
+
+    def set_camera_view_matrix(self, name, view_matrix):
         """
-        Sets the view matrix.
-        
+        Set the view matrix for a named camera.
+
         Parameters:
         -----------
-        view_matrix : 4x4 matrix, 6-element or 9-element azimuthal parameters
-            or a dictionary of named azimuthal parameters.
-            Azimuthal parameters are:
-            [azimuth,
-             elevation,
-             tilt,
-             distance,
-             shift_x,
-             shift_y,
-             center_x (optional),
-             center_y (optional),
-             center_z (optional)]
+        name : str
+        view_matrix : 4x4 matrix or azimuthal parameters
         """
         view_matrix = camera.view_matrix(view_matrix)
-        self.scene_description['camera']['view_matrix'] = view_matrix
+        self.scene_description['cameras'][name]['view_matrix'] = view_matrix
 
-    def get_view_matrix(self):
-        """
-        Get the view matrix.
-        
-        Note this is the inverse of the SE3 pose of the camera object.
-        
-        Returns:
-        --------
-        view_matrix : 4x4 numpy array
-        """
-        return self.scene_description['camera']['view_matrix']
-    
-    def set_radial_k1(self, radial_k1):
-        self.scene_description['camera']['radial_k1'] = radial_k1
-    
-    def get_radial_k1(self):
-        return self.scene_description['camera']['radial_k1']
-    
-    def set_radial_k2(self, radial_k2):
-        self.scene_description['camera']['radial_k2'] = radial_k2
-    
-    def get_radial_k2(self):
-        return self.scene_description['camera']['radial_k2']
+    def get_camera_view_matrix(self, name):
+        return self.scene_description['cameras'][name]['view_matrix']
 
-    def camera_frame_scene(self, multiplier=3.0, *args, **kwargs):
+    def set_camera_projection(self, name, projection):
+        self.scene_description['cameras'][name]['projection'] = numpy.array(
+            projection)
+
+    def get_camera_projection(self, name):
+        return self.scene_description['cameras'][name]['projection']
+
+    def set_camera_radial_k1(self, name, radial_k1):
+        self.scene_description['cameras'][name]['radial_k1'] = float(radial_k1)
+
+    def get_camera_radial_k1(self, name):
+        return self.scene_description['cameras'][name]['radial_k1']
+
+    def set_camera_radial_k2(self, name, radial_k2):
+        self.scene_description['cameras'][name]['radial_k2'] = float(radial_k2)
+
+    def get_camera_radial_k2(self, name):
+        return self.scene_description['cameras'][name]['radial_k2']
+
+    def camera_frame_scene(self, camera_name, multiplier=3.0, *args, **kwargs):
         bbox = self.get_instance_center_bbox()
         view_matrix = camera.frame_bbox(
-                bbox, self.get_projection(), multiplier,
-                *args, **kwargs)
-        self.set_view_matrix(view_matrix)
+            bbox, self.get_camera_projection(camera_name), multiplier,
+            *args, **kwargs)
+        self.set_camera_view_matrix(camera_name, view_matrix)
+
+    # sensor methods ===========================================================
+
+    def load_sensor(self,
+        name,
+        width,
+        height,
+        enable_radial_distortion=False,
+        anti_alias=True,
+        anti_alias_samples=8,
+        color_format=GL.GL_RGBA8,
+        depth_only=False,
+    ):
+        """
+        Load a named sensor (offscreen render target).
+
+        A sensor owns one or more framebuffers and can be passed to render
+        functions to direct output offscreen.  Use read_sensor() to retrieve
+        pixel data after rendering.
+
+        Parameters:
+        -----------
+        name : str
+            Unique name for this sensor.
+        width : int
+        height : int
+        enable_radial_distortion : bool, default=False
+            If True, allocates an intermediate framebuffer for the two-stage
+            radial distortion pass.
+        anti_alias : bool, default=True
+        anti_alias_samples : int, default=8
+        color_format : GL enum, default=GL.GL_RGBA8
+            GL.GL_RGBA8 or GL.GL_RGBA32F
+        depth_only : bool, default=False
+            If True, no color attachment is created.  The depth buffer is a
+            sampleable texture (depth_texture).  Useful for shadow maps.
+            Incompatible with enable_radial_distortion.
+        """
+        assert not (depth_only and enable_radial_distortion), (
+            'depth_only sensors do not support radial distortion')
+        from splendor.frame_buffer import FrameBufferWrapper
+        main_fbo = FrameBufferWrapper(
+            width, height,
+            anti_alias=anti_alias,
+            anti_alias_samples=anti_alias_samples,
+            color_format=color_format,
+            depth_only=depth_only,
+        )
+        sensor_buffers = {'main_fbo': main_fbo}
+        if enable_radial_distortion:
+            intermediate_fbo = FrameBufferWrapper(
+                width, height,
+                anti_alias=anti_alias,
+                anti_alias_samples=anti_alias_samples,
+                texture_output=True,
+                color_format=color_format,
+            )
+            sensor_buffers['intermediate_fbo'] = intermediate_fbo
+        self.scene_description['sensors'][name] = {
+            'width': width,
+            'height': height,
+            'enable_radial_distortion': enable_radial_distortion,
+            'depth_only': depth_only,
+        }
+        self.gl_data['sensor_buffers'][name] = sensor_buffers
+
+    def remove_sensor(self, name):
+        del self.scene_description['sensors'][name]
+        del self.gl_data['sensor_buffers'][name]
+
+    def clear_sensors(self):
+        for name in list(self.scene_description['sensors'].keys()):
+            self.remove_sensor(name)
+
+    def sensor_exists(self, name):
+        return name in self.scene_description['sensors']
+
+    def _bind_sensor(self, name):
+        """Bind the sensor's main framebuffer and set the viewport."""
+        self.gl_data['sensor_buffers'][name]['main_fbo'].enable()
+
+    def read_sensor(self, name, **kwargs):
+        """
+        Read pixel data from a named sensor.
+
+        Parameters:
+        -----------
+        name : str
+        **kwargs :
+            Passed through to FrameBufferWrapper.read_pixels().
+            Useful args: read_alpha, read_depth, projection.
+
+        Returns:
+        --------
+        numpy array
+
+        """
+        return self.gl_data['sensor_buffers'][name]['main_fbo'].read_pixels(
+            **kwargs)
+
+    def display_sensor(self, name):
+        """
+        Blit a sensor's output to the screen (FBO 0).
+
+        Call this after rendering into a sensor to show the result in an
+        interactive window.  The caller is responsible for having the correct
+        windowing context active.
+
+        Parameters:
+        -----------
+        name : str
+        """
+        from OpenGL import GL
+        sensor_data = self.scene_description['sensors'][name]
+        fbo_wrapper = self.gl_data['sensor_buffers'][name]['main_fbo']
+        w, h = sensor_data['width'], sensor_data['height']
+
+        blit_mask = GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT
+
+        # resolve multisampling if needed
+        if fbo_wrapper.anti_alias:
+            GL.glBindFramebuffer(
+                GL.GL_READ_FRAMEBUFFER, fbo_wrapper.frame_buffer_multi)
+            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, fbo_wrapper.frame_buffer)
+            GL.glBlitFramebuffer(
+                0, 0, w, h, 0, 0, w, h,
+                blit_mask, GL.GL_NEAREST)
+
+        GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, fbo_wrapper.frame_buffer)
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, 0)
+        GL.glBlitFramebuffer(
+            0, 0, w, h, 0, 0, w, h,
+            blit_mask, GL.GL_NEAREST)
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
 
     # mesh methods =============================================================
     
@@ -869,6 +995,10 @@ class SplendorRender:
         render_background = True,
         set_active = False,
         lock_to_camera = False,
+        shadow_map = None,
+        shadow_projection = None,
+        shadow_pose = None,
+        shadow_pcf_radius = 1,
     ):
         """
         Load an image light.
@@ -919,6 +1049,12 @@ class SplendorRender:
         image_light_data['reflect_gamma'] = reflect_gamma
         image_light_data['reflect_bias'] = reflect_bias
         image_light_data['lock_to_camera'] = lock_to_camera
+        image_light_data['shadow_map'] = shadow_map
+        image_light_data['shadow_projection'] = (
+            numpy.array(shadow_projection) if shadow_projection is not None else None)
+        image_light_data['shadow_pose'] = (
+            numpy.array(shadow_pose) if shadow_pose is not None else None)
+        image_light_data['shadow_pcf_radius'] = int(shadow_pcf_radius)
         self.scene_description['image_lights'][name] = image_light_data
         
         self.load_background_mesh()
@@ -1820,22 +1956,22 @@ class SplendorRender:
 
     # point_light methods ======================================================
     
-    def add_point_light(self, name, position, color):
+    def add_point_light(self, name, pose, color):
         """
         Add a point light to the scene.
-        
+
         Parameters:
         -----------
         name : str
-            Name of the new point light, must be unique to this scene among
-            other point lights.
-        position : array-like
-            3-value array representing the position of the point light.
+            Name of the new point light, must be unique among point lights.
+        pose : array-like, shape (4, 4)
+            World-space pose of the light.  The position is taken from
+            column 3 (pose[:3, 3]).
         color : array-like
-            3-value color of the point light
+            3-value RGB color of the point light.
         """
         self.scene_description['point_lights'][name] = {
-                'position' : numpy.array(position),
+                'pose'  : numpy.array(pose),
                 'color' : numpy.array(color)}
     
     def remove_point_light(self, name):
@@ -1858,24 +1994,42 @@ class SplendorRender:
     
     def add_direction_light(self,
             name,
-            direction,
-            color):
+            pose,
+            color,
+            shadow_map=None,
+            shadow_projection=None,
+            shadow_pcf_radius=1):
         """
-        Add a direction light to the scene.
-        
+        Add a directional light to the scene.
+
         Parameters:
         -----------
         name : str
-            Name of the new direction light, must be unique to this scene among
-            other direction lights.
-        direction : array-like
-            3-value array representing the direction of the light.
+            Name of the new direction light, must be unique among direction
+            lights.
+        pose : array-like, shape (4, 4)
+            World-space pose of the light.  The light rays travel in the
+            direction of the pose's -Z axis (pose[:3, 2]), consistent with
+            the convention that a camera looks down its -Z axis.
+            Use camera.direction_light_pose(direction, position) to construct
+            this from a ray direction vector.
         color : array-like
-            3-value color of the direction light
+            3-value RGB color of the light.
+        shadow_map : str, optional
+            Name of a depth-only sensor to use as this light's shadow map.
+        shadow_projection : array-like, shape (4, 4), optional
+            Projection matrix for the shadow camera.  Use
+            camera.orthographic_matrix() to build one.
         """
         self.scene_description['direction_lights'][name] = {
-                'direction' : numpy.array(direction),
-                'color' : numpy.array(color)}
+                'pose'              : numpy.array(pose),
+                'color'             : numpy.array(color),
+                'shadow_map'        : shadow_map,
+                'shadow_projection' : (numpy.array(shadow_projection)
+                                       if shadow_projection is not None
+                                       else None),
+                'shadow_pcf_radius' : int(shadow_pcf_radius),
+        }
 
     def remove_direction_light(self, name):
         """    
@@ -1893,6 +2047,261 @@ class SplendorRender:
         """
         self.scene_description['direction_lights'] = {}
 
+    # coord frame methods ======================================================
+
+    def _init_coord_frame_buffers(self):
+        """
+        Allocate VAO/VBO for coord frame line rendering.
+        Each coord frame draws 6 lines (±X, ±Y, ±Z) = 12 vertices.
+        Each vertex: 3 floats position + 3 floats color = 6 floats.
+        The VBO is allocated for 1 frame and updated per-draw via glBufferData.
+        """
+        vao = GL.glGenVertexArrays(1)
+        vbo = GL.glGenBuffers(1)
+        GL.glBindVertexArray(vao)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
+        # position: location 0
+        GL.glEnableVertexAttribArray(0)
+        GL.glVertexAttribPointer(
+            0, 3, GL.GL_FLOAT, GL.GL_FALSE,
+            6 * 4, ctypes.c_void_p(0))
+        # color: location 1
+        GL.glEnableVertexAttribArray(1)
+        GL.glVertexAttribPointer(
+            1, 3, GL.GL_FLOAT, GL.GL_FALSE,
+            6 * 4, ctypes.c_void_p(3 * 4))
+        GL.glBindVertexArray(0)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
+        self.gl_data['coord_frame_buffers'] = {'vao': vao, 'vbo': vbo}
+
+    # Shared local-space coord frame vertex data (12 vertices × 6 floats).
+    # Layout per vertex: px py pz cr cg cb (interleaved).
+    # Transform applied via MVP uniform.  axis_length applied as a scale
+    # factor inside add_coord_frame by baking a scale into the stored transform.
+    # Axes: +X red, +Y green, +Z blue, -X magenta, -Y yellow, -Z cyan.
+    _COORD_FRAME_VERTS = numpy.array([
+        # px  py  pz    cr cg cb
+        0., 0., 0.,   1, 0, 0,   # +X line start
+        1., 0., 0.,   1, 0, 0,   # +X line end
+        0., 0., 0.,   0, 1, 0,   # +Y line start
+        0., 1., 0.,   0, 1, 0,   # +Y line end
+        0., 0., 0.,   0, 0, 1,   # +Z line start
+        0., 0., 1.,   0, 0, 1,   # +Z line end
+        0., 0., 0.,   1, 0, 1,   # -X line start
+       -1., 0., 0.,   1, 0, 1,   # -X line end
+        0., 0., 0.,   1, 1, 0,   # -Y line start
+        0.,-1., 0.,   1, 1, 0,   # -Y line end
+        0., 0., 0.,   0, 1, 1,   # -Z line start
+        0., 0.,-1.,   0, 1, 1,   # -Z line end
+    ], dtype=numpy.float32)
+
+    def add_coord_frame(self, name, transform, axis_length=0.1):
+        """
+        Add a named coordinate frame to the scene for visualization.
+
+        Parameters
+        ----------
+        name : str
+            Unique name for this coord frame.
+        transform : array-like (4x4)
+            World-space pose of the frame.
+        axis_length : float, default=0.1
+            Length of each axis line in world units.
+        """
+        self.scene_description['coord_frames'][name] = {
+            'transform': numpy.array(transform, dtype=numpy.float32),
+            'axis_length': float(axis_length),
+        }
+
+    def remove_coord_frame(self, name):
+        """Remove a named coord frame from the scene."""
+        del self.scene_description['coord_frames'][name]
+
+    def clear_coord_frames(self):
+        """Remove all coord frames from the scene."""
+        self.scene_description['coord_frames'] = {}
+
+    def set_coord_frame_transform(self, name, transform, axis_length=None):
+        """Update the transform (and optionally axis_length) of a named coord frame."""
+        self.scene_description['coord_frames'][name]['transform'] = (
+            numpy.array(transform, dtype=numpy.float32))
+        if axis_length is not None:
+            self.scene_description['coord_frames'][name]['axis_length'] = (
+                float(axis_length))
+
+    def render_coord_frames(self, camera_data, flip_y=True):
+        """
+        Render all scene coord frames as RGB XYZ axis lines.
+        Must be called while the correct sensor FBO is bound and depth test active.
+
+        Parameters
+        ----------
+        camera_data : dict
+            Camera data dict (as stored in scene_description['cameras']), or
+            a modified copy (e.g. with expanded FOV for distortion pass).
+        """
+        frames = self.scene_description['coord_frames']
+        if not frames:
+            return
+
+        view_matrix = camera_data['view_matrix'].astype(numpy.float32)
+        projection_matrix = camera_data['projection'].astype(numpy.float32)
+        if flip_y:
+            flip = numpy.array([
+                [1, 0, 0, 0],
+                [0,-1, 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1]], dtype=numpy.float32)
+            projection_matrix = flip @ projection_matrix
+
+        vp = projection_matrix @ view_matrix
+
+        buffers = self.gl_data['coord_frame_buffers']
+        self.shader_library.use_program('lines_shader')
+        locations = self.shader_library.get_shader_locations('lines_shader')
+        mvp_loc = locations['mvp_matrix']
+
+        GL.glBindVertexArray(buffers['vao'])
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, buffers['vbo'])
+
+        # Upload the shared unit-axis vertex data once
+        verts = SplendorRender._COORD_FRAME_VERTS
+        GL.glBufferData(
+            GL.GL_ARRAY_BUFFER,
+            verts.nbytes,
+            verts,
+            GL.GL_STREAM_DRAW,
+        )
+
+        for frame_data in frames.values():
+            transform = frame_data['transform']
+            axis_length = frame_data['axis_length']
+            scaled = transform.copy()
+            scaled[:3, :3] *= axis_length
+            mvp = (vp @ scaled).astype(numpy.float32)
+            GL.glUniformMatrix4fv(mvp_loc, 1, GL.GL_TRUE, mvp)
+            GL.glDrawArrays(GL.GL_LINES, 0, 12)
+
+        GL.glBindVertexArray(0)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
+        GL.glUseProgram(0)
+
+    # frustum methods ==========================================================
+
+    # NDC corners: near (z=-1) and far (z=1) planes, in order
+    # nbl, nbr, ntr, ntl, fbl, fbr, ftr, ftl
+    _FRUSTUM_NDC = numpy.array([
+        [-1, -1, -1, 1],  # near bottom-left
+        [ 1, -1, -1, 1],  # near bottom-right
+        [ 1,  1, -1, 1],  # near top-right
+        [-1,  1, -1, 1],  # near top-left
+        [-1, -1,  1, 1],  # far bottom-left
+        [ 1, -1,  1, 1],  # far bottom-right
+        [ 1,  1,  1, 1],  # far top-right
+        [-1,  1,  1, 1],  # far top-left
+    ], dtype=numpy.float32)
+
+    # 12 edges as pairs of corner indices
+    _FRUSTUM_EDGES = [
+        (0,1),(1,2),(2,3),(3,0),  # near plane
+        (4,5),(5,6),(6,7),(7,4),  # far plane
+        (0,4),(1,5),(2,6),(3,7),  # connecting
+    ]
+
+    @staticmethod
+    def _compute_frustum_verts(transform, projection, color):
+        inv_proj = numpy.linalg.inv(projection)
+        # unproject NDC corners to view space, then to world space
+        corners_view = (inv_proj @ SplendorRender._FRUSTUM_NDC.T).T
+        corners_view /= corners_view[:, 3:4]  # perspective divide
+        corners_world = (transform @ corners_view.T).T
+        corners_world = corners_world[:, :3]
+
+        c = numpy.array(color, dtype=numpy.float32)
+        verts = []
+        for i, j in SplendorRender._FRUSTUM_EDGES:
+            verts.append(numpy.concatenate([corners_world[i], c]))
+            verts.append(numpy.concatenate([corners_world[j], c]))
+        return numpy.array(verts, dtype=numpy.float32).ravel()
+
+    def add_frustum(self, name, transform, projection, color=(1, 1, 1)):
+        """
+        Add a named camera frustum wireframe to the scene for visualization.
+
+        Parameters
+        ----------
+        name : str
+            Unique name for this frustum.
+        transform : array-like (4x4)
+            World-space camera pose (camera-to-world).
+        projection : array-like (4x4)
+            Camera projection matrix.
+        color : 3-tuple, default white
+            RGB color for all frustum edges.
+        """
+        self.scene_description['frustums'][name] = {
+            'transform': numpy.array(transform, dtype=numpy.float32),
+            'projection': numpy.array(projection, dtype=numpy.float32),
+            'color': list(color),
+        }
+
+    def remove_frustum(self, name):
+        """Remove a named frustum from the scene."""
+        del self.scene_description['frustums'][name]
+
+    def clear_frustums(self):
+        """Remove all frustums from the scene."""
+        self.scene_description['frustums'] = {}
+
+    def set_frustum(self, name, transform, projection, color=(1, 1, 1)):
+        """Update the transform, projection, and/or color of a named frustum."""
+        self.scene_description['frustums'][name] = {
+            'transform': numpy.array(transform, dtype=numpy.float32),
+            'projection': numpy.array(projection, dtype=numpy.float32),
+            'color': list(color),
+        }
+
+    def render_frustums(self, camera_data, flip_y=True):
+        """Render all scene frustum wireframes."""
+        frustums = self.scene_description['frustums']
+        if not frustums:
+            return
+
+        view_matrix = camera_data['view_matrix'].astype(numpy.float32)
+        projection_matrix = camera_data['projection'].astype(numpy.float32)
+        if flip_y:
+            flip = numpy.array([
+                [1, 0, 0, 0],
+                [0,-1, 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1]], dtype=numpy.float32)
+            projection_matrix = flip @ projection_matrix
+
+        vp = (projection_matrix @ view_matrix).astype(numpy.float32)
+
+        buffers = self.gl_data['coord_frame_buffers']
+        self.shader_library.use_program('lines_shader')
+        locations = self.shader_library.get_shader_locations('lines_shader')
+        mvp_loc = locations['mvp_matrix']
+        GL.glUniformMatrix4fv(mvp_loc, 1, GL.GL_TRUE, vp)
+
+        GL.glBindVertexArray(buffers['vao'])
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, buffers['vbo'])
+
+        for frustum_data in frustums.values():
+            verts = self._compute_frustum_verts(
+                frustum_data['transform'],
+                frustum_data['projection'],
+                frustum_data['color'],
+            )
+            GL.glBufferData(
+                GL.GL_ARRAY_BUFFER, verts.nbytes, verts, GL.GL_STREAM_DRAW)
+            GL.glDrawArrays(GL.GL_LINES, 0, 24)
+
+        GL.glBindVertexArray(0)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
+        GL.glUseProgram(0)
+
     # render methods ===========================================================
     
     def clear_frame(self):
@@ -1909,46 +2318,252 @@ class SplendorRender:
         GL.glFinish()
 
     # color_render methods -----------------------------------------------------
-    
+
+    def _distortion_expanded_projection(self, projection, k1, k2, width, height):
+        """
+        Return a modified projection matrix with FOV expanded so that the
+        undistorted intermediate render covers all pixels needed by the warp
+        pass.  Also returns fov_scale = f_intermediate / f_output.
+        """
+        aspect = width / height
+        # Corner of the output image in aspect-corrected camera-space coords
+        # (using the output focal lengths: p = ndc / f, corner ndc = (1, 1))
+        fx = projection[0, 0]
+        fy = projection[1, 1]
+        p_corner = numpy.array([1.0 / fx, 1.0 / fy])
+        r2 = numpy.dot(p_corner, p_corner)
+        r4 = r2 ** 2
+        d_corner = 1.0 + k1 * r2 + k2 * r4
+        d_corner = max(d_corner, 0.1)
+        # For barrel distortion (d_corner < 1): the output corner maps to an
+        # undistorted position beyond the natural FOV, so we must widen the
+        # intermediate render.  fov_scale = d_corner < 1 widens it just enough.
+        #
+        # For pincushion distortion (d_corner > 1): the output corner maps to
+        # an undistorted position inside the natural FOV, so no narrowing is
+        # needed (narrowing would clip scene content near the edges).
+        # Keep fov_scale = 1.0.
+        fov_scale = float(min(1.0, d_corner))
+        expanded = projection.copy()
+        expanded[0, 0] = fx * fov_scale
+        expanded[1, 1] = fy * fov_scale
+        return expanded, fov_scale
+
+    def _radial_warp_pass(self, sensor, camera_data):
+        """
+        Run the fullscreen warp pass: sample the intermediate texture and write
+        the barrel/pincushion-distorted result to the sensor's main FBO.
+        """
+        sensor_data = self.scene_description['sensors'][sensor]
+        sensor_buffers = self.gl_data['sensor_buffers'][sensor]
+        width = sensor_data['width']
+        height = sensor_data['height']
+
+        projection = camera_data['projection']
+        k1 = camera_data['radial_k1']
+        k2 = camera_data['radial_k2']
+        _, fov_scale = self._distortion_expanded_projection(
+            projection, k1, k2, width, height)
+
+        # Resolve MSAA → texture before sampling
+        intermediate_fbo = sensor_buffers['intermediate_fbo']
+        if intermediate_fbo.anti_alias:
+            intermediate_fbo.resolve()
+
+        # Bind the main (output) FBO
+        sensor_buffers['main_fbo'].enable()
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+        self.shader_library.use_program('radial_warp_shader')
+        try:
+            locs = self.shader_library.get_shader_locations('radial_warp_shader')
+
+            # Bind the intermediate color texture at unit 5
+            GL.glActiveTexture(GL.GL_TEXTURE5)
+            GL.glBindTexture(
+                GL.GL_TEXTURE_2D,
+                intermediate_fbo.texture)
+            GL.glUniform1i(locs['intermediate_sampler'], 5)
+
+            # Bind the intermediate depth texture at unit 6
+            GL.glActiveTexture(GL.GL_TEXTURE6)
+            GL.glBindTexture(
+                GL.GL_TEXTURE_2D,
+                intermediate_fbo.depth_texture)
+            GL.glUniform1i(locs['intermediate_depth_sampler'], 6)
+
+            GL.glUniform1f(locs['radial_k1'], k1)
+            GL.glUniform1f(locs['radial_k2'], k2)
+            GL.glUniform1f(locs['fx'], float(projection[0, 0]))
+            GL.glUniform1f(locs['fy'], float(projection[1, 1]))
+            GL.glUniform1f(locs['fov_scale'], fov_scale)
+
+            # Draw fullscreen quad (4 vertices, no VBO).
+            # Use GL_ALWAYS so depth test passes (enabling depth writes)
+            # without discarding any fragments.
+            GL.glBindVertexArray(self.empty_vao)
+            GL.glDepthFunc(GL.GL_ALWAYS)
+            GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 4)
+            GL.glDepthFunc(GL.GL_LESS)
+            GL.glBindVertexArray(0)
+        finally:
+            GL.glUseProgram(0)
+
+    def _render_single_shadow_map(self, shadow_map, shadow_projection, pose,
+                                   instances):
+        """Render a single depth pass into shadow_map from the given pose."""
+        if shadow_map is None or shadow_projection is None or pose is None:
+            return
+        if not self.sensor_exists(shadow_map):
+            return
+        shadow_view = numpy.linalg.inv(numpy.array(pose))
+        fbo = self.gl_data['sensor_buffers'][shadow_map]['main_fbo']
+        fbo.enable()
+        GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
+        # Back-face only: natural depth offset prevents acne without peter-panning
+        GL.glEnable(GL.GL_CULL_FACE)
+        GL.glCullFace(GL.GL_FRONT)
+        self.shader_library.use_program('depthmap_shadow_shader')
+        try:
+            locs = self.shader_library.get_shader_locations('depthmap_shadow_shader')
+            GL.glUniformMatrix4fv(
+                locs['view_matrix'], 1, GL.GL_TRUE,
+                shadow_view.astype(numpy.float32))
+            GL.glUniformMatrix4fv(
+                locs['projection_matrix'], 1, GL.GL_TRUE,
+                numpy.array(shadow_projection, dtype=numpy.float32))
+            render_instances = (instances if instances is not None
+                                else self.scene_description['instances'].keys())
+            for instance_name in render_instances:
+                if self.instance_hidden(instance_name):
+                    continue
+                instance_data = self.scene_description['instances'][instance_name]
+                mesh_name = instance_data['mesh_name']
+                mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
+                GL.glBindVertexArray(mesh_buffers['vao'])
+                GL.glUniformMatrix4fv(
+                    locs['model_pose'], 1, GL.GL_TRUE,
+                    numpy.array(instance_data['transform'], dtype=numpy.float32))
+                mesh = self.loaded_data['meshes'][mesh_name]
+                GL.glDrawElements(
+                    GL.GL_TRIANGLES, len(mesh['faces']) * 3,
+                    GL.GL_UNSIGNED_INT, None)
+                GL.glBindVertexArray(0)
+        finally:
+            GL.glUseProgram(0)
+            GL.glCullFace(GL.GL_BACK)
+            GL.glDisable(GL.GL_CULL_FACE)
+
+    def render_shadow_maps(self, instances=None):
+        """
+        Render depth-only passes for all shadow-casting lights.
+
+        Called automatically by color_render() when update_shadow_maps=True.
+        Call manually for static scenes where geometry doesn't change each frame.
+        """
+        for light_data in self.scene_description['direction_lights'].values():
+            self._render_single_shadow_map(
+                light_data.get('shadow_map'),
+                light_data.get('shadow_projection'),
+                light_data.get('pose'),
+                instances,
+            )
+        active_il = self.get_active_image_light()
+        if active_il:
+            il_data = self.get_image_light(active_il)
+            self._render_single_shadow_map(
+                il_data.get('shadow_map'),
+                il_data.get('shadow_projection'),
+                il_data.get('shadow_pose'),
+                instances,
+            )
+
     def color_render(self,
-        instances = None,
-        depthmap_instances = None,
-        flip_y = True,
-        clear = True,
-        finish = True,
-        ignore_hidden = False,
+        camera,
+        instances=None,
+        depthmap_instances=None,
+        sensor=None,
+        flip_y=True,
+        clear=True,
+        finish=True,
+        ignore_hidden=False,
+        update_shadow_maps=True,
     ):
         """
         Renders instances and depthmap instances using the color program.
-        
+
         Parameters:
         -----------
+        camera : str
+            Name of the camera to render from.
         instances : list, optional
             A list of instances to render.  If not specified, all instances will
             be rendered.
         depthmap_instances : list, optional
             A list of depthmap instances to render.  If not specified, all
             depthmap instances will be rendered.
+        sensor : str, optional
+            Name of the sensor to render into.  If not specified, renders to
+            the currently-bound framebuffer (e.g. the screen in interactive
+            mode).
         flip_y : bool, default=True
             Whether or not to flip the image in Y when rendering.  This is to
             correct for the difference between rendering to windows and
             framebuffers.
         clear : bool, default=True
             Whether or not to clear the frame before rendering.
-        finish = True
+        finish : bool, default=True
             Whether or not to finish the frame using glFinish
         """
-        
+
+        camera_data = self.scene_description['cameras'][camera]
+
+        # Determine if we need the two-stage radial distortion pass
+        use_distortion = (
+            sensor is not None
+            and self.scene_description['sensors'][sensor][
+                'enable_radial_distortion']
+            and (camera_data['radial_k1'] != 0
+                 or camera_data['radial_k2'] != 0)
+        )
+
+        if update_shadow_maps:
+            self.render_shadow_maps(instances=instances)
+
+        if use_distortion:
+            # Stage 1: render to intermediate FBO with expanded FOV
+            sensor_buffers = self.gl_data['sensor_buffers'][sensor]
+            sensor_data = self.scene_description['sensors'][sensor]
+            intermediate_projection, _ = self._distortion_expanded_projection(
+                camera_data['projection'],
+                camera_data['radial_k1'],
+                camera_data['radial_k2'],
+                sensor_data['width'],
+                sensor_data['height'],
+            )
+            render_camera_data = dict(camera_data)
+            render_camera_data['projection'] = intermediate_projection
+            sensor_buffers['intermediate_fbo'].enable()
+        else:
+            render_camera_data = camera_data
+            if sensor is not None:
+                self._bind_sensor(sensor)
+
         # clear
         if clear:
             self.clear_frame()
-        
+
         # render the background
         image_light_name = self.scene_description['active_image_light']
         if image_light_name is not None:
             image_light_data = self.get_image_light(image_light_name)
             if image_light_data['render_background']:
-                self.render_background(image_light_name, flip_y = flip_y)
+                self.render_background(
+                    image_light_name,
+                    render_camera_data['view_matrix'],
+                    render_camera_data['projection'],
+                    flip_y=flip_y,
+                )
 
         # depthmap_instances
         if depthmap_instances is None:
@@ -1958,17 +2573,16 @@ class SplendorRender:
         try:
             location_data = self.shader_library.get_shader_locations(
                     'textured_depthmap_shader')
-            
+
             # set the camera's view_matrix
-            view_matrix = self.scene_description['camera']['view_matrix']
+            view_matrix = render_camera_data['view_matrix']
             GL.glUniformMatrix4fv(
                     location_data['view_matrix'],
                     1, GL.GL_TRUE,
                     view_matrix.astype(numpy.float32))
 
             # set the camera's projection matrix
-            projection_matrix = (
-                    self.scene_description['camera']['projection'])
+            projection_matrix = render_camera_data['projection']
             if flip_y:
                 projection_matrix = numpy.dot(
                         projection_matrix,
@@ -1981,14 +2595,12 @@ class SplendorRender:
                     location_data['projection_matrix'],
                     1, GL.GL_TRUE,
                     projection_matrix.astype(numpy.float32))
-            
-            # set the radial parameters
+
+            # radial distortion for point clouds (depthmap shader only)
             GL.glUniform1f(
-                    location_data['radial_k1'],
-                    self.scene_description['camera']['radial_k1'])
+                location_data['radial_k1'], camera_data['radial_k1'])
             GL.glUniform1f(
-                    location_data['radial_k2'],
-                    self.scene_description['camera']['radial_k2'])
+                location_data['radial_k2'], camera_data['radial_k2'])
 
             # render the depthmap instances
             for depthmap_instance_name in depthmap_instances:
@@ -2077,15 +2689,14 @@ class SplendorRender:
                         GL.glUniform1i(location_data['reflect_sampler'], 3)
                 
                 # set the camera's view matrix
-                view_matrix = self.scene_description['camera']['view_matrix']
+                view_matrix = render_camera_data['view_matrix']
                 GL.glUniformMatrix4fv(
                         location_data['view_matrix'],
                         1, GL.GL_TRUE,
                         view_matrix.astype(numpy.float32))
 
                 # set the camera's projection matrix
-                projection_matrix = (
-                        self.scene_description['camera']['projection'])
+                projection_matrix = render_camera_data['projection']
                 if flip_y:
                     projection_matrix = numpy.dot(
                             projection_matrix,
@@ -2098,14 +2709,7 @@ class SplendorRender:
                         location_data['projection_matrix'],
                         1, GL.GL_TRUE,
                         projection_matrix.astype(numpy.float32))
-                
-                # set the radial distortion parameters
-                GL.glUniform1f(
-                        location_data['radial_k1'],
-                        self.scene_description['camera']['radial_k1'])
-                GL.glUniform1f(
-                        location_data['radial_k2'],
-                        self.scene_description['camera']['radial_k2'])
+
                 
                 # set the ambient light's color
                 ambient_color = self.scene_description['ambient_color']
@@ -2122,26 +2726,104 @@ class SplendorRender:
                         self.scene_description['point_lights']):
                     light_data = self.scene_description[
                             'point_lights'][light_name]
+                    pose = numpy.array(light_data['pose'])
                     point_light_data[i*2] = light_data['color']
-                    point_light_data[i*2+1] = light_data['position']
+                    point_light_data[i*2+1] = pose[:3, 3]
                 GL.glUniform3fv(
                         location_data['point_light_data'], max_num_lights*2,
                         point_light_data.astype(numpy.float32))
                 
-                # set the direction light data
+                # set the direction light data + assign shadow slots
                 GL.glUniform1i(
                         location_data['num_direction_lights'],
                         len(self.scene_description['direction_lights']))
                 direction_light_data = numpy.zeros((max_num_lights*2,3))
+                dir_shadow_slots = numpy.full(max_num_lights, -1,
+                                              dtype=numpy.int32)
+                shadow_slots = []  # (sensor_name, view_mat, proj_mat, pcf_r)
                 for i, light_name in enumerate(
                         self.scene_description['direction_lights']):
                     light_data = self.scene_description[
                             'direction_lights'][light_name]
+                    pose = numpy.array(light_data['pose'])
                     direction_light_data[i*2] = light_data['color']
-                    direction_light_data[i*2+1] = light_data['direction']
+                    direction_light_data[i*2+1] = -pose[:3, 2]
+                    smap = light_data.get('shadow_map')
+                    sproj = light_data.get('shadow_projection')
+                    if (smap is not None and sproj is not None
+                            and self.sensor_exists(smap)
+                            and len(shadow_slots) < MAX_SHADOW_CASTERS):
+                        shadow_slots.append((
+                            smap,
+                            numpy.linalg.inv(pose),
+                            numpy.array(sproj),
+                            int(light_data.get('shadow_pcf_radius', 1)),
+                        ))
+                        dir_shadow_slots[i] = len(shadow_slots) - 1
                 GL.glUniform3fv(
                         location_data['direction_light_data'], max_num_lights*2,
                         direction_light_data.astype(numpy.float32))
+
+                # Image light shadow slot
+                ibl_shadow_slot = -1
+                ibl_shadow_dir = numpy.zeros(3, dtype=numpy.float32)
+                if (image_light_name is not None
+                        and len(shadow_slots) < MAX_SHADOW_CASTERS):
+                    il_data = self.get_image_light(image_light_name)
+                    smap = il_data.get('shadow_map')
+                    sproj = il_data.get('shadow_projection')
+                    spose = il_data.get('shadow_pose')
+                    if (smap is not None and sproj is not None
+                            and spose is not None
+                            and self.sensor_exists(smap)):
+                        spose = numpy.array(spose)
+                        shadow_slots.append((
+                            smap,
+                            numpy.linalg.inv(spose),
+                            numpy.array(sproj),
+                            int(il_data.get('shadow_pcf_radius', 1)),
+                        ))
+                        ibl_shadow_slot = len(shadow_slots) - 1
+                        ibl_shadow_dir = spose[:3, 2].astype(numpy.float32)
+
+                # Upload shadow uniforms
+                shadow_view_mats = numpy.zeros(
+                    (MAX_SHADOW_CASTERS, 4, 4), dtype=numpy.float32)
+                shadow_proj_mats = numpy.zeros(
+                    (MAX_SHADOW_CASTERS, 4, 4), dtype=numpy.float32)
+                shadow_pcf_radii = numpy.ones(
+                    MAX_SHADOW_CASTERS, dtype=numpy.int32)
+                for slot, (sname, sv, sp, pcfr) in enumerate(shadow_slots):
+                    shadow_view_mats[slot] = sv
+                    shadow_proj_mats[slot] = sp
+                    shadow_pcf_radii[slot] = pcfr
+                    depth_tex = (self.gl_data['sensor_buffers'][sname]
+                                 ['main_fbo'].depth_texture)
+                    GL.glActiveTexture(GL.GL_TEXTURE4 + slot)
+                    GL.glBindTexture(GL.GL_TEXTURE_2D, depth_tex)
+
+                if 'shadow_view_matrices' in location_data:
+                    GL.glUniformMatrix4fv(
+                        location_data['shadow_view_matrices'],
+                        MAX_SHADOW_CASTERS, GL.GL_TRUE, shadow_view_mats)
+                if 'shadow_projection_matrices' in location_data:
+                    GL.glUniformMatrix4fv(
+                        location_data['shadow_projection_matrices'],
+                        MAX_SHADOW_CASTERS, GL.GL_TRUE, shadow_proj_mats)
+                if 'shadow_pcf_radii' in location_data:
+                    GL.glUniform1iv(location_data['shadow_pcf_radii'],
+                                    MAX_SHADOW_CASTERS, shadow_pcf_radii)
+                if 'direction_light_shadow_slots' in location_data:
+                    GL.glUniform1iv(
+                        location_data['direction_light_shadow_slots'],
+                        max_num_lights, dir_shadow_slots)
+                if 'image_light_shadow_slot' in location_data:
+                    GL.glUniform1i(
+                        location_data['image_light_shadow_slot'], ibl_shadow_slot)
+                if 'image_light_shadow_direction' in location_data:
+                    GL.glUniform3fv(
+                        location_data['image_light_shadow_direction'], 1,
+                        ibl_shadow_dir)
                 
                 # set the image light parameters
                 GL.glUniform1i(location_data['image_light_active'],
@@ -2186,9 +2868,21 @@ class SplendorRender:
             finally:
                 GL.glUseProgram(0)
 
+        # Draw line overlays into whichever FBO is currently bound
+        # (intermediate if distortion, main sensor otherwise) so they pass
+        # through the same lens distortion as the rest of the scene geometry.
+        if self.scene_description['coord_frames']:
+            self.render_coord_frames(render_camera_data, flip_y=flip_y)
+        if self.scene_description['frustums']:
+            self.render_frustums(render_camera_data, flip_y=flip_y)
+
+        # Stage 2: warp intermediate render into main sensor FBO
+        if use_distortion:
+            self._radial_warp_pass(sensor, camera_data)
+
         if finish:
             self.finish_frame()
-    
+
     def load_mesh_color_shader_data(self, mesh_name, shader_name):
         
         # bind mesh buffers
@@ -2329,18 +3023,22 @@ class SplendorRender:
         GL.glBindVertexArray(0)
         GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
 
-    def render_background(self, image_light_name, flip_y=True):
+    def render_background(self,
+        image_light_name,
+        view_matrix,
+        projection_matrix,
+        flip_y=True,
+    ):
         """
-        Renders the background (reflection map)
-        
+        Renders the background (reflection map).
+
         Parameters:
         -----------
         image_light_name : str
             The image light with the reflection map we wish to render.
+        view_matrix : 4x4 numpy array
+        projection_matrix : 4x4 numpy array
         flip_y : bool, default=True
-            Whether or not to flip the image in Y when rendering.  This is to
-            correct for the difference between rendering to windows and
-            framebuffers.
         """
         self.shader_library.use_program('background_shader')
 
@@ -2348,24 +3046,19 @@ class SplendorRender:
         light_data = self.scene_description['image_lights'][image_light_name]
         reflect_cubemap = light_data['reflect_cubemap']
         cubemap_buffers = self.gl_data['cubemap_buffers'][reflect_cubemap]
-        
-        num_triangles = 2
 
         location_data = self.shader_library.get_shader_locations(
                 'background_shader')
-        
+
         # set the camera's view_matrix
         if light_data['lock_to_camera']:
             view_matrix = numpy.eye(4)
-        else:
-            view_matrix = self.scene_description['camera']['view_matrix']
         GL.glUniformMatrix4fv(
                 location_data['view_matrix'],
                 1, GL.GL_TRUE,
                 view_matrix.astype(numpy.float32))
 
         # set the camera's projection matrix
-        projection_matrix = self.scene_description['camera']['projection']
         if flip_y:
             projection_matrix = numpy.dot(
                     projection_matrix,
@@ -2416,7 +3109,9 @@ class SplendorRender:
     
     def mask_render(
         self,
+        camera,
         instances=None,
+        sensor=None,
         flip_y=True,
         clear=True,
         finish=True,
@@ -2424,22 +3119,26 @@ class SplendorRender:
     ):
         """
         Renders instances using the mask program.
-        
+
         Parameters:
         -----------
+        camera : str
+            Name of the camera to render from.
         instances : list, optional
             A list of instances to render.  If not specified, all instances will
             be rendered.
+        sensor : str, optional
+            Name of the sensor to render into.
         flip_y : bool, default=True
-            Whether or not to flip the image in Y when rendering.  This is to
-            correct for the difference between rendering to windows and
-            framebuffers.
         clear : bool, default=True
-            Whether or not to clear the frame before rendering.
-        finish = True
-            Whether or not to finish the frame using glFinish
+        finish : bool, default=True
         """
-        
+
+        camera_data = self.scene_description['cameras'][camera]
+
+        if sensor is not None:
+            self._bind_sensor(sensor)
+
         # clear
         if clear:
             self.clear_frame()
@@ -2452,14 +3151,14 @@ class SplendorRender:
                     'mask_shader')
 
             # set the camera's view matrix
-            view_matrix = self.scene_description['camera']['view_matrix']
+            view_matrix = camera_data['view_matrix']
             GL.glUniformMatrix4fv(
                     location_data['view_matrix'],
                     1, GL.GL_TRUE,
                     view_matrix.astype(numpy.float32))
 
             # set the camera's projection matrix
-            projection_matrix = self.scene_description['camera']['projection']
+            projection_matrix = camera_data['projection']
             if flip_y:
                 projection_matrix = numpy.dot(
                         projection_matrix,
@@ -2540,7 +3239,9 @@ class SplendorRender:
     # coord_render methods -----------------------------------------------------
     
     def coord_render(self,
+        camera,
         instances=None,
+        sensor=None,
         flip_y=True,
         clear=True,
         finish=True,
@@ -2548,23 +3249,27 @@ class SplendorRender:
     ):
         """
         Renders instances using the coord program.
-        
+
         Parameters:
         -----------
+        camera : str
+            Name of the camera to render from.
         instances : list, optional
             A list of instances to render.  If not specified, all instances will
             be rendered.
+        sensor : str, optional
+            Name of the sensor to render into.
         flip_y : bool, default=True
-            Whether or not to flip the image in Y when rendering.  This is to
-            correct for the difference between rendering to windows and
-            framebuffers.
         clear : bool, default=True
-            Whether or not to clear the frame before rendering.
-        finish = True
-            Whether or not to finish the frame using glFinish
+        finish : bool, default=True
         """
-        
-        #clear
+
+        camera_data = self.scene_description['cameras'][camera]
+
+        if sensor is not None:
+            self._bind_sensor(sensor)
+
+        # clear
         if clear:
             self.clear_frame()
 
@@ -2574,13 +3279,13 @@ class SplendorRender:
         try:
             location_data = self.shader_library.get_shader_locations(
                     'coord_shader')
-            view_matrix = self.scene_description['camera']['view_matrix']
+            view_matrix = camera_data['view_matrix']
             GL.glUniformMatrix4fv(
                     location_data['view_matrix'],
                     1, GL.GL_TRUE,
                     view_matrix.astype(numpy.float32))
 
-            projection_matrix = self.scene_description['camera']['projection']
+            projection_matrix = camera_data['projection']
             if flip_y:
                 projection_matrix = numpy.dot(
                         projection_matrix,
@@ -2656,10 +3361,13 @@ class SplendorRender:
     # misc render methods ------------------------------------------------------
     # TODO Figure out what to do about these.
     
-    def render_points(self, points, color, point_size = 1, flip_y = True):
+    def render_points(self, camera, points, color, point_size=1, flip_y=True):
+        # TODO: glPushMatrix/glMultMatrixf are OpenGL 1.x and unavailable in
+        # core profile 3.3.  These functions need to be ported to shaders.
+        camera_data = self.scene_description['cameras'][camera]
         GL.glPushMatrix()
         try:
-            projection_matrix = self.scene_description['camera']['projection']
+            projection_matrix = camera_data['projection']
             if flip_y:
                 projection_matrix = numpy.dot(projection_matrix, numpy.array([
                         [1, 0, 0, 0],
@@ -2668,7 +3376,7 @@ class SplendorRender:
                         [0, 0, 0, 1]]))
             GL.glMultMatrixf(numpy.transpose(numpy.dot(
                     projection_matrix,
-                    self.scene_description['camera']['view_matrix'])))
+                    camera_data['view_matrix'])))
 
             GL.glColor3f(*color)
             GL.glPointSize(point_size)
@@ -2680,10 +3388,11 @@ class SplendorRender:
             GL.glPopMatrix()
         GL.glFinish()
 
-    def render_line(self, start, end, color, flip_y = True, finish = True):
+    def render_line(self, camera, start, end, color, flip_y=True, finish=True):
+        camera_data = self.scene_description['cameras'][camera]
         GL.glPushMatrix()
         try:
-            projection_matrix = self.scene_description['camera']['projection']
+            projection_matrix = camera_data['projection']
             if flip_y:
                 projection_matrix = numpy.dot(projection_matrix, numpy.array([
                         [1, 0, 0, 0],
@@ -2692,7 +3401,7 @@ class SplendorRender:
                         [0, 0, 0, 1]]))
             GL.glMultMatrixf(numpy.transpose(numpy.dot(
                     projection_matrix,
-                    self.scene_description['camera']['view_matrix'])))
+                    camera_data['view_matrix'])))
 
             GL.glColor3f(*color)
             GL.glBegin(GL.GL_LINES)
@@ -2704,10 +3413,11 @@ class SplendorRender:
         if finish:
             self.finish_frame()
 
-    def render_transform(self, transform, axis_length = 0.1, flip_y = True):
+    def render_transform(self, camera, transform, axis_length=0.1, flip_y=True):
+        camera_data = self.scene_description['cameras'][camera]
         GL.glPushMatrix()
         try:
-            projection_matrix = self.scene_description['camera']['projection']
+            projection_matrix = camera_data['projection']
             if flip_y:
                 projection_matrix = numpy.dot(projection_matrix, numpy.array([
                         [1, 0, 0, 0],
@@ -2716,7 +3426,7 @@ class SplendorRender:
                         [0, 0, 0, 1]]))
             GL.glMultMatrixf(numpy.transpose(numpy.dot(numpy.dot(
                     projection_matrix,
-                    self.scene_description['camera']['view_matrix']),
+                    camera_data['view_matrix']),
                     transform)))
 
             GL.glColor3f(1., 0., 0.)

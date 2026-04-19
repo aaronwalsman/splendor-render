@@ -10,29 +10,36 @@ parser.add_argument('output', type=str,
         help='destination path for rendered image')
 parser.add_argument('--assets', type=str, default=None,
         help='assets.cfg file specifying asset paths')
-parser.add_argument('--resolution', type=str, default='512x512',
-        help='dimensions of the output file in WIDTHxHEIGHT format')
-parser.add_argument('--anti-alias-samples', type=int, default = 8,
-        help='number of multisamples used for anti-aliasing, '
-            'set to 0 to turn off anti-aliasing')
+parser.add_argument('--camera', type=str, default='main',
+        help='name of the camera defined in the scene to render from')
+parser.add_argument('--sensor', type=str, default='output',
+        help='name of the sensor to render into; if not defined in the scene '
+             'one will be created from --resolution and --anti-alias-samples')
+parser.add_argument('--resolution', type=str, default=None,
+        help='resolution of the output image in WIDTHxHEIGHT format '
+             '(ignored if --sensor is already defined in the scene)')
+parser.add_argument('--anti-alias-samples', type=int, default=None,
+        help='number of MSAA samples; 0 disables anti-aliasing '
+             '(ignored if --sensor is already defined in the scene)')
 parser.add_argument('--render-mode', type=str, default='color',
-        help='should be either "color", "mask" or "depth"')
+        help='one of: color, mask, depth')
 parser.add_argument('--device', type=int, default=0,
-        help='which device to use for rendering using EGL')
+        help='which EGL device to use for rendering')
 
 def main():
     args = parser.parse_args()
 
-    width, height = (int(wh) for wh in args.resolution.lower().split('x'))
-    anti_alias = args.anti_alias_samples != 0
+    resolution = args.resolution
+    anti_alias_samples = args.anti_alias_samples
 
     render.render_scene(
-            args.scene,
-            width,
-            height, 
-            assets = args.assets,
-            output_file = args.output,
-            anti_alias = anti_alias,
-            anti_alias_samples = args.anti_alias_samples,
-            render_mode = args.render_mode,
-            device = args.device)
+        args.scene,
+        assets=args.assets,
+        output_file=args.output,
+        camera=args.camera,
+        sensor=args.sensor,
+        resolution=resolution,
+        anti_alias_samples=anti_alias_samples,
+        render_mode=args.render_mode,
+        device=args.device,
+    )

@@ -116,24 +116,33 @@ class EGLContext:
     Headless OpenGL context backed by EGL.
 
     Does not create a framebuffer — attach one or more FrameBufferWrappers
-    to render into.  Supports use as a context manager.
+    to render into.
+
+    The context is made current immediately on construction.  Use as a context
+    manager to temporarily acquire/release the context around a block of GL
+    work — useful when multiple rendering systems share a thread:
+
+        ctx = EGLContext()
+        try:
+            with ctx:               # make_current() on enter
+                renderer.color_render()
+            # release() called on exit — other systems can now take the thread
+        finally:
+            ctx.close()             # destroy when completely done
+
+    For single-owner use where nothing else needs the thread, the simpler
+    pattern still works — just call close() explicitly when done:
+
+        ctx = EGLContext()
+        renderer = SplendorRender()
+        renderer.color_render()
+        ctx.close()
 
     Parameters
     ----------
     device : int, EGLDevice, or None
         Which GPU to use.  None selects the default device.  An integer
         indexes into the list returned by query_devices().
-
-    Examples
-    --------
-    ::
-
-        with EGLContext() as ctx:
-            fb = FrameBufferWrapper(512, 512)
-            renderer = SplendorRender()
-            fb.enable()
-            renderer.color_render()
-            image = fb.read_pixels()
     """
 
     def __init__(self, device=None):
@@ -210,8 +219,26 @@ class EGLContext:
 
         GL.glEnable(GL.GL_MULTISAMPLE)
 
+    def make_current(self):
+        """Make this EGL context current on the calling thread."""
+        from OpenGL.EGL import eglMakeCurrent, EGL_NO_SURFACE
+        assert eglMakeCurrent(
+            self._display, EGL_NO_SURFACE, EGL_NO_SURFACE, self._context)
+
+    def release(self):
+        """
+        Release this context from the calling thread without destroying it.
+
+        After this call the thread has no current GL context, allowing another
+        rendering system (e.g. Isaac) to make its own context current.  Call
+        make_current() to reacquire.
+        """
+        from OpenGL.EGL import eglMakeCurrent, EGL_NO_SURFACE, EGL_NO_CONTEXT
+        assert eglMakeCurrent(
+            self._display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)
+
     def close(self):
-        """Release the EGL context and display."""
+        """Release and destroy the EGL context and display."""
         from OpenGL.EGL import eglDestroyContext, eglTerminate
         if self._display is not None:
             if self._context is not None:
@@ -221,7 +248,9 @@ class EGLContext:
             self._display = None
 
     def __enter__(self):
+        self.make_current()
         return self
 
     def __exit__(self, *args):
-        self.close()
+        self.release()
+

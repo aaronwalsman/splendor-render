@@ -25,6 +25,12 @@ from splendor.shaders.depthmap import (
 from splendor.shaders.shadows import (
     depthmap_shadow_vertex_shader, depthmap_shadow_fragment_shader,
 )
+from splendor.shaders.radial_warp import (
+    radial_warp_vertex_shader, radial_warp_fragment_shader,
+)
+from splendor.shaders.lines import (
+    lines_vertex_shader, lines_fragment_shader,
+)
 
 default_shader_code = {
     'textured_material_properties_shader':(
@@ -47,6 +53,10 @@ default_shader_code = {
         (textured_depthmap_vertex_shader, textured_depthmap_fragment_shader),
     'depthmap_shadow_shader' :
         (depthmap_shadow_vertex_shader, depthmap_shadow_fragment_shader),
+    'radial_warp_shader' :
+        (radial_warp_vertex_shader, radial_warp_fragment_shader),
+    'lines_shader' :
+        (lines_vertex_shader, lines_fragment_shader),
 }
 
 def gl_name_to_str(gl_name):
@@ -190,8 +200,15 @@ class ShaderLibrary:
                 gl.glUniform1i(locations['reflect_sampler'], 3)
             if 'cubemap_sampler' in locations:
                 gl.glUniform1i(locations['cubemap_sampler'], 0)
-            if 'shadow_depth_sampler' in locations:
-                gl.glUniform1i(locations['shadow_depth_sampler'], 4)
+            from splendor.shaders.lighting_model import MAX_SHADOW_CASTERS
+            for _i in range(MAX_SHADOW_CASTERS):
+                _name = f'shadow_depth_sampler_{_i}'
+                if _name in locations:
+                    gl.glUniform1i(locations[_name], 4 + _i)
+            if 'intermediate_sampler' in locations:
+                gl.glUniform1i(locations['intermediate_sampler'], 5)
+            if 'intermediate_depth_sampler' in locations:
+                gl.glUniform1i(locations['intermediate_depth_sampler'], 6)
         
         gl.glDeleteVertexArrays(1, [tmp_vao])
     

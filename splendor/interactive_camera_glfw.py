@@ -5,9 +5,10 @@ import numpy as np
 import splendor.camera as camera
 
 class InteractiveCameraGLFW:
-    def __init__(self, window, renderer):
+    def __init__(self, window, renderer, camera_name):
         self.window = window
         self.renderer = renderer
+        self.camera_name = camera_name
         self.mouse_down_button = None
         self.mouse_position = (0,0)
         self.mouse_click_depth = None
@@ -38,7 +39,7 @@ class InteractiveCameraGLFW:
             x, y = self.get_mouse_pixel_position(window)
             depth = self.window.read_pixels(
                 read_depth=True,
-                projection=self.renderer.get_projection(),
+                projection=self.renderer.get_camera_projection(self.camera_name),
             )
             fbw, fbh = glfw.get_framebuffer_size(window)
             z = depth[fbh-y, x]
@@ -59,7 +60,7 @@ class InteractiveCameraGLFW:
         mx, my = self.mouse_position
         dx = (x - mx) / w
         dy = (y - my) / h
-        view_matrix = self.renderer.get_view_matrix()
+        view_matrix = self.renderer.get_camera_view_matrix(self.camera_name)
         camera_pose = np.linalg.inv(view_matrix)
         
         orbit = (
@@ -83,8 +84,8 @@ class InteractiveCameraGLFW:
             pose_offset = pivot @ np.linalg.inv(pose_offset) @ inverse_pivot
             camera_pose = np.dot(camera_pose, pose_offset)
             view_matrix = np.linalg.inv(camera_pose)
-            self.renderer.set_view_matrix(view_matrix)
-    
+            self.renderer.set_camera_view_matrix(self.camera_name, view_matrix)
+
         if pan:
             x_direction = view_matrix[0,0:3]
             y_direction = view_matrix[1,0:3]
@@ -92,7 +93,7 @@ class InteractiveCameraGLFW:
             y_offset = y_direction * dy * self.mouse_click_depth
             camera_pose[0:3,3] += x_offset + y_offset
             view_matrix = np.linalg.inv(camera_pose)
-            self.renderer.set_view_matrix(view_matrix)
+            self.renderer.set_camera_view_matrix(self.camera_name, view_matrix)
 
         self.mouse_position = (x,y)
     
@@ -108,18 +109,18 @@ class InteractiveCameraGLFW:
         x, y = self.get_mouse_pixel_position(window)
         depth = self.window.read_pixels(
             read_depth=True,
-            projection=self.renderer.get_projection(),
+            projection=self.renderer.get_camera_projection(self.camera_name),
         )
         fbh, fbw = glfw.get_framebuffer_size(window)
         z = depth[fbh-y, x]
         self.mouse_click_depth = z
-        
-        view_matrix = self.renderer.get_view_matrix()
+
+        view_matrix = self.renderer.get_camera_view_matrix(self.camera_name)
         z_direction = view_matrix[2,:3]
         distance = y_offset * -0.1 * self.mouse_click_depth
         z_offset = z_direction * distance
-        
+
         camera_pose = np.linalg.inv(view_matrix)
         camera_pose[:3,3] += z_offset
         view_matrix = np.linalg.inv(camera_pose)
-        self.renderer.set_view_matrix(view_matrix)
+        self.renderer.set_camera_view_matrix(self.camera_name, view_matrix)

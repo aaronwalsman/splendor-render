@@ -176,6 +176,49 @@ def view_matrix(parameters):
             'center_x, center_y, center_z]'
         )
         
+def direction_light_pose(direction, position=(0., 0., 0.)):
+    """
+    Build a 4x4 pose matrix for a directional light.
+
+    The pose encodes both the orientation of the light (which way it shines)
+    and an anchor position (used when computing a shadow frustum).
+
+    Parameters
+    ----------
+    direction : array-like, shape (3,)
+        The direction the light rays travel (from source toward the scene).
+        Does not need to be normalized.
+    position : array-like, shape (3,), default (0, 0, 0)
+        World-space anchor point for the light.  Used as the shadow camera
+        position when rendering shadow maps.
+
+    Returns
+    -------
+    numpy.ndarray, shape (4, 4)
+        Pose matrix (camera-to-world transform) whose -Z axis points in
+        ``direction``.
+    """
+    direction = numpy.array(direction, dtype=float)
+    direction = direction / numpy.linalg.norm(direction)
+
+    # Build an orthonormal frame with -Z aligned to direction
+    forward = direction  # -Z of the pose
+    # Pick an up vector that isn't parallel to forward
+    up = numpy.array([0., 1., 0.])
+    if abs(numpy.dot(forward, up)) > 0.99:
+        up = numpy.array([1., 0., 0.])
+    right = numpy.cross(up, forward)
+    right = right / numpy.linalg.norm(right)
+    up = numpy.cross(forward, right)
+
+    pose = numpy.eye(4)
+    pose[:3, 0] = right
+    pose[:3, 1] = up
+    pose[:3, 2] = forward   # +Z = backward = direction of rays
+    pose[:3, 3] = numpy.array(position, dtype=float)
+    return pose
+
+
 def azimuthal_parameters_to_matrix(
     azimuth=0,
     elevation=0,
