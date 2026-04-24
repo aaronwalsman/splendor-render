@@ -194,8 +194,6 @@ class ShaderLibrary:
             gl.glUseProgram(program)
             if 'texture_sampler' in locations:
                 gl.glUniform1i(locations['texture_sampler'], 0)
-            if 'diffuse_sampler' in locations:
-                gl.glUniform1i(locations['diffuse_sampler'], 2)
             if 'reflect_sampler' in locations:
                 gl.glUniform1i(locations['reflect_sampler'], 3)
             if 'cubemap_sampler' in locations:

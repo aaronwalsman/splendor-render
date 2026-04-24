@@ -984,11 +984,10 @@ class SplendorRender:
     
     def load_image_light(self,
         name,
-        diffuse_cubemap,
         reflect_cubemap,
+        sh_coefficients,
         offset_matrix = numpy.eye(4),
         blur = 0.,
-        diffuse_gamma = 1.,
         diffuse_bias = 0.,
         reflect_gamma = 1.,
         reflect_bias = 0.,
@@ -1011,20 +1010,18 @@ class SplendorRender:
         name : str
             Name of the image light, must be unique to this scene among other
             image lights
-        diffuse_cubemap : str
-            The name of the cubemap to use for diffuse lighting component.
         reflect_cubemap : str
-            The name of the cubemap to use for reflect lighting component.
+            The name of the cubemap to use for reflections and background.
+        sh_coefficients : (9, 3) array-like
+            Spherical harmonic irradiance coefficients for diffuse lighting,
+            as produced by cubemap_strip_to_sh().  Pre-multiplied by
+            Lambertian zonal harmonics.
         offset_matrix : 4x4 array-like, default=numpy.eye(4)
             An offset rotation matrix for the image light.
         blur : float, default=0.
             Blur to apply to the background when the background is visible.
-        diffuse_gamma : float, default=1.
-            A gamma correction for the diffuse component of the image light.
-            Values above one increase the contrast between dark and light
-            sides of an object.
         diffuse_bias : float, default=0.
-            A bias for the diffuse component of the image light.
+            A bias added to the diffuse irradiance (artistic control).
         reflect_gamma : float, default=1.
             A gamma correction for the reflect component of the image light.
             Values above one increase the contrast in the reflections.
@@ -1039,12 +1036,12 @@ class SplendorRender:
         """
         
         image_light_data = {}
-        image_light_data['diffuse_cubemap'] = diffuse_cubemap
         image_light_data['reflect_cubemap'] = reflect_cubemap
+        image_light_data['sh_coefficients'] = numpy.array(
+            sh_coefficients, dtype=numpy.float32)
         image_light_data['offset_matrix'] = numpy.array(offset_matrix)
         image_light_data['blur'] = blur
         image_light_data['render_background'] = render_background
-        image_light_data['diffuse_gamma'] = diffuse_gamma
         image_light_data['diffuse_bias'] = diffuse_bias
         image_light_data['reflect_gamma'] = reflect_gamma
         image_light_data['reflect_bias'] = reflect_bias
@@ -2667,16 +2664,11 @@ class SplendorRender:
                 # set the cubemap samplers
                 
                 if self.get_active_image_light() is not None:
-                    if 'diffuse_sampler' in location_data:
-                        diffuse_cubemap = image_light_data['diffuse_cubemap']
-                        GL.glActiveTexture(GL.GL_TEXTURE2)
-                        diffuse_data = (
-                            self.gl_data['cubemap_buffers'][diffuse_cubemap])
-                        GL.glBindTexture(
-                            GL.GL_TEXTURE_CUBE_MAP,
-                            diffuse_data['cubemap'],
-                        )
-                        GL.glUniform1i(location_data['diffuse_sampler'], 2)
+                    if 'sh_coefficients' in location_data:
+                        GL.glUniform3fv(
+                            location_data['sh_coefficients'],
+                            9,
+                            image_light_data['sh_coefficients'])
                     if 'reflect_sampler' in location_data:
                         reflect_cubemap = image_light_data['reflect_cubemap']
                         GL.glActiveTexture(GL.GL_TEXTURE3)
@@ -2843,10 +2835,10 @@ class SplendorRender:
                             image_light_data['lock_to_camera'])
                     
                     image_light_properties = numpy.array([
-                            image_light_data['diffuse_gamma'],
                             image_light_data['diffuse_bias'],
                             image_light_data['reflect_gamma'],
-                            image_light_data['reflect_bias']])
+                            image_light_data['reflect_bias'],
+                            0.])
                     GL.glUniform4fv(
                             location_data['image_light_properties'],
                             1, image_light_properties.astype(numpy.float32))

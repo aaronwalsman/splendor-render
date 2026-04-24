@@ -1,192 +1,98 @@
-import random
 import math
-
-# opengl
-from OpenGL import GL
-from OpenGL.GL import shaders
-from OpenGL.arrays import vbo
-
-# numpy
 import numpy
 
-# splendor
-from splendor.shaders import image_light, background
-from splendor.shader_library import ShaderLibrary
-from splendor.contexts import egl
-from splendor import camera
-from splendor.frame_buffer import FrameBufferWrapper
-from splendor.image import save_image
 
-MAX_SAMPLES_PER_STEP = 512
+def cubemap_strip_to_sh(strip):
+    """
+    Compute L0+L1+L2 spherical harmonic irradiance coefficients from a cubemap.
 
-def reflect_to_diffuse(
-        diffuse_width,
-        reflect_strip,
-        intensity_strip,
-        num_samples=512,
-        debug=False,
-        device=None):
-    
-    # initialize egl and frame_buffer
-    egl.initialize_plugin()
-    new = egl.initialize_device(device)
-    frame_buffer = FrameBufferWrapper(
-            diffuse_width, diffuse_width, color_format=GL.GL_RGBA32F)
-    frame_buffer.enable()
-    
-    # compile the shaders
-    shader_samples = min(num_samples, MAX_SAMPLES_PER_STEP)
-    shader_library = ShaderLibrary({'reflect_to_diffuse':(
-            background.background_vertex_shader,
-            image_light.reflect_to_diffuse_fragment_shader(shader_samples))})
-    shader_library.use_program('reflect_to_diffuse')
-    locations = shader_library.get_shader_locations('reflect_to_diffuse')
-    
-    # process the inputs
-    if len(intensity_strip.shape) == 2:
-        intensity_strip = numpy.expand_dims(intensity_strip, -1)
-    
-    # load mesh
-    vertex_floats = numpy.array([
-            [-1,-1,0],
-            [-1, 1,0],
-            [ 1, 1,0],
-            [ 1,-1,0]])
-    vertex_buffer = vbo.VBO(vertex_floats)
-    face_ints = numpy.array([
-            [0,1,2],
-            [2,3,0]], dtype=numpy.int32)
-    face_buffer = vbo.VBO(face_ints, target = GL.GL_ELEMENT_ARRAY_BUFFER)
-    vertex_buffer.bind()
-    face_buffer.bind()
-    
-    # create the samples
-    importance_strip = intensity_strip
-    reflect_width, strip_width = importance_strip.shape[:2]
-    assert strip_width == reflect_width * 6, '%i != 6*%i'%(strip_width, reflect_width)
-    pixel_ids = numpy.arange(reflect_width * strip_width)
-    importance = importance_strip.reshape(-1)
-    importance = importance / numpy.sum(importance)
-    samples = numpy.random.choice(pixel_ids, num_samples, p=importance)
-    y, strip_x = numpy.unravel_index(
-            samples, (reflect_width, strip_width))
-    
-    if debug:
-        debug_strip = numpy.repeat(intensity_strip, 3, 2).astype(numpy.uint8)
-        debug_strip[y,strip_x] = (255,0,0)
-        save_image(debug_strip, debug)
-    
-    x = strip_x % reflect_width
-    face = strip_x // reflect_width
-    
-    view_matrices = numpy.array([
-            # px
-            [[ 0, 0,-1, 0],
-             [ 0,-1, 0, 0],
-             [-1, 0, 0, 0],
-             [ 0, 0, 0, 1]],
-            # nx
-            [[ 0, 0, 1, 0],
-             [ 0,-1, 0, 0],
-             [ 1, 0, 0, 0],
-             [ 0, 0, 0, 1]],
-            # py
-            [[ 1, 0, 0, 0],
-             [ 0, 0, 1, 0],
-             [ 0,-1, 0, 0],
-             [ 0, 0, 0, 1]],
-            # ny
-            [[ 1, 0, 0, 0],
-             [ 0, 0,-1, 0],
-             [ 0, 1, 0, 0],
-             [ 0, 0, 0, 1]],
-            # pz
-            [[ 1, 0, 0, 0],
-             [ 0,-1, 0, 0],
-             [ 0, 0,-1, 0],
-             [ 0, 0, 0, 1]],
-            # nz
-            [[-1, 0, 0, 0],
-             [ 0,-1, 0, 0],
-             [ 0, 0, 1, 0],
-             [ 0, 0, 0, 1]]])
-    
-    sample_poses = view_matrices[face]
-    half_reflect_width = reflect_width / 2
-    x = x - half_reflect_width
-    y = y - half_reflect_width
-    d = (x**2 + y**2 + half_reflect_width**2)**0.5
-    sample_direction_importance = numpy.zeros((num_samples, 4, 1))
-    sample_direction_importance[:,0,0] = x / d
-    sample_direction_importance[:,1,0] = y / d
-    sample_direction_importance[:,2,0] = -half_reflect_width / d
-    sample_direction_importance = numpy.matmul(
-            sample_poses, sample_direction_importance)
-    
-    # importance ratio
-    sample_importance_ratio = 1. / (importance[samples] * importance.size)
-    sample_direction_importance[:,3,0] = sample_importance_ratio
-    
-    # textures
-    GL.glUniform1i(locations['reflect_sampler'], 0)
-    reflect_intensity_strip = numpy.concatenate(
-            (reflect_strip, intensity_strip), axis=-1)
-    texture_buffer = GL.glGenTextures(1)
-    GL.glActiveTexture(GL.GL_TEXTURE0)
-    GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, texture_buffer)
-    for i in range(6):
-        strip_start = i * reflect_width
-        strip_end = (i+1) * reflect_width
-        cube_face = reflect_intensity_strip[:,strip_start:strip_end]
-        GL.glTexImage2D(
-                GL.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                0, GL.GL_RGBA, cube_face.shape[1], cube_face.shape[0],
-                0, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, cube_face)
-    
-    GL.glTexParameteri(
-            GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
-    GL.glTexParameteri(
-            GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
-    GL.glTexParameteri(
-            GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
-    GL.glTexParameteri(
-            GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
-    GL.glTexParameteri(
-            GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_WRAP_R, GL.GL_CLAMP_TO_EDGE)
-    
-    # cameras
-    projection = camera.projection_matrix(math.radians(90.), 1.0, 0.01, 1.0)
-    GL.glUniformMatrix4fv(
-            locations['projection_matrix'], 1, GL.GL_TRUE, projection)
-    
-    # render
-    diffuse_strip = numpy.zeros((diffuse_width, diffuse_width*6, 3))
-    num_steps = math.ceil(num_samples / shader_samples)
-    for i in range(num_steps):
-        step_direction_importance = sample_direction_importance[
-                i*shader_samples:(i+1)*shader_samples]
-        step_samples = step_direction_importance.shape[0]
-        if step_samples != shader_samples:
-            step_direction_importance = numpy.concatenate((
-                    step_direction_importance,
-                    numpy.zeros((shader_samples - step_samples, 4, 1))), axis=0)
-        GL.glUniform4fv(
-                locations['sample_direction_importance_ratio'],
-                num_samples,
-                step_direction_importance[...,0])
-    
-        for i, view_matrix in enumerate(view_matrices):
-            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-            GL.glUniformMatrix4fv(
-                    locations['view_matrix'], 1, GL.GL_TRUE, view_matrix)
-            GL.glDrawElements(GL.GL_TRIANGLES, 2*3, GL.GL_UNSIGNED_INT, None)
-            strip_start = i * diffuse_width
-            strip_end = (i+1) * diffuse_width
-            diffuse_strip[:,strip_start:strip_end] += frame_buffer.read_pixels()
-        
-    diffuse_max = numpy.max(diffuse_strip)
-    diffuse_strip /= diffuse_max
-    diffuse_strip *= 255
-    diffuse_strip = diffuse_strip.astype(numpy.uint8)
-    
-    return diffuse_strip
+    Parameters
+    ----------
+    strip : (H, 6H, 3) uint8 array
+        Cubemap horizontal strip, faces in order px,nx,py,ny,pz,nz.
+
+    Returns
+    -------
+    coeffs : (9, 3) float32 array
+        SH irradiance coefficients pre-multiplied by Lambertian zonal harmonics
+        (A_0=pi, A_1=2pi/3, A_2=pi/4).  Evaluate irradiance at unit normal n:
+            irr = sum_i coeffs[i] * Y_i(n)
+        where Y_i are the real spherical harmonic basis functions.
+    """
+    H = strip.shape[0]
+    assert strip.shape == (H, 6 * H, 3), (
+        f'Expected ({H}, {6 * H}, 3), got {strip.shape}')
+
+    # Camera-to-world rotation for each cubemap face (transposed view matrices).
+    # Each matrix transforms a direction from face-local camera space to world.
+    # Face-local: right=+x, up=+y, forward=-z (standard OpenGL camera convention).
+    face_rotations = numpy.array([
+        [[ 0,  0, -1], [ 0, -1,  0], [-1,  0,  0]],  # px
+        [[ 0,  0,  1], [ 0, -1,  0], [ 1,  0,  0]],  # nx
+        [[ 1,  0,  0], [ 0,  0, -1], [ 0,  1,  0]],  # py
+        [[ 1,  0,  0], [ 0,  0,  1], [ 0, -1,  0]],  # ny
+        [[ 1,  0,  0], [ 0, -1,  0], [ 0,  0, -1]],  # pz
+        [[-1,  0,  0], [ 0, -1,  0], [ 0,  0,  1]],  # nz
+    ], dtype=numpy.float32)  # (6, 3, 3)
+
+    # Pixel centers in face-local space (camera looks along -z)
+    idx = numpy.arange(H, dtype=numpy.float32)
+    jj, ii = numpy.meshgrid(idx, idx)   # jj=col, ii=row, each (H, H)
+    x_c = jj - H / 2.0 + 0.5           # (H, H)
+    y_c = ii - H / 2.0 + 0.5           # (H, H)
+    z_c = numpy.full_like(x_c, -H / 2.0)
+
+    local_dirs = numpy.stack([x_c, y_c, z_c], axis=-1)  # (H, H, 3)
+
+    # Rotate to world space: world_dirs[f,h,w] = face_rotations[f] @ local_dirs[h,w]
+    world_dirs = numpy.einsum('fij,hwj->fhwi', face_rotations, local_dirs)  # (6,H,H,3)
+
+    # Normalize
+    norms = numpy.linalg.norm(world_dirs, axis=-1, keepdims=True)  # (6,H,H,1)
+    dirs = world_dirs / norms  # (6, H, H, 3)
+
+    # Solid angle per pixel: dΩ = (H/2) / |r|³  where |r| = norm of local_dir
+    r_sq = x_c ** 2 + y_c ** 2 + (H / 2.0) ** 2   # (H, H)
+    solid_angle = (H / 2.0) / r_sq ** 1.5            # (H, H)
+    solid_angle = numpy.broadcast_to(solid_angle, (6, H, H))  # (6, H, H)
+
+    # Colors from strip in [0, 1]: (6, H, H, 3)
+    colors = numpy.stack([
+        strip[:, f * H:(f + 1) * H, :].astype(numpy.float32) / 255.0
+        for f in range(6)
+    ], axis=0)
+
+    # Real spherical harmonic basis functions (l=0,1,2) at each direction
+    x, y, z = dirs[..., 0], dirs[..., 1], dirs[..., 2]  # (6, H, H) each
+    sh_basis = numpy.stack([
+        numpy.full_like(x, 0.282095),      # Y_00
+        0.488603 * y,                       # Y_1-1
+        0.488603 * z,                       # Y_10
+        0.488603 * x,                       # Y_11
+        1.092548 * x * y,                  # Y_2-2
+        1.092548 * y * z,                  # Y_2-1
+        0.315392 * (3.0 * z * z - 1.0),   # Y_20
+        1.092548 * x * z,                  # Y_21
+        0.546274 * (x * x - y * y),       # Y_22
+    ], axis=-1)  # (6, H, H, 9)
+
+    # Integrate: coeffs[b, c] = Σ_{f,h,w} L(ω)[c] * Y_b(ω) * dΩ
+    coeffs = numpy.einsum(
+        'fhwc,fhwb,fhw->bc', colors, sh_basis, solid_angle)  # (9, 3)
+
+    # Pre-multiply by Lambertian zonal harmonics so the shader is just a dot product
+    lambertian = numpy.array([
+        math.pi,              # l=0: A_0 = pi
+        2.0 * math.pi / 3.0, # l=1: A_1 = 2pi/3
+        2.0 * math.pi / 3.0,
+        2.0 * math.pi / 3.0,
+        math.pi / 4.0,        # l=2: A_2 = pi/4
+        math.pi / 4.0,
+        math.pi / 4.0,
+        math.pi / 4.0,
+        math.pi / 4.0,
+    ], dtype=numpy.float32)
+
+    coeffs *= lambertian[:, numpy.newaxis]
+
+    return coeffs.astype(numpy.float32)

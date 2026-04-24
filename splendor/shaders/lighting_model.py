@@ -93,7 +93,7 @@ uniform sampler2D texture_sampler;
 uniform sampler2D material_properties_sampler;
 #endif
 
-uniform samplerCube diffuse_sampler;
+uniform vec3 sh_coefficients[9];
 uniform samplerCube reflect_sampler;
 
 {_build_shadow_samplers()}
@@ -143,10 +143,9 @@ void main(){
     float base_reflect = material_properties.z;
     float ambient = material_properties.w;
 
-    float diffuse_gamma = image_light_properties.x;
-    float diffuse_bias = image_light_properties.y;
-    float reflect_gamma = image_light_properties.z;
-    float reflect_bias = image_light_properties.w;
+    float diffuse_bias = image_light_properties.x;
+    float reflect_gamma = image_light_properties.y;
+    float reflect_bias = image_light_properties.z;
 
     mat4 inv_view_matrix = inverse(view_matrix);
     vec4 world_position = inv_view_matrix * fragment_position;
@@ -224,13 +223,19 @@ void main(){
 
         vec3 offset_fragment_normal = vec3(
                 image_light_offset_matrix * vec4(camera_normal, 1.));
+        vec3 offset_n = normalize(offset_fragment_normal);
 
-        vec3 diffuse_color = vec3(skybox_texture(
-                diffuse_sampler, offset_fragment_normal));
-        diffuse_color = pow(diffuse_color, vec3(diffuse_gamma));
-
-        float diffuse_correction = (diffuse_gamma+1)/2;
-        diffuse_color *= diffuse_correction;
+        vec3 diffuse_color = max(
+            sh_coefficients[0]
+            + sh_coefficients[1] * offset_n.y
+            + sh_coefficients[2] * offset_n.z
+            + sh_coefficients[3] * offset_n.x
+            + sh_coefficients[4] * offset_n.x * offset_n.y
+            + sh_coefficients[5] * offset_n.y * offset_n.z
+            + sh_coefficients[6] * (3.0*offset_n.z*offset_n.z - 1.0)
+            + sh_coefficients[7] * offset_n.x * offset_n.z
+            + sh_coefficients[8] * (offset_n.x*offset_n.x - offset_n.y*offset_n.y),
+            vec3(0.0));
         diffuse_color += vec3(diffuse_bias);
 
         vec4 reflected_direction =

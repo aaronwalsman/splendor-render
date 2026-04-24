@@ -44,6 +44,7 @@ def start_viewer(
             'steps': 0,
             'recent_file_change_time': -1,
             'batch_time': time.time(),
+            'render_mode': 'color',
         }
 
         def reload_scene():
@@ -104,7 +105,10 @@ def start_viewer(
             fbw, fbh = ctx.framebuffer_size()
             renderer.viewport_scissor(0, 0, fbw, fbh)
 
-            renderer.color_render('main', sensor='display', flip_y=False)
+            if state['render_mode'] == 'color':
+                renderer.color_render('main', sensor='display', flip_y=False)
+            elif state['render_mode'] == 'mask':
+                renderer.mask_render('main', sensor='display', flip_y=False)
             renderer.display_sensor('display')
 
         camera_control = InteractiveCameraGLFW(ctx, renderer, 'main')
@@ -114,12 +118,18 @@ def start_viewer(
 
         import glfw as _glfw
         def key_callback(window, key, scancode, action, mods):
-            if action == _glfw.PRESS and key == _glfw.KEY_S:
-                image = renderer.read_sensor('display')
-                stamp = time.strftime('%Y%m%d_%H%M%S')
-                path = os.path.join(os.getcwd(), 'splendor_%s.png' % stamp)
-                save_image(image, path)
-                print('Saved screenshot: %s' % path)
+            if action == _glfw.PRESS:
+                if key == _glfw.KEY_S:
+                    image = renderer.read_sensor('display')
+                    stamp = time.strftime('%Y%m%d_%H%M%S')
+                    path = os.path.join(os.getcwd(), 'splendor_%s.png' % stamp)
+                    save_image(image, path)
+                    print('Saved screenshot: %s' % path)
+                elif key == _glfw.KEY_M:
+                    modes = ['color', 'mask']
+                    state['render_mode'] = modes[
+                        (modes.index(state['render_mode']) + 1) % len(modes)]
+                    print('Render mode: %s' % state['render_mode'])
             camera_control.key_callback(window, key, scancode, action, mods)
 
         ctx.set_key_callback(key_callback)
