@@ -46,7 +46,11 @@ class SplendorRender:
             ('point_light', 'point_lights'),
             ('direction_light', 'direction_lights'),
             ('coord_frame', 'coord_frames'),
-            ('frustum', 'frustums'))
+            ('frustum', 'frustums'),
+            ('line_set', 'line_sets'),
+            ('point_cloud', 'point_clouds'),
+            ('box', 'boxes'),
+            ('arrow', 'arrows'))
 
     def __init__(self,
         assets=None,
@@ -83,6 +87,10 @@ class SplendorRender:
             'direction_lights':{},
             'coord_frames':{},
             'frustums':{},
+            'line_sets':{},
+            'point_clouds':{},
+            'boxes':{},
+            'arrows':{},
             'cameras':{},
             'sensors':{},
             'image_lights':{},
@@ -2165,17 +2173,8 @@ class SplendorRender:
             self.scene_description['coord_frames'][name]['axis_length'] = (
                 float(axis_length))
 
-    def render_coord_frames(self, camera_data, flip_y=True):
-        """
-        Render all scene coord frames as RGB XYZ axis lines.
-        Must be called while the correct sensor FBO is bound and depth test active.
-
-        Parameters
-        ----------
-        camera_data : dict
-            Camera data dict (as stored in scene_description['cameras']), or
-            a modified copy (e.g. with expanded FOV for distortion pass).
-        """
+    def _render_scene_coord_frames(self, camera_data, flip_y=True):
+        """Render all scene coord frames. Called from color_render."""
         frames = self.scene_description['coord_frames']
         if not frames:
             return
@@ -2297,8 +2296,8 @@ class SplendorRender:
             'color': list(color),
         }
 
-    def render_frustums(self, camera_data, flip_y=True):
-        """Render all scene frustum wireframes."""
+    def _render_scene_frustums(self, camera_data, flip_y=True):
+        """Render all scene frustum wireframes. Called from color_render."""
         frustums = self.scene_description['frustums']
         if not frustums:
             return
@@ -2337,6 +2336,111 @@ class SplendorRender:
         GL.glBindVertexArray(0)
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
         GL.glUseProgram(0)
+
+    # line_set scene object methods ============================================
+
+    def add_line_set(self, name, starts, ends, colors):
+        """Add a named set of line segments to the scene."""
+        self.scene_description['line_sets'][name] = {
+            'starts': numpy.array(starts, dtype=numpy.float32).tolist(),
+            'ends': numpy.array(ends, dtype=numpy.float32).tolist(),
+            'colors': numpy.array(colors, dtype=numpy.float32).tolist(),
+        }
+
+    def remove_line_set(self, name):
+        del self.scene_description['line_sets'][name]
+
+    def clear_line_sets(self):
+        self.scene_description['line_sets'] = {}
+
+    # point_cloud scene object methods =========================================
+
+    def add_point_cloud(self, name, points, colors, point_size=1):
+        """Add a named point cloud to the scene."""
+        self.scene_description['point_clouds'][name] = {
+            'points': numpy.array(points, dtype=numpy.float32).tolist(),
+            'colors': numpy.array(colors, dtype=numpy.float32).tolist(),
+            'point_size': point_size,
+        }
+
+    def remove_point_cloud(self, name):
+        del self.scene_description['point_clouds'][name]
+
+    def clear_point_clouds(self):
+        self.scene_description['point_clouds'] = {}
+
+    # box scene object methods =================================================
+
+    def add_box(self, name, transform, color):
+        """Add a named wireframe box (transform maps the unit cube)."""
+        self.scene_description['boxes'][name] = {
+            'transform': numpy.array(transform, dtype=numpy.float32).tolist(),
+            'color': list(color),
+        }
+
+    def remove_box(self, name):
+        del self.scene_description['boxes'][name]
+
+    def clear_boxes(self):
+        self.scene_description['boxes'] = {}
+
+    # arrow scene object methods ===============================================
+
+    def add_arrow(self, name, start, end, color, wedge_size=0.1):
+        """Add a named arrow to the scene."""
+        self.scene_description['arrows'][name] = {
+            'start': list(start),
+            'end': list(end),
+            'color': list(color),
+            'wedge_size': wedge_size,
+        }
+
+    def remove_arrow(self, name):
+        del self.scene_description['arrows'][name]
+
+    def clear_arrows(self):
+        self.scene_description['arrows'] = {}
+
+    # scene line overlay rendering =============================================
+
+    def _render_scene_overlays(self, camera_data, flip_y=True):
+        """Render all scene line overlays (called from color_render)."""
+        view = camera_data['view_matrix'].astype(numpy.float32)
+        proj = camera_data['projection'].astype(numpy.float32)
+        if flip_y:
+            proj = numpy.array(
+                [[1,0,0,0],[0,-1,0,0],[0,0,1,0],[0,0,0,1]],
+                dtype=numpy.float32) @ proj
+        vp = proj @ view
+
+        # Collect all line vertices
+        line_verts = []
+
+        for data in self.scene_description['line_sets'].values():
+            line_verts.append(self._build_line_set_verts(
+                data['starts'], data['ends'], data['colors']))
+
+        for data in self.scene_description['boxes'].values():
+            line_verts.append(self._build_box_verts(
+                data['transform'], data['color']))
+
+        for data in self.scene_description['arrows'].values():
+            v = self._build_arrow_verts(
+                data['start'], data['end'], data['color'],
+                data.get('wedge_size', 0.1))
+            if len(v) > 0:
+                line_verts.append(v)
+
+        if line_verts:
+            all_verts = numpy.concatenate(line_verts)
+            self._draw_primitives(vp, all_verts)
+
+        # Points need a separate draw call (GL_POINTS)
+        for data in self.scene_description['point_clouds'].values():
+            GL.glPointSize(data.get('point_size', 1))
+            verts = self._build_point_cloud_verts(
+                data['points'], data['colors'])
+            self._draw_primitives(vp, verts, draw_mode=GL.GL_POINTS)
 
     # render methods ===========================================================
     
@@ -2912,9 +3016,10 @@ class SplendorRender:
         # (intermediate if distortion, main sensor otherwise) so they pass
         # through the same lens distortion as the rest of the scene geometry.
         if self.scene_description['coord_frames']:
-            self.render_coord_frames(render_camera_data, flip_y=flip_y)
+            self._render_scene_coord_frames(render_camera_data, flip_y=flip_y)
         if self.scene_description['frustums']:
-            self.render_frustums(render_camera_data, flip_y=flip_y)
+            self._render_scene_frustums(render_camera_data, flip_y=flip_y)
+        self._render_scene_overlays(render_camera_data, flip_y=flip_y)
 
         # Stage 2: warp intermediate render into main sensor FBO
         if use_distortion:
@@ -3398,119 +3503,225 @@ class SplendorRender:
                 None)
         GL.glBindVertexArray(0)
 
-    # misc render methods ------------------------------------------------------
-    # TODO Figure out what to do about these.
-    
-    def render_points(self, camera, points, color, point_size=1, flip_y=True):
-        # TODO: glPushMatrix/glMultMatrixf are OpenGL 1.x and unavailable in
-        # core profile 3.3.  These functions need to be ported to shaders.
+    # one-shot draw methods ====================================================
+
+    def _compute_vp(self, camera, flip_y=True):
+        """Compute view-projection matrix from a camera name."""
         camera_data = self.scene_description['cameras'][camera]
-        GL.glPushMatrix()
-        try:
-            projection_matrix = camera_data['projection']
-            if flip_y:
-                projection_matrix = numpy.dot(projection_matrix, numpy.array([
-                        [1, 0, 0, 0],
-                        [0,-1, 0, 0],
-                        [0, 0, 1, 0],
-                        [0, 0, 0, 1]]))
-            GL.glMultMatrixf(numpy.transpose(numpy.dot(
-                    projection_matrix,
-                    camera_data['view_matrix'])))
+        view = camera_data['view_matrix'].astype(numpy.float32)
+        proj = camera_data['projection'].astype(numpy.float32)
+        if flip_y:
+            proj = numpy.array(
+                [[1,0,0,0],[0,-1,0,0],[0,0,1,0],[0,0,0,1]],
+                dtype=numpy.float32) @ proj
+        return proj @ view
 
-            GL.glColor3f(*color)
-            GL.glPointSize(point_size)
-            GL.glBegin(GL.GL_POINTS)
-            for point in points:
-                GL.glVertex3f(*point)
-            GL.glEnd()
-        finally:
-            GL.glPopMatrix()
-        GL.glFinish()
+    def _draw_primitives(self, vp, vertices, draw_mode=None):
+        """Upload world-space vertices and draw with the lines shader."""
+        if draw_mode is None:
+            draw_mode = GL.GL_LINES
+        vertices = numpy.asarray(vertices, dtype=numpy.float32).ravel()
+        num_verts = len(vertices) // 6
+        if num_verts == 0:
+            return
 
-    def render_line(self, camera, start, end, color, flip_y=True, finish=True):
-        camera_data = self.scene_description['cameras'][camera]
-        GL.glPushMatrix()
-        try:
-            projection_matrix = camera_data['projection']
-            if flip_y:
-                projection_matrix = numpy.dot(projection_matrix, numpy.array([
-                        [1, 0, 0, 0],
-                        [0,-1, 0, 0],
-                        [0, 0, 1, 0],
-                        [0, 0, 0, 1]]))
-            GL.glMultMatrixf(numpy.transpose(numpy.dot(
-                    projection_matrix,
-                    camera_data['view_matrix'])))
+        buffers = self.gl_data['coord_frame_buffers']
+        self.shader_library.use_program('lines_shader')
+        locations = self.shader_library.get_shader_locations('lines_shader')
+        GL.glUniformMatrix4fv(
+            locations['mvp_matrix'], 1, GL.GL_TRUE, vp.astype(numpy.float32))
 
-            GL.glColor3f(*color)
-            GL.glBegin(GL.GL_LINES)
-            GL.glVertex3f(*start)
-            GL.glVertex3f(*end)
-            GL.glEnd()
-        finally:
-            GL.glPopMatrix()
-        if finish:
-            self.finish_frame()
+        GL.glBindVertexArray(buffers['vao'])
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, buffers['vbo'])
+        GL.glBufferData(
+            GL.GL_ARRAY_BUFFER, vertices.nbytes, vertices, GL.GL_STREAM_DRAW)
+        GL.glDrawArrays(draw_mode, 0, num_verts)
+        GL.glBindVertexArray(0)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
+        GL.glUseProgram(0)
 
-    def render_transform(self, camera, transform, axis_length=0.1, flip_y=True):
-        camera_data = self.scene_description['cameras'][camera]
-        GL.glPushMatrix()
-        try:
-            projection_matrix = camera_data['projection']
-            if flip_y:
-                projection_matrix = numpy.dot(projection_matrix, numpy.array([
-                        [1, 0, 0, 0],
-                        [0,-1, 0, 0],
-                        [0, 0, 1, 0],
-                        [0, 0, 0, 1]]))
-            GL.glMultMatrixf(numpy.transpose(numpy.dot(numpy.dot(
-                    projection_matrix,
-                    camera_data['view_matrix']),
-                    transform)))
+    @staticmethod
+    def _build_coord_frame_verts(transforms, axis_length=0.1):
+        """Build world-space line vertices for coordinate frames."""
+        verts = []
+        for t in transforms:
+            t = numpy.asarray(t, dtype=numpy.float32)
+            origin = t[:3, 3]
+            axes = t[:3, :3] * axis_length
+            colors = [(1,0,0),(0,1,0),(0,0,1),(1,0,1),(1,1,0),(0,1,1)]
+            signs = [1, 1, 1, -1, -1, -1]
+            for i in range(3):
+                for s, ci in [(1, i), (-1, i+3)]:
+                    c = colors[ci]
+                    tip = origin + axes[:, i] * s
+                    verts.extend([*origin, *c, *tip, *c])
+        return numpy.array(verts, dtype=numpy.float32)
 
-            GL.glColor3f(1., 0., 0.)
-            GL.glBegin(GL.GL_LINES)
-            GL.glVertex3f(0., 0., 0.)
-            GL.glVertex3f(axis_length, 0., 0.)
-            GL.glEnd()
+    @staticmethod
+    def _build_frustum_verts(transform, projection, color):
+        """Build world-space line vertices for a camera frustum."""
+        inv_proj = numpy.linalg.inv(projection)
+        corners_ndc = numpy.array([
+            [-1,-1,-1,1],[ 1,-1,-1,1],[ 1, 1,-1,1],[-1, 1,-1,1],
+            [-1,-1, 1,1],[ 1,-1, 1,1],[ 1, 1, 1,1],[-1, 1, 1,1],
+        ], dtype=numpy.float32)
+        corners_view = (inv_proj @ corners_ndc.T).T
+        corners_view /= corners_view[:, 3:4]
+        corners_world = (transform @ corners_view.T).T[:, :3]
+        edges = [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),
+                 (0,4),(1,5),(2,6),(3,7)]
+        c = numpy.array(color, dtype=numpy.float32)
+        verts = []
+        for i, j in edges:
+            verts.extend([*corners_world[i], *c, *corners_world[j], *c])
+        return numpy.array(verts, dtype=numpy.float32)
 
-            GL.glColor3f(0., 1., 0.)
-            GL.glBegin(GL.GL_LINES)
-            GL.glVertex3f(0., 0., 0.)
-            GL.glVertex3f(0., axis_length, 0.)
-            GL.glEnd()
+    @staticmethod
+    def _build_line_set_verts(starts, ends, colors):
+        """Build world-space line vertices from parallel arrays."""
+        starts = numpy.asarray(starts, dtype=numpy.float32)
+        ends = numpy.asarray(ends, dtype=numpy.float32)
+        colors = numpy.asarray(colors, dtype=numpy.float32)
+        if colors.ndim == 1:
+            colors = numpy.broadcast_to(colors, starts.shape)
+        n = len(starts)
+        verts = numpy.zeros((n * 2, 6), dtype=numpy.float32)
+        verts[0::2, :3] = starts
+        verts[0::2, 3:] = colors
+        verts[1::2, :3] = ends
+        verts[1::2, 3:] = colors
+        return verts.ravel()
 
-            GL.glColor3f(0., 0., 1.)
-            GL.glBegin(GL.GL_LINES)
-            GL.glVertex3f(0., 0., 0.)
-            GL.glVertex3f(0., 0., axis_length)
-            GL.glEnd()
+    @staticmethod
+    def _build_point_cloud_verts(points, colors):
+        """Build world-space point vertices from parallel arrays."""
+        points = numpy.asarray(points, dtype=numpy.float32)
+        colors = numpy.asarray(colors, dtype=numpy.float32)
+        if colors.ndim == 1:
+            colors = numpy.broadcast_to(colors, points.shape)
+        n = len(points)
+        verts = numpy.zeros((n, 6), dtype=numpy.float32)
+        verts[:, :3] = points
+        verts[:, 3:] = colors
+        return verts.ravel()
 
-            GL.glColor3f(1., 0., 1.)
-            GL.glBegin(GL.GL_LINES)
-            GL.glVertex3f(0., 0., 0.)
-            GL.glVertex3f(-axis_length, 0., 0.)
-            GL.glEnd()
+    @staticmethod
+    def _build_box_verts(transform, color):
+        """Build world-space wireframe vertices for a box (transform maps unit cube)."""
+        t = numpy.asarray(transform, dtype=numpy.float32)
+        c = numpy.array(color, dtype=numpy.float32)
+        # Unit cube corners
+        signs = numpy.array([
+            [-1,-1,-1],[ 1,-1,-1],[ 1, 1,-1],[-1, 1,-1],
+            [-1,-1, 1],[ 1,-1, 1],[ 1, 1, 1],[-1, 1, 1],
+        ], dtype=numpy.float32)
+        corners_local = numpy.hstack([signs, numpy.ones((8,1), dtype=numpy.float32)])
+        corners_world = (t @ corners_local.T).T[:, :3]
+        edges = [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),
+                 (0,4),(1,5),(2,6),(3,7)]
+        verts = []
+        for i, j in edges:
+            verts.extend([*corners_world[i], *c, *corners_world[j], *c])
+        return numpy.array(verts, dtype=numpy.float32)
 
-            GL.glColor3f(1., 1., 0.)
-            GL.glBegin(GL.GL_LINES)
-            GL.glVertex3f(0., 0., 0.)
-            GL.glVertex3f(0., -axis_length, 0.)
-            GL.glEnd()
+    @staticmethod
+    def _build_arrow_verts(start, end, color, wedge_size=0.1):
+        """Build world-space line vertices for an arrow with a wedge tip."""
+        start = numpy.asarray(start, dtype=numpy.float32)
+        end = numpy.asarray(end, dtype=numpy.float32)
+        c = numpy.array(color, dtype=numpy.float32)
+        direction = end - start
+        length = numpy.linalg.norm(direction)
+        if length < 1e-8:
+            return numpy.array([], dtype=numpy.float32)
+        d = direction / length
+        # Find a perpendicular vector
+        up = numpy.array([0, 1, 0], dtype=numpy.float32)
+        if abs(numpy.dot(d, up)) > 0.99:
+            up = numpy.array([1, 0, 0], dtype=numpy.float32)
+        perp = numpy.cross(d, up)
+        perp = perp / numpy.linalg.norm(perp)
+        # Wedge base point
+        wedge_len = length * wedge_size
+        base = end - d * wedge_len
+        w1 = base + perp * wedge_len * 0.4
+        w2 = base - perp * wedge_len * 0.4
+        verts = [
+            *start, *c, *end, *c,   # shaft
+            *end, *c, *w1, *c,      # wedge arm 1
+            *end, *c, *w2, *c,      # wedge arm 2
+        ]
+        return numpy.array(verts, dtype=numpy.float32)
 
-            GL.glColor3f(0., 1., 1.)
-            GL.glBegin(GL.GL_LINES)
-            GL.glVertex3f(0., 0., 0.)
-            GL.glVertex3f(0., 0., -axis_length)
-            GL.glEnd()
+    def render_coord_frames(self, camera, transforms, axis_length=0.1,
+                            flip_y=True):
+        """One-shot: draw coordinate frames at the given transforms."""
+        vp = self._compute_vp(camera, flip_y)
+        verts = self._build_coord_frame_verts(transforms, axis_length)
+        self._draw_primitives(vp, verts)
 
-        finally:
-            GL.glPopMatrix()
+    def render_frustums(self, camera, transforms, projections,
+                        color=(1, 1, 1), flip_y=True):
+        """One-shot: draw camera frustum wireframes."""
+        vp = self._compute_vp(camera, flip_y)
+        verts = []
+        transforms = numpy.asarray(transforms)
+        projections = numpy.asarray(projections)
+        if transforms.ndim == 2:
+            transforms = transforms[None]
+            projections = projections[None]
+        for t, p in zip(transforms, projections):
+            verts.append(self._build_frustum_verts(t, p, color))
+        if verts:
+            self._draw_primitives(vp, numpy.concatenate(verts))
 
-    def render_vertices(self, instance_name, flip_y = True):
-        #TODO: add this for debugging purposes
-        raise NotImplementedError
+    def render_line_sets(self, camera, starts, ends, colors, flip_y=True):
+        """One-shot: draw line segments from starts to ends."""
+        vp = self._compute_vp(camera, flip_y)
+        verts = self._build_line_set_verts(starts, ends, colors)
+        self._draw_primitives(vp, verts)
+
+    def render_point_clouds(self, camera, points, colors, point_size=1,
+                            flip_y=True):
+        """One-shot: draw points."""
+        vp = self._compute_vp(camera, flip_y)
+        GL.glPointSize(point_size)
+        verts = self._build_point_cloud_verts(points, colors)
+        self._draw_primitives(vp, verts, draw_mode=GL.GL_POINTS)
+
+    def render_boxes(self, camera, transforms, colors, flip_y=True):
+        """One-shot: draw wireframe boxes (each transform maps the unit cube)."""
+        vp = self._compute_vp(camera, flip_y)
+        transforms = numpy.asarray(transforms)
+        colors = numpy.asarray(colors)
+        if transforms.ndim == 2:
+            transforms = transforms[None]
+        if colors.ndim == 1:
+            colors = numpy.broadcast_to(colors, (len(transforms), 3))
+        verts = []
+        for t, c in zip(transforms, colors):
+            verts.append(self._build_box_verts(t, c))
+        if verts:
+            self._draw_primitives(vp, numpy.concatenate(verts))
+
+    def render_arrows(self, camera, starts, ends, colors, wedge_size=0.1,
+                      flip_y=True):
+        """One-shot: draw arrows from starts to ends with wedge tips."""
+        vp = self._compute_vp(camera, flip_y)
+        starts = numpy.asarray(starts, dtype=numpy.float32)
+        ends = numpy.asarray(ends, dtype=numpy.float32)
+        colors = numpy.asarray(colors, dtype=numpy.float32)
+        if starts.ndim == 1:
+            starts = starts[None]
+            ends = ends[None]
+        if colors.ndim == 1:
+            colors = numpy.broadcast_to(colors, (len(starts), 3))
+        verts = []
+        for s, e, c in zip(starts, ends, colors):
+            verts.append(self._build_arrow_verts(s, e, c, wedge_size))
+        non_empty = [v for v in verts if len(v) > 0]
+        if non_empty:
+            self._draw_primitives(vp, numpy.concatenate(non_empty))
 
 def print_locations(shader, location_data):
     for k,v in location_data.items():
