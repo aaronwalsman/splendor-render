@@ -94,6 +94,7 @@ class SplendorRender:
             'depthmaps':{},
             'textures':{},
             'cubemaps':{},
+            'irradiance_sh':{},
         }
 
         self.gl_data = {
@@ -985,9 +986,11 @@ class SplendorRender:
     def load_image_light(self,
         name,
         reflect_cubemap,
-        sh_coefficients,
+        irradiance_sh=None,
+        irradiance_sh_asset=None,
         offset_matrix = numpy.eye(4),
         blur = 0.,
+        diffuse_scale = 1.,
         diffuse_bias = 0.,
         reflect_gamma = 1.,
         reflect_bias = 0.,
@@ -998,6 +1001,7 @@ class SplendorRender:
         shadow_projection = None,
         shadow_pose = None,
         shadow_pcf_radius = 1,
+        shadow_color = None,
     ):
         """
         Load an image light.
@@ -1012,10 +1016,13 @@ class SplendorRender:
             image lights
         reflect_cubemap : str
             The name of the cubemap to use for reflections and background.
-        sh_coefficients : (9, 3) array-like
+        irradiance_sh : (9, 3) array-like, optional
             Spherical harmonic irradiance coefficients for diffuse lighting,
-            as produced by cubemap_strip_to_sh().  Pre-multiplied by
-            Lambertian zonal harmonics.
+            as produced by cubemap_strip_to_sh().
+        irradiance_sh_asset : str, optional
+            Name of an SH coefficients asset in the asset library.
+            Exactly one of irradiance_sh or irradiance_sh_asset must
+            be provided.
         offset_matrix : 4x4 array-like, default=numpy.eye(4)
             An offset rotation matrix for the image light.
         blur : float, default=0.
@@ -1037,11 +1044,37 @@ class SplendorRender:
         
         image_light_data = {}
         image_light_data['reflect_cubemap'] = reflect_cubemap
-        image_light_data['sh_coefficients'] = numpy.array(
-            sh_coefficients, dtype=numpy.float32)
+
+        if irradiance_sh_asset is not None:
+            sh_path = self.asset_library['irradiance_sh'][
+                irradiance_sh_asset]
+            with open(sh_path) as f:
+                sh_array = numpy.array(json.load(f), dtype=numpy.float32)
+            image_light_data['irradiance_sh_asset'] = irradiance_sh_asset
+        elif irradiance_sh is not None:
+            sh_array = numpy.array(irradiance_sh, dtype=numpy.float32)
+            image_light_data['irradiance_sh'] = irradiance_sh
+        else:
+            raise SplendorException(
+                'Must supply either "irradiance_sh" or '
+                '"irradiance_sh_asset" when loading an image light')
+
+        self.loaded_data['irradiance_sh'][name] = sh_array
+
+        # Auto-compute shadow color from SH if not provided
+        if shadow_color is not None:
+            shadow_color_array = numpy.array(shadow_color, dtype=numpy.float32)
+            image_light_data['shadow_color'] = shadow_color
+        else:
+            from splendor.image_light.diffuse import compute_shadow_color
+            shadow_color_array = compute_shadow_color(sh_array)
+        self.loaded_data['irradiance_sh'][name + '_shadow_color'] = (
+            shadow_color_array)
+
         image_light_data['offset_matrix'] = numpy.array(offset_matrix)
         image_light_data['blur'] = blur
         image_light_data['render_background'] = render_background
+        image_light_data['diffuse_scale'] = diffuse_scale
         image_light_data['diffuse_bias'] = diffuse_bias
         image_light_data['reflect_gamma'] = reflect_gamma
         image_light_data['reflect_bias'] = reflect_bias
@@ -1068,6 +1101,11 @@ class SplendorRender:
         name : str
         """
         del(self.scene_description['image_lights'][name])
+        if name in self.loaded_data['irradiance_sh']:
+            del(self.loaded_data['irradiance_sh'][name])
+        shadow_key = name + '_shadow_color'
+        if shadow_key in self.loaded_data['irradiance_sh']:
+            del(self.loaded_data['irradiance_sh'][shadow_key])
 
         # delete the background mesh if there are no image lights left
         if len(self.scene_description['image_lights']) == 0:
@@ -1115,13 +1153,14 @@ class SplendorRender:
         Parameters:
         -----------
         name : str
-        
+
         Returns:
         --------
         str :
             The serialized description of the image light.
         """
         return self.scene_description['image_lights'][image_light]
+
 
     # texture methods ==========================================================
     
@@ -2664,11 +2703,13 @@ class SplendorRender:
                 # set the cubemap samplers
                 
                 if self.get_active_image_light() is not None:
-                    if 'sh_coefficients' in location_data:
+                    if 'irradiance_sh' in location_data:
+                        sh_array = self.loaded_data['irradiance_sh'][
+                            image_light_name]
                         GL.glUniform3fv(
-                            location_data['sh_coefficients'],
+                            location_data['irradiance_sh'],
                             9,
-                            image_light_data['sh_coefficients'])
+                            sh_array)
                     if 'reflect_sampler' in location_data:
                         reflect_cubemap = image_light_data['reflect_cubemap']
                         GL.glActiveTexture(GL.GL_TEXTURE3)
@@ -2816,6 +2857,13 @@ class SplendorRender:
                     GL.glUniform3fv(
                         location_data['image_light_shadow_direction'], 1,
                         ibl_shadow_dir)
+                if 'image_light_shadow_color' in location_data:
+                    shadow_color = self.loaded_data['irradiance_sh'].get(
+                        image_light_name + '_shadow_color',
+                        numpy.zeros(3, dtype=numpy.float32))
+                    GL.glUniform3fv(
+                        location_data['image_light_shadow_color'], 1,
+                        shadow_color)
                 
                 # set the image light parameters
                 GL.glUniform1i(location_data['image_light_active'],
@@ -2835,10 +2883,10 @@ class SplendorRender:
                             image_light_data['lock_to_camera'])
                     
                     image_light_properties = numpy.array([
+                            image_light_data['diffuse_scale'],
                             image_light_data['diffuse_bias'],
                             image_light_data['reflect_gamma'],
-                            image_light_data['reflect_bias'],
-                            0.])
+                            image_light_data['reflect_bias']])
                     GL.glUniform4fv(
                             location_data['image_light_properties'],
                             1, image_light_properties.astype(numpy.float32))

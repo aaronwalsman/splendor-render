@@ -16,6 +16,7 @@ asset_types = (
         'materials',
         'textures',
         'cubemaps',
+        'irradiance_sh',
         'panoramas',
         'scenes')
 asset_extensions = {
@@ -23,6 +24,7 @@ asset_extensions = {
         'meshes' : ('.obj',),
         'textures' : ('.jpg', '.png'),
         'cubemaps' : ('.jpg', '.png'),
+        'irradiance_sh' : ('.json',),
         'materials' : (),
         'panoramas' : ('.jpg', '.png'),
         'scenes' : ('.json',)

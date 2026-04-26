@@ -27,12 +27,12 @@ def main():
     reflect_image = panorama_to_strip(
         panorama_image, args.reflect_size, args.filter, args.device)
 
-    sh_coefficients = cubemap_strip_to_sh(reflect_image)
+    irradiance_sh = cubemap_strip_to_sh(reflect_image)
 
     save_image(reflect_image, args.output + '_ref.png')
 
     with open(args.output + '_sh.json', 'w') as f:
-        json.dump(sh_coefficients.tolist(), f)
+        json.dump(irradiance_sh.tolist(), f)
 
     print(f'Wrote {args.output}_ref.png')
     print(f'Wrote {args.output}_sh.json')

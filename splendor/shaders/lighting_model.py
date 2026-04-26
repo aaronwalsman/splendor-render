@@ -84,6 +84,7 @@ uniform int  shadow_pcf_radii[MAX_SHADOW_CASTERS];
 uniform int  direction_light_shadow_slots[MAX_NUM_LIGHTS]; // -1 = no shadow
 uniform int  image_light_shadow_slot;                      // -1 = no shadow
 uniform vec3 image_light_shadow_direction;                 // world-space, surface→light
+uniform vec3 image_light_shadow_color;                     // min irradiance, used as shadow floor
 
 #ifdef COMPILE_TEXTURE
 uniform sampler2D texture_sampler;
@@ -93,7 +94,7 @@ uniform sampler2D texture_sampler;
 uniform sampler2D material_properties_sampler;
 #endif
 
-uniform vec3 sh_coefficients[9];
+uniform vec3 irradiance_sh[9];
 uniform samplerCube reflect_sampler;
 
 {_build_shadow_samplers()}
@@ -143,9 +144,10 @@ void main(){
     float base_reflect = material_properties.z;
     float ambient = material_properties.w;
 
-    float diffuse_bias = image_light_properties.x;
-    float reflect_gamma = image_light_properties.y;
-    float reflect_bias = image_light_properties.z;
+    float diffuse_scale = image_light_properties.x;
+    float diffuse_bias = image_light_properties.y;
+    float reflect_gamma = image_light_properties.z;
+    float reflect_bias = image_light_properties.w;
 
     mat4 inv_view_matrix = inverse(view_matrix);
     vec4 world_position = inv_view_matrix * fragment_position;
@@ -226,17 +228,17 @@ void main(){
         vec3 offset_n = normalize(offset_fragment_normal);
 
         vec3 diffuse_color = max(
-            sh_coefficients[0]
-            + sh_coefficients[1] * offset_n.y
-            + sh_coefficients[2] * offset_n.z
-            + sh_coefficients[3] * offset_n.x
-            + sh_coefficients[4] * offset_n.x * offset_n.y
-            + sh_coefficients[5] * offset_n.y * offset_n.z
-            + sh_coefficients[6] * (3.0*offset_n.z*offset_n.z - 1.0)
-            + sh_coefficients[7] * offset_n.x * offset_n.z
-            + sh_coefficients[8] * (offset_n.x*offset_n.x - offset_n.y*offset_n.y),
+            irradiance_sh[0]
+            + irradiance_sh[1] * offset_n.y
+            + irradiance_sh[2] * offset_n.z
+            + irradiance_sh[3] * offset_n.x
+            + irradiance_sh[4] * offset_n.x * offset_n.y
+            + irradiance_sh[5] * offset_n.y * offset_n.z
+            + irradiance_sh[6] * (3.0*offset_n.z*offset_n.z - 1.0)
+            + irradiance_sh[7] * offset_n.x * offset_n.z
+            + irradiance_sh[8] * (offset_n.x*offset_n.x - offset_n.y*offset_n.y),
             vec3(0.0));
-        diffuse_color += vec3(diffuse_bias);
+        diffuse_color = diffuse_color * diffuse_scale + vec3(diffuse_bias);
 
         vec4 reflected_direction =
                 inv_view_matrix * vec4(reflect(-eye, normal), 0.);
@@ -250,15 +252,27 @@ void main(){
         reflect_color += vec3(reflect_bias);
         reflect_color = reflect_color * ks;
 
+        vec3 shadow_floor = image_light_shadow_color * diffuse_scale
+            + vec3(diffuse_bias);
+
         float ibl_shadow = 0.0;
         if(image_light_shadow_slot >= 0) {
             vec3 ibl_light_dir = normalize(
                 vec3(view_matrix * vec4(image_light_shadow_direction, 0.0)));
-            ibl_shadow = shadow_lookup(
-                image_light_shadow_slot, world_position, normal, ibl_light_dir);
+            float n_dot_l = dot(normal, ibl_light_dir);
+            if(n_dot_l > 0.0) {
+                ibl_shadow = shadow_lookup(
+                    image_light_shadow_slot, world_position,
+                    normal, ibl_light_dir);
+            } else {
+                // Back face: treat as fully in shadow
+                ibl_shadow = 1.0;
+            }
         }
 
-        color += vec4(kd * diffuse_color * albedo, 0.) * (1.0 - ibl_shadow);
+        vec3 shadowed_diffuse = mix(diffuse_color, shadow_floor, ibl_shadow);
+
+        color += vec4(kd * shadowed_diffuse * albedo, 0.);
         color += vec4(reflect_color, 0.) * (1.0 - ibl_shadow);
     }
 
