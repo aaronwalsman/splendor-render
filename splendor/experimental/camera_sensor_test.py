@@ -22,6 +22,7 @@ RADIAL_K1 = 0.3
 RADIAL_K2 = 0.05
 
 def test_render():
+    """Render a colored cube with radial distortion and verify the output images."""
     ctx = EGLContext()
     try:
         _test_render()

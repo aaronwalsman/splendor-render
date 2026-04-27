@@ -1,3 +1,4 @@
+"""Depth map rendering shader."""
 textured_depthmap_vertex_shader = '''#version 330 core
 
 in float vertex_depth;

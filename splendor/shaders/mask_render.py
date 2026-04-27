@@ -1,3 +1,4 @@
+"""Mask rendering shader — outputs unique colors per instance."""
 from splendor.shaders.mesh import mesh_vertex_shader
 
 mask_vertex_shader = f'''#version 330 core

@@ -1,7 +1,9 @@
+"""Image light shader functions (legacy reflect-to-diffuse)."""
 from splendor.shaders.utils import softish_step_fn, intensity_fn
 from splendor.shaders.skybox import skybox_fn
 
 def reflect_to_diffuse_fragment_shader(num_samples=512):
+    """Return GLSL fragment shader source for convolving a reflection cubemap into a diffuse irradiance map."""
     return f'''#version 330 core
 #define NUM_SAMPLES {num_samples}''' + '''
 in vec3 fragment_direction;

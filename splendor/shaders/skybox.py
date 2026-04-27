@@ -1,3 +1,4 @@
+"""Skybox/cubemap sampling functions (GLSL)."""
 skybox_fn = '''
 vec4 skybox_texture(samplerCube sampler, vec3 v){
     return texture(sampler, vec3(-v.x, v.y, v.z));

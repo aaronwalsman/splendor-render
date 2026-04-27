@@ -1,3 +1,4 @@
+"""Shared GLSL utility functions."""
 phong_fn = '''
 vec2 phong(
         vec3 contact_normal,

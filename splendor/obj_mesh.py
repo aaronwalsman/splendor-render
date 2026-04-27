@@ -1,3 +1,4 @@
+"""OBJ mesh file loading, writing, and triangulation."""
 import os
 import shutil
 
@@ -214,6 +215,7 @@ def write_obj(mesh, obj_path, texture_name=None):
         mtl.write('map_Kd %s\n'%texture_name)
 
 def triangulate_obj(in_path, out_path):
+    """Triangulate an OBJ file by splitting n-gon faces into triangles."""
     with open(os.path.expanduser(in_path)) as f:
         lines = []
         for line in f:

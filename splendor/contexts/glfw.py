@@ -1,3 +1,4 @@
+"""Interactive OpenGL context via GLFW with window and input handling."""
 import os
 
 import numpy

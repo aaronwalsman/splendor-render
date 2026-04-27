@@ -1,3 +1,4 @@
+"""Image I/O utilities — load, save, resize, and compute intensity."""
 import os
 
 import numpy
@@ -35,20 +36,24 @@ def save_depth(depth, path):
         numpy.save(f, depth)
 
 def resize_image(image, width, height):
+    """Resize an image to (width, height) using bilinear interpolation."""
     image = Image.fromarray(image).resize((width, height), Image.BILINEAR)
     return numpy.array(image)
 
 def intensity(image):
+    """Compute perceptual luminance using ITU-R BT.601 weights."""
     return (0.2989 * image[...,0] +
             0.5870 * image[...,1] +
             0.1141 * image[...,2])
 
 def even_intensity(image):
+    """Compute equal-weight average intensity across RGB channels."""
     return (0.3333 * image[...,0] +
             0.3334 * image[...,1] +
             0.3333 * image[...,2])
 
 def validate_texture(image):
+    """Validate that image dimensions are powers of 2 (up to 4096)."""
     if image.shape[0] not in [1,2,4,8,16,32,64,128,256,512,1024,2048,4096]:
         raise ValueError('Image height must be a power of 2 '
                 'less than or equal to 4096 (Got %i)'%(image.shape[0]))

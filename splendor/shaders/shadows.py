@@ -1,3 +1,4 @@
+"""Shadow map depth-only rendering shader."""
 from splendor.shaders.mesh import mesh_vertex_shader
 
 depthmap_shadow_vertex_shader = f'''#version 330 core

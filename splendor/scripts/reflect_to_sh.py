@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""Compute SH irradiance coefficients from an existing cubemap strip."""
 import json
 import argparse
 
@@ -15,6 +16,7 @@ parser.add_argument('out', type=str,
 parser.add_argument('--assets', type=str, default=None)
 
 def main():
+    """Run the cubemap strip to SH coefficient conversion."""
     args = parser.parse_args()
 
     asset_library = AssetLibrary(args.assets)

@@ -1,3 +1,4 @@
+"""Asset library — resolves asset names to file paths across configured directories."""
 import os
 import configparser
 import zipfile
@@ -37,8 +38,13 @@ def install_assets(
     overwrite=False,
     cleanup_zip=False,
 ):
+    """Download and install an asset package from a URL.
+
+    The zip is extracted into destination (defaults to splendor_home).
+    Set overwrite to re-download and cleanup_zip to remove the zip afterward.
+    """
     assert download_available
-    
+
     if destination is None:
         destination = get_splendor_home()
     
@@ -63,6 +69,7 @@ def install_assets(
         os.remove(asset_zip_path)
 
 def default_assets_installed():
+    """Check if the default asset package is installed."""
     splendor_home = get_splendor_home()
     return 'default_assets.cfg' in os.path.listdir(splendor_home)
 
@@ -72,6 +79,12 @@ class PathFinder:
         self.asset_type = asset_type
     
     def __getitem__(self, key):
+        """Look up an asset by name.
+
+        Checks relative/absolute paths first, then searches configured
+        directories with known extensions.  Raises SplendorAssetException
+        if not found.
+        """
         # if the key exists relative to the current directory
         # or is an absolute path, then use that
         if os.path.exists(key):
@@ -92,6 +105,7 @@ class PathFinder:
             'No %s named "%s" found'%(self.asset_type, key))
     
     def __contains__(self, key):
+        """Return True if the asset name can be resolved."""
         try:
             path = self[key]
             return True
@@ -124,6 +138,11 @@ class AssetLibrary:
     my_scene_path = my_asset_library['scenes']['my_scene_12']
     '''
     def __init__(self, asset_packages=None):
+        """Initialize from asset packages.
+
+        None loads default_assets.  Can be a comma-separated string or list
+        of package names/paths.
+        """
         self.clear()
         
         # use default assets if None was specified
@@ -161,9 +180,11 @@ class AssetLibrary:
         return paths
     
     def clear(self):
+        """Reset all asset directories."""
         self.directories = {asset_type : [] for asset_type in asset_types}
     
     def load_config(self, config_path, clear=False):
+        """Load asset directories from a .cfg config file."""
         if clear:
             self.clear()
         
@@ -178,4 +199,5 @@ class AssetLibrary:
                 self.directories[asset_type].extend(paths)
     
     def __getitem__(self, asset_type):
+        """Return a PathFinder for the given asset type (e.g. 'meshes', 'textures')."""
         return PathFinder(self.directories[asset_type], asset_type)

@@ -1,7 +1,9 @@
+"""4x4 homogeneous transform utilities — rotation, translation, and scale matrices."""
 import math
 import numpy
 
 def rodrigues(p, axis, angle):
+    """Rotate vector p around axis by angle (radians) using Rodrigues' formula."""
     c = math.cos(angle)
     s = math.sin(angle)
     return (p * c +
@@ -9,6 +11,7 @@ def rodrigues(p, axis, angle):
             axis * numpy.dot(axis, p) * (1-c))
 
 def rodrigues_matrix(axis, angle):
+    """Build a 4x4 rotation matrix from axis and angle using Rodrigues' formula."""
     x = rodrigues(numpy.array([1.,0.,0.]), axis, angle)
     y = rodrigues(numpy.array([0.,1.,0.]), axis, angle)
     z = rodrigues(numpy.array([0.,0.,1.]), axis, angle)
@@ -19,6 +22,7 @@ def rodrigues_matrix(axis, angle):
     return m
 
 def euler_x_matrix(angle):
+    """Return a 4x4 rotation matrix around the X axis."""
     c = math.cos(angle)
     s = math.sin(angle)
     m = numpy.eye(4)
@@ -29,6 +33,7 @@ def euler_x_matrix(angle):
     return m
 
 def euler_y_matrix(angle):
+    """Return a 4x4 rotation matrix around the Y axis."""
     c = math.cos(angle)
     s = math.sin(angle)
     m = numpy.eye(4)
@@ -39,6 +44,7 @@ def euler_y_matrix(angle):
     return m
 
 def euler_z_matrix(angle):
+    """Return a 4x4 rotation matrix around the Z axis."""
     c = math.cos(angle)
     s = math.sin(angle)
     m = numpy.eye(4)
@@ -49,6 +55,7 @@ def euler_z_matrix(angle):
     return m
 
 def translate_matrix(translate):
+    """Return a 4x4 translation matrix from a 3- or 4-element vector."""
     m = numpy.eye(4)
     if len(translate) == 3:
         m[:3,3] = translate
@@ -57,6 +64,7 @@ def translate_matrix(translate):
     return m
 
 def scale_matrix(sx, sy, sz):
+    """Return a 4x4 scale matrix."""
     m = numpy.eye(4)
     m[0,0] = sx
     m[1,1] = sy

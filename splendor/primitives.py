@@ -1,9 +1,26 @@
+"""Procedural mesh primitives — cubes, spheres, cylinders, disks, and grids."""
 import math
 import copy
 
 import numpy
 
 def make_primitive(shape, **kwargs):
+    """Factory function that dispatches to a shape-specific mesh generator.
+
+    Parameters
+    ----------
+    shape : str
+        One of 'mesh_grid', 'disk', 'cube', 'barrel', 'cylinder',
+        'multi_cylinder', 'sphere'.
+    **kwargs
+        Passed through to the selected generator function.
+
+    Returns
+    -------
+    dict
+        Mesh dict with 'vertices' (Nx4), 'normals' (Nx4), 'uvs' (Nx3),
+        'faces' (Mx3).
+    """
     primitive_functions = {
         'mesh_grid' : mesh_grid,
         'disk' : disk,
@@ -16,6 +33,22 @@ def make_primitive(shape, **kwargs):
     return primitive_functions[shape](**kwargs)
 
 def merge_meshes(meshes):
+    """Merge a list of mesh dicts into a single mesh.
+
+    Face indices are offset so they refer to the correct vertices in the
+    concatenated vertex array.
+
+    Parameters
+    ----------
+    meshes : list of dict
+        Each dict has 'vertices' (Nx4), 'normals' (Nx4), 'uvs' (Nx3),
+        'faces' (Mx3).
+
+    Returns
+    -------
+    dict
+        Combined mesh dict with the same keys.
+    """
     merged_mesh = copy.deepcopy(meshes[0])
     for mesh in meshes[1:]:
         vertex_offset = len(merged_mesh['vertices'])
@@ -45,7 +78,52 @@ def mesh_grid(
     flip_u=False,
     flip_v=False,
 ):
-    
+    """Generate a subdivided planar grid mesh.
+
+    The grid lies in the plane defined by *axes*; the remaining axis is the
+    normal direction. Geometry is specified either via extents (min, max) or
+    explicit spacing arrays for each grid axis.
+
+    Parameters
+    ----------
+    axes : tuple of int
+        2-tuple specifying which world axes the grid lies in, e.g. (0, 1)
+        for XY.  The third axis becomes the normal direction.
+    x_divisions : int
+        Number of interior subdivisions along the first grid axis.
+    y_divisions : int
+        Number of interior subdivisions along the second grid axis.
+    x_extents : tuple of float or None
+        (min, max) range along the first grid axis.  Mutually exclusive
+        with *x_spacing*.
+    y_extents : tuple of float or None
+        (min, max) range along the second grid axis.  Mutually exclusive
+        with *y_spacing*.
+    x_spacing : list of float or None
+        Explicit vertex positions along the first grid axis.
+    y_spacing : list of float or None
+        Explicit vertex positions along the second grid axis.
+    depth : float
+        Position along the normal axis.
+    flip_normals : bool
+        If True, reverse the normal direction.
+    flatten : bool
+        If True, reshape output arrays to (N, 4)/(N, 3).  When False the
+        spatial dimensions are preserved (useful for bezel manipulation).
+    uv_max : float or None
+        Normalisation factor for UV coordinates.  Defaults to
+        max(x_range, y_range).
+    flip_u : bool
+        Mirror U coordinates.
+    flip_v : bool
+        Mirror V coordinates.
+
+    Returns
+    -------
+    dict
+        Mesh dict with 'vertices' (Nx4), 'normals' (Nx4), 'uvs' (Nx3),
+        'faces' (Mx3).
+    """
     # how many vertices will there be in x and y
     x_vertices = x_divisions+2
     y_vertices = y_divisions+2
@@ -172,7 +250,29 @@ def disk(
         theta_extents = None,
         radial_resolution = 16,
         flip_normals = False):
-    
+    """Generate a disk (or annulus) in the XZ plane, centered at the origin.
+
+    Normal points +Y (or -Y when *flip_normals* is True).
+
+    Parameters
+    ----------
+    radius : float
+        Outer radius.
+    inner_radius : float
+        Inner radius.  Set > 0 to create an annulus.
+    theta_extents : tuple of float or None
+        (min, max) in radians for a partial arc, or None for a full circle.
+    radial_resolution : int
+        Number of segments around the circumference.
+    flip_normals : bool
+        If True, normal points -Y instead of +Y.
+
+    Returns
+    -------
+    dict
+        Mesh dict with 'vertices' (Nx4), 'normals' (Nx4), 'uvs' (Nx3),
+        'faces' (Mx3).
+    """
     inner_radius_ratio = inner_radius / (inner_radius + radius)
     
     if theta_extents is None:
@@ -274,6 +374,26 @@ def disk(
             'faces':faces.T}
 
 def compute_bezel_spacing(extents, divisions, bezel):
+    """Compute vertex spacing with beveled edges.
+
+    Inserts extra vertices at *bezel* distance from each end of the range
+    so that a mesh_grid produced with this spacing can have its edge
+    normals/positions adjusted for rounded edges.
+
+    Parameters
+    ----------
+    extents : tuple of float
+        (min, max) range.
+    divisions : int
+        Number of interior subdivisions (excluding bezel vertices).
+    bezel : float
+        Distance from each extent boundary to the bezel vertex.
+
+    Returns
+    -------
+    list of float
+        Vertex positions including the two extra bezel positions.
+    """
     primary_vertices = divisions + 2
     total_vertices = primary_vertices + 2
     total_range = extents[1] - extents[0]
@@ -299,6 +419,42 @@ def rectangle(
     flip_u=False,
     flip_v=False,
 ):
+    """Generate a rectangle, optionally with beveled (rounded) edges.
+
+    Wraps mesh_grid; when *bezel* is provided, extra vertices are inserted
+    at the edges and their normals are adjusted to create a smooth bevel.
+
+    Parameters
+    ----------
+    x_extents : tuple of float
+        (min, max) along the first grid axis.
+    y_extents : tuple of float
+        (min, max) along the second grid axis.
+    x_divisions : int
+        Interior subdivisions along x.
+    y_divisions : int
+        Interior subdivisions along y.
+    depth : float
+        Position along the normal axis.
+    axes : tuple of int
+        World axes the rectangle lies in, e.g. (0, 1) for XY.
+    flip_normals : bool
+        Reverse normal direction.
+    bezel : float or None
+        Bevel radius.  None disables beveling.
+    uv_max : float or None
+        UV normalisation factor.
+    flip_u : bool
+        Mirror U coordinates.
+    flip_v : bool
+        Mirror V coordinates.
+
+    Returns
+    -------
+    dict
+        Mesh dict with 'vertices' (Nx4), 'normals' (Nx4), 'uvs' (Nx3),
+        'faces' (Mx3).
+    """
     if not bezel:
         grid = mesh_grid(
             axes=axes,
@@ -393,7 +549,31 @@ def cube(
         y_divisions = 0,
         z_divisions = 0,
         bezel = None):
-    
+    """Generate a cube mesh from six rectangles with a cross-shaped UV layout.
+
+    Parameters
+    ----------
+    x_extents : tuple of float
+        (min, max) along X.
+    y_extents : tuple of float
+        (min, max) along Y.
+    z_extents : tuple of float
+        (min, max) along Z.
+    x_divisions : int
+        Interior subdivisions along X faces.
+    y_divisions : int
+        Interior subdivisions along Y faces.
+    z_divisions : int
+        Interior subdivisions along Z faces.
+    bezel : float or None
+        Bevel radius applied to every face.  None disables beveling.
+
+    Returns
+    -------
+    dict
+        Mesh dict with 'vertices' (Nx4), 'normals' (Nx4), 'uvs' (Nx3),
+        'faces' (Mx3).
+    """
     x_range = x_extents[1] - x_extents[0]
     y_range = y_extents[1] - y_extents[0]
     z_range = z_extents[1] - z_extents[0]
@@ -513,7 +693,29 @@ def barrel(
         theta_extents = (0, math.pi*2),
         height_divisions = 0,
         radial_resolution = 16):
-    
+    """Generate an open-ended cylinder surface (no caps).
+
+    The height axis is Y.  Normals point outward.
+
+    Parameters
+    ----------
+    height_extents : tuple of float
+        (min, max) along the Y axis.
+    radius : float
+        Cylinder radius.
+    theta_extents : tuple of float
+        (start, end) angle in radians.  Defaults to a full revolution.
+    height_divisions : int
+        Interior subdivisions along the height.
+    radial_resolution : int
+        Number of segments around the circumference.
+
+    Returns
+    -------
+    dict
+        Mesh dict with 'vertices' (Nx4), 'normals' (Nx4), 'uvs' (Nx3),
+        'faces' (Mx3).
+    """
     mesh = mesh_grid(
             axes = [0,1],
             x_divisions = radial_resolution-1,
@@ -550,6 +752,31 @@ def cylinder(
     start_cap=False,
     end_cap=False,
 ):
+    """Generate a single-section cylinder with optional disk caps.
+
+    Convenience wrapper around multi_cylinder.
+
+    Parameters
+    ----------
+    start_height : float
+        Y position of the bottom edge.
+    end_height : float
+        Y position of the top edge.
+    radius : float
+        Cylinder radius.
+    radial_resolution : int
+        Number of segments around the circumference.
+    start_cap : bool
+        Add a disk cap at *start_height*.
+    end_cap : bool
+        Add a disk cap at *end_height*.
+
+    Returns
+    -------
+    dict
+        Mesh dict with 'vertices' (Nx4), 'normals' (Nx4), 'uvs' (Nx3),
+        'faces' (Mx3).
+    """
     return multi_cylinder(
         start_height=start_height,
         sections=((radius, end_height),),
@@ -565,7 +792,31 @@ def multi_cylinder(
     middle_caps = False,
     end_cap = False,
 ):
-    
+    """Generate a multi-section cylinder with varying radii.
+
+    Each section is a barrel segment; sections are stacked along Y.
+
+    Parameters
+    ----------
+    start_height : float
+        Y position of the bottom of the first section.
+    sections : sequence of (float, float)
+        List of (radius, end_height) tuples, one per section.
+    radial_resolution : int
+        Number of segments around the circumference.
+    start_cap : bool
+        Add a disk cap at *start_height*.
+    middle_caps : bool
+        Add disk caps between sections (not yet implemented).
+    end_cap : bool
+        Add a disk cap at the top of the last section.
+
+    Returns
+    -------
+    dict
+        Mesh dict with 'vertices' (Nx4), 'normals' (Nx4), 'uvs' (Nx3),
+        'faces' (Mx3).
+    """
     previous_height = start_height
     barrel_segments = []
     for i, (radius, height) in enumerate(sections):
@@ -602,7 +853,32 @@ def sphere(
         height_divisions = 16,
         radial_resolution = 16,
         center=(0,0,0)):
-    
+    """Generate a UV sphere.
+
+    Built by deforming a barrel mesh so that rows follow lines of latitude.
+
+    Parameters
+    ----------
+    height_extents : tuple of float
+        (min, max) used to set the latitude range of the barrel before
+        spherical deformation.
+    radius : float
+        Sphere radius.
+    theta_extents : tuple of float
+        (start, end) longitude in radians.  Defaults to a full revolution.
+    height_divisions : int
+        Number of latitude subdivisions (rows).
+    radial_resolution : int
+        Number of longitude segments (columns).
+    center : tuple of float
+        (x, y, z) center position.
+
+    Returns
+    -------
+    dict
+        Mesh dict with 'vertices' (Nx4), 'normals' (Nx4), 'uvs' (Nx3),
+        'faces' (Mx3).
+    """
     mesh = barrel(
         height_extents = height_extents,
         radius = 1,

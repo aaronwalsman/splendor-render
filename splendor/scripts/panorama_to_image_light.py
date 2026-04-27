@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""Convert a panorama image to a reflection cubemap and SH irradiance coefficients."""
 import os
 import json
 import argparse
@@ -18,6 +19,7 @@ parser.add_argument('--assets', type=str, default=None)
 parser.add_argument('--device', type=int, default=None)
 
 def main():
+    """Run the panorama to image light conversion pipeline."""
     args = parser.parse_args()
 
     asset_library = AssetLibrary(args.assets)

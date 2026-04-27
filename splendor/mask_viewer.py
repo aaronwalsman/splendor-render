@@ -1,3 +1,4 @@
+"""Interactive mask inspection viewer — overlay instance masks on a scene."""
 import glfw as _glfw
 from splendor.contexts.glfw import GLFWContext
 import splendor.core as core
@@ -8,6 +9,7 @@ from splendor.image import load_image
 
 
 def start_viewer(file_path):
+    """Open a GLFW window displaying a mask image; click to print the mask index at a pixel."""
 
     image = load_image(file_path)
     height, width, _ = image.shape

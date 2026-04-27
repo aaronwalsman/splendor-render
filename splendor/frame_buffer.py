@@ -1,3 +1,4 @@
+"""OpenGL framebuffer wrapper — MSAA, depth-only, and texture-output modes."""
 import numpy
 
 from OpenGL import GL
@@ -145,6 +146,7 @@ class FrameBufferWrapper:
                 GL.GL_RENDERBUFFER, self.depth_buffer_multi)
 
     def enable(self):
+        """Bind this framebuffer and set the viewport/scissor."""
         if self.anti_alias:
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.frame_buffer_multi)
             GL.glEnable(GL.GL_MULTISAMPLE)
@@ -175,6 +177,7 @@ class FrameBufferWrapper:
         read_depth=False,
         projection=None,
     ):
+        """Read pixels from this framebuffer. Returns uint8 RGB(A) for color, or float32 depth if read_depth=True (requires projection for linearization)."""
         if self.anti_alias:
             GL.glBindFramebuffer(
                 GL.GL_READ_FRAMEBUFFER, self.frame_buffer_multi)

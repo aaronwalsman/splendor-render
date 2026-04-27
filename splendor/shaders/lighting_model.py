@@ -1,3 +1,4 @@
+"""PBR lighting fragment shader with IBL, shadows, and SH diffuse."""
 from splendor.shaders.utils import phong_fn
 from splendor.shaders.pbr import pbr_fns
 from splendor.shaders.skybox import skybox_fn

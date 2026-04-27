@@ -1,3 +1,4 @@
+"""Core renderer — scene management, asset loading, and all rendering operations."""
 # system
 import math
 import json
@@ -151,6 +152,7 @@ class SplendorRender:
         self.empty_vao = GL.glGenVertexArrays(1)
     
     def viewport_scissor(self, x, y, width, height):
+        """Set both the OpenGL viewport and scissor rectangle."""
         GL.glViewport(x, y, width, height)
         GL.glScissor(x, y, width, height)
     
@@ -331,12 +333,15 @@ class SplendorRender:
         }
 
     def remove_camera(self, name):
+        """Remove a named camera from the scene."""
         del self.scene_description['cameras'][name]
 
     def camera_exists(self, name):
+        """Return True if a camera with this name exists."""
         return name in self.scene_description['cameras']
 
     def clear_cameras(self):
+        """Remove all cameras from the scene."""
         self.scene_description['cameras'].clear()
 
     def set_camera_view_matrix(self, name, view_matrix):
@@ -352,28 +357,36 @@ class SplendorRender:
         self.scene_description['cameras'][name]['view_matrix'] = view_matrix
 
     def get_camera_view_matrix(self, name):
+        """Return the 4x4 view matrix for a named camera."""
         return self.scene_description['cameras'][name]['view_matrix']
 
     def set_camera_projection(self, name, projection):
+        """Set the 4x4 projection matrix for a named camera."""
         self.scene_description['cameras'][name]['projection'] = numpy.array(
             projection)
 
     def get_camera_projection(self, name):
+        """Return the 4x4 projection matrix for a named camera."""
         return self.scene_description['cameras'][name]['projection']
 
     def set_camera_radial_k1(self, name, radial_k1):
+        """Set the first radial distortion coefficient for a named camera."""
         self.scene_description['cameras'][name]['radial_k1'] = float(radial_k1)
 
     def get_camera_radial_k1(self, name):
+        """Return the first radial distortion coefficient for a named camera."""
         return self.scene_description['cameras'][name]['radial_k1']
 
     def set_camera_radial_k2(self, name, radial_k2):
+        """Set the second radial distortion coefficient for a named camera."""
         self.scene_description['cameras'][name]['radial_k2'] = float(radial_k2)
 
     def get_camera_radial_k2(self, name):
+        """Return the second radial distortion coefficient for a named camera."""
         return self.scene_description['cameras'][name]['radial_k2']
 
     def camera_frame_scene(self, camera_name, multiplier=3.0, *args, **kwargs):
+        """Position a camera to frame all instances. Extra args passed to camera.frame_bbox."""
         bbox = self.get_instance_center_bbox()
         view_matrix = camera.frame_bbox(
             bbox, self.get_camera_projection(camera_name), multiplier,
@@ -446,14 +459,17 @@ class SplendorRender:
         self.gl_data['sensor_buffers'][name] = sensor_buffers
 
     def remove_sensor(self, name):
+        """Remove a named sensor and its framebuffers."""
         del self.scene_description['sensors'][name]
         del self.gl_data['sensor_buffers'][name]
 
     def clear_sensors(self):
+        """Remove all sensors."""
         for name in list(self.scene_description['sensors'].keys()):
             self.remove_sensor(name)
 
     def sensor_exists(self, name):
+        """Return True if a sensor with this name exists."""
         return name in self.scene_description['sensors']
 
     def _bind_sensor(self, name):
@@ -1270,6 +1286,7 @@ class SplendorRender:
             GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
     
     def remove_texture(self, name):
+        """Remove a named texture and its GL buffers."""
         if name in self.gl_data['texture_buffers']:
             GL.glDeleteTextures(
                 self.gl_data['texture_buffers'][name]['texture'])
@@ -1279,13 +1296,16 @@ class SplendorRender:
         del(self.scene_description['textures'][name])
     
     def list_textures(self):
+        """Return a list of all loaded texture names."""
         return list(self.scene_description['textures'].keys())
-    
+
     def clear_textures(self):
+        """Remove all textures."""
         for name in self.list_textures():
             self.remove_texture(name)
-    
+
     def texture_exists(self, name):
+        """Return True if a texture with this name is loaded."""
         return name in self.scene_description['textures']
     
     def get_texture(self, name):
@@ -1446,6 +1466,7 @@ class SplendorRender:
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
     
     def remove_cubemap(self, name):
+        """Remove a named cubemap and its GL buffers."""
         if name in self.gl_data['cubemap_buffers']:
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
             GL.glDeleteTextures(
@@ -1456,13 +1477,16 @@ class SplendorRender:
         del(self.scene_description['cubemaps'][name])
     
     def list_cubemaps(self):
+        """Return a list of all loaded cubemap names."""
         return list(self.scene_description['cubemaps'].keys())
-    
+
     def clear_cubemaps(self):
+        """Remove all cubemaps."""
         for name in self.list_cubemaps():
             self.remove_cubemap(name)
-    
+
     def cubemap_exists(self, name):
+        """Return True if a cubemap with this name is loaded."""
         return name in self.scene_description['cubemaps']
     
     def get_cubemap(self, name):
@@ -1609,9 +1633,11 @@ class SplendorRender:
         self.scene_description['materials'][name]['flat_color'] = color
     
     def get_material_texture(self, name):
+        """Return the texture name associated with a material."""
         return self.scene_description['materials'][name]['texture_name']
-    
+
     def get_material_properties_texture(self, name):
+        """Return the material properties texture name, or None if not set."""
         material_data = self.scene_description['materials'][name]
         return material_data['material_properties_texture']
     
@@ -2348,9 +2374,11 @@ class SplendorRender:
         }
 
     def remove_line_set(self, name):
+        """Remove a named line set from the scene."""
         del self.scene_description['line_sets'][name]
 
     def clear_line_sets(self):
+        """Remove all line sets from the scene."""
         self.scene_description['line_sets'] = {}
 
     # point_cloud scene object methods =========================================
@@ -2364,9 +2392,11 @@ class SplendorRender:
         }
 
     def remove_point_cloud(self, name):
+        """Remove a named point cloud from the scene."""
         del self.scene_description['point_clouds'][name]
 
     def clear_point_clouds(self):
+        """Remove all point clouds from the scene."""
         self.scene_description['point_clouds'] = {}
 
     # box scene object methods =================================================
@@ -2379,9 +2409,11 @@ class SplendorRender:
         }
 
     def remove_box(self, name):
+        """Remove a named box from the scene."""
         del self.scene_description['boxes'][name]
 
     def clear_boxes(self):
+        """Remove all boxes from the scene."""
         self.scene_description['boxes'] = {}
 
     # arrow scene object methods ===============================================
@@ -2396,9 +2428,11 @@ class SplendorRender:
         }
 
     def remove_arrow(self, name):
+        """Remove a named arrow from the scene."""
         del self.scene_description['arrows'][name]
 
     def clear_arrows(self):
+        """Remove all arrows from the scene."""
         self.scene_description['arrows'] = {}
 
     # scene line overlay rendering =============================================
@@ -3029,18 +3063,20 @@ class SplendorRender:
             self.finish_frame()
 
     def load_mesh_color_shader_data(self, mesh_name, shader_name):
-        
+        """Bind a mesh's VAO for color rendering."""
         # bind mesh buffers
         mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
         GL.glBindVertexArray(mesh_buffers['vao'])
     
     def unload_mesh_shader_data(self, mesh_name):
+        """Unbind a mesh's VAO after rendering."""
         mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
         #mesh_buffers['face_buffer'].unbind()
         #mesh_buffers['vertex_buffer'].unbind()
         GL.glBindVertexArray(0)
     
     def load_material_shader_data(self, material_name, shader_name):
+        """Upload material properties and textures for the active shader."""
         material_data = (
                 self.scene_description['materials'][material_name])
         
@@ -3346,7 +3382,7 @@ class SplendorRender:
             GL.glFinish()
     
     def load_mesh_mask_shader_data(self, mesh_name):
-        
+        """Bind a mesh's VAO for mask rendering."""
         # bind mesh buffers
         mesh_buffers = self.gl_data['mesh_buffers'][mesh_name]
         #mesh_buffers['face_buffer'].bind()
@@ -3364,6 +3400,7 @@ class SplendorRender:
         #        mesh_buffers['vertex_buffer'])
     
     def mask_render_instance(self, instance_name):
+        """Render a single instance using the mask shader."""
         instance_data = self.scene_description['instances'][instance_name]
         location_data = self.shader_library.get_shader_locations('mask_shader')
         GL.glUniformMatrix4fv(
@@ -3724,6 +3761,7 @@ class SplendorRender:
             self._draw_primitives(vp, numpy.concatenate(non_empty))
 
 def print_locations(shader, location_data):
+    """Debug utility: print all shader uniform/attribute locations."""
     for k,v in location_data.items():
         print(k)
         print(f'  {v}')

@@ -1,3 +1,4 @@
+"""Interactive scene viewer with orbit camera and hotkeys."""
 import time
 import math
 import os
@@ -21,6 +22,7 @@ def start_viewer(
     assets=None,
     print_fps=False,
 ):
+    """Launch an interactive viewer window for a scene file. Reloads the scene automatically when the file changes on disk."""
     with GLFWContext(width=width, height=height,
                     anti_alias=anti_alias,
                     anti_alias_samples=anti_alias_samples) as ctx:

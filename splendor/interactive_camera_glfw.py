@@ -1,3 +1,4 @@
+"""GLFW mouse/keyboard orbit camera controller."""
 import glfw
 
 import numpy as np
@@ -5,6 +6,11 @@ import numpy as np
 import splendor.camera as camera
 
 class InteractiveCameraGLFW:
+    """Orbit camera controller for GLFW windows.
+
+    Left-drag orbits, right-drag (or shift+left-drag) pans, scroll zooms.
+    Orbits around the depth under the cursor.
+    """
     def __init__(self, window, renderer, camera_name):
         self.window = window
         self.renderer = renderer

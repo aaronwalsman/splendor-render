@@ -1,3 +1,4 @@
+"""Shared mesh vertex shader with compile-time mode selection."""
 # when using mesh_vertex_shader, define one and only one of the following:
 # COMPILE_TEXTURE
 # COMPILE_VERTEX_COLORS

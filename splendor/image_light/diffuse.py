@@ -1,3 +1,4 @@
+"""Spherical harmonic diffuse irradiance — precompute, evaluate, and debug."""
 import math
 import numpy
 

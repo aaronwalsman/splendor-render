@@ -1,3 +1,4 @@
+"""Shader compilation and uniform/attribute location management."""
 import numpy as np
 
 import OpenGL.GL as gl
@@ -60,6 +61,7 @@ default_shader_code = {
 }
 
 def gl_name_to_str(gl_name):
+    """Convert a GL uniform/attribute name (bytes or ndarray) to a clean Python string, stripping array suffixes."""
     if isinstance(gl_name, np.ndarray):
         gl_name = gl_name.tobytes()
     str_name = gl_name.decode('utf-8')
@@ -69,6 +71,7 @@ def gl_name_to_str(gl_name):
 
 class ShaderLibrary:
     def __init__(self, shader_code=None):
+        """Compile all shaders and cache their uniform/attribute locations. shader_code maps names to (vertex_src, fragment_src) tuples; defaults to the built-in shaders."""
         if shader_code is None:
             shader_code = default_shader_code
         
@@ -211,12 +214,15 @@ class ShaderLibrary:
         gl.glDeleteVertexArrays(1, [tmp_vao])
     
     def get_shader_locations(self, shader):
+        """Return the dict of uniform/attribute name to GL location for a shader."""
         return self.gl_data[shader]['locations']
     
     def get_location(self, shader, location_name):
+        """Return a single GL location by shader and name."""
         return self.gl_data[shader]['locations'][location_name]
     
     def use_program(self, shader_name):
+        """Activate a compiled shader program."""
         gl.glUseProgram(self.gl_data[shader_name]['program'])
 
     def get_program_id(self, shader_name):

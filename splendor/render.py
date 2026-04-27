@@ -1,3 +1,4 @@
+"""Headless scene rendering — load a scene, render, and save the result."""
 import math
 import warnings
 
@@ -20,6 +21,12 @@ def render_scene(
     render_mode='color',
     device=None,
 ):
+    """Render a scene headlessly using EGL.
+
+    scene can be a scene name (looked up in the asset library) or a dict.
+    render_mode is 'color', 'mask', or 'depth'.  Returns the rendered image
+    as a numpy array.  If output_file is specified, also saves to disk.
+    """
     ctx = EGLContext(device=device)
     try:
         renderer = core.SplendorRender(assets=assets)
@@ -80,9 +87,11 @@ def render_scene(
 
 
 def _parse_resolution(resolution):
+    """Parse a resolution string like '512x512' into (width, height) integers."""
     w, h = resolution.lower().split('x')
     return int(w), int(h)
 
 def _default_projection(resolution):
+    """Create a default 90-degree perspective projection for the given resolution."""
     w, h = _parse_resolution(resolution or DEFAULT_RESOLUTION)
     return camera.projection_matrix(math.radians(90.), w / h)

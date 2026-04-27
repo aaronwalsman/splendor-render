@@ -1,3 +1,4 @@
+"""OpenGL context management — EGL (headless) and GLFW (interactive)."""
 from splendor.exceptions import SplendorContextException
 
 _context_state = {

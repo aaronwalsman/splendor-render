@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""Gaussian-blurred mipmap generation for roughness-based IBL."""
 
 import math
 
@@ -6,6 +7,7 @@ from PIL import Image, ImageFilter
 import numpy
 
 def blurry_mipmaps(image, stop):
+    """Generate a list of progressively blurred and downscaled mipmaps from an image."""
     if isinstance(image, str):
         image = Image.open(image)
     
@@ -59,6 +61,7 @@ cube_neighbors = {
 }
 
 def blurry_cube_mipmaps(images, start, stop, radius=2):
+    """Generate a list of blurred cubemap mipmap levels from start resolution down to stop."""
     current = start
     cube_mipmaps = []
     while current > stop:
@@ -69,6 +72,7 @@ def blurry_cube_mipmaps(images, start, stop, radius=2):
     return cube_mipmaps
 
 def blurry_cube_mipmap_step(images, radius=2):
+    """Blur and halve each cubemap face, blending neighbor edges to reduce seams."""
     r = math.ceil(radius)
     loaded_images = {}
     for cube_face in images:

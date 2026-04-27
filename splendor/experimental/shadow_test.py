@@ -17,6 +17,7 @@ WIDTH, HEIGHT = 512, 512
 
 
 def test_render():
+    """Load a shadow test scene, render it, and verify the output is non-trivial."""
     ctx = EGLContext()
     try:
         renderer = core.SplendorRender()

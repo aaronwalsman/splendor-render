@@ -1,3 +1,4 @@
+"""Legacy interactive camera controller (pre-GLFW)."""
 import numpy
 from splendor import camera
 

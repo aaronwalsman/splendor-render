@@ -1,3 +1,4 @@
+"""2D drawing utilities — text overlays, grids, and image compositing."""
 import numpy
 
 from PIL import Image, ImageDraw, ImageFont
@@ -11,6 +12,7 @@ except ImportError:
 from splendor.masks import color_index_to_byte
 
 def draw_box(image, min_x, min_y, max_x, max_y, color):
+    """Draw a rectangle outline on a numpy HxWx3 image."""
     # expects numpy image hxwx3
     h, w = image.shape[:2]
     min_x = max(min_x, 0)
@@ -23,6 +25,7 @@ def draw_box(image, min_x, min_y, max_x, max_y, color):
     image[min_y:max_y+1, max_x] = color
 
 def draw_vector_field(image, vector_field, weight, color):
+    """Draw a 2D vector field as colored lines on a numpy image."""
     assert skimage_available
     image_height, image_width = image.shape[:2]
     field_height, field_width = vector_field.shape[:2]
@@ -55,6 +58,7 @@ def draw_vector_field(image, vector_field, weight, color):
 #    image[yy, xx] = color
 
 def draw_line(image, y0, x0, y1, x1, color):
+    """Draw a line on a numpy image using Bresenham-style stepping."""
     x0r = int(round(x0))
     y0r = int(round(y0))
     x1r = int(round(x1))
@@ -99,6 +103,7 @@ def draw_line(image, y0, x0, y1, x1, color):
 
 
 def block_upscale_image(image, target_width, target_height):
+    """Upscale an image by integer factors using pixel repetition."""
     scale_y = target_height // image.shape[0]
     scale_x = target_width // image.shape[1]
     image = numpy.repeat(image, scale_y, axis=0)
@@ -106,6 +111,7 @@ def block_upscale_image(image, target_width, target_height):
     return image
 
 def clamp(x, min_x, max_x):
+    """Clamp x to the range [min_x, max_x]."""
     if x < min_x:
         return min_x
     elif x > max_x:
@@ -114,6 +120,7 @@ def clamp(x, min_x, max_x):
         return x
 
 def draw_crosshairs(image, y, x, size, color):
+    """Draw crosshair lines centered at (y, x) on a numpy image."""
     start_y = clamp(round(y-size), 0, image.shape[0]-1)
     center_y = clamp(round(y), 0, image.shape[0]-1)
     end_y = clamp(round(y+size+1), 0, image.shape[0]-1)
@@ -128,6 +135,7 @@ def draw_crosshairs(image, y, x, size, color):
     image[center_y, center_x] = original_center
 
 def draw_square(image, y, x, size, color):
+    """Draw a square outline centered at (y, x) on a numpy image."""
     start_y = clamp(round(y-size), 0, image.shape[0]-1)
     end_y = clamp(round(y+size), 0, image.shape[0]-1)
     
@@ -146,6 +154,7 @@ def heatmap_overlay(
     background_scale=0.5,
     max_normalize=False,
 ):
+    """Blend a heatmap onto a background image with a given color and opacity."""
     if max_normalize:
         heatmap_max = numpy.max(heatmap)
         if heatmap_max:
@@ -176,6 +185,7 @@ def write_text(
 '''
 
 def map_overlay(image, overlay, opacity, convert_mask_colors=False):
+    """Overlay a low-resolution map onto an image, upscaling to match."""
     h, w = image.shape[:2]
     if convert_mask_colors:
         overlay = color_index_to_byte(overlay)
@@ -191,6 +201,7 @@ def stack_images_horizontal(
     background_color=(0,0,0),
     spacing=0
 ):
+    """Concatenate images side by side, padding to the tallest height."""
     max_h = max(image.shape[0] for image in images)
     sum_w = sum(image.shape[1] for image in images)
     sum_w = sum_w + spacing * (len(images)-1)
@@ -211,6 +222,7 @@ def stack_images_horizontal(
     return out
 
 def stack_images_vertical(images, align='left', background_color=(0,0,0)):
+    """Stack images vertically, padding to the widest width."""
     sum_h = sum(image.shape[0] for image in images)
     max_w = max(image.shape[1] for image in images)
     out = numpy.zeros((sum_h, max_w, 3), dtype=numpy.uint8)

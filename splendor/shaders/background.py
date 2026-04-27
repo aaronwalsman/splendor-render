@@ -1,3 +1,4 @@
+"""Background/skybox rendering shader."""
 from splendor.shaders.skybox import skybox_fn
 
 background_vertex_shader = '''#version 330 core

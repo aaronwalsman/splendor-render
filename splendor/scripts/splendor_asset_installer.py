@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""CLI for downloading and installing splendor asset packages."""
 import argparse
 
 from splendor.home import get_splendor_home
@@ -26,6 +27,7 @@ parser.add_argument('--cleanup-zip', action='store_true',
     help='Remove the downloaded zip after decompression')
 
 def main():
+    """Parse CLI args and install an asset package from a URL."""
     args = parser.parse_args()
 
     asset_url = args.asset_url

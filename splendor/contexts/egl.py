@@ -1,3 +1,4 @@
+"""Headless OpenGL context via EGL for offscreen rendering."""
 import os
 import ctypes
 

@@ -1,3 +1,4 @@
+"""Panorama to cubemap conversion via OpenGL shader."""
 import math
 
 from OpenGL import GL
@@ -14,6 +15,7 @@ import splendor.camera as camera
 import splendor.image as image
 
 def cube_to_strip(cube):
+    """Concatenate a dict of 6 cubemap faces into a horizontal strip (H x 6H)."""
     strip = numpy.concatenate([
             cube['px'],
             cube['nx'],
@@ -25,6 +27,7 @@ def cube_to_strip(cube):
     return strip
 
 def panorama_to_strip(*args, **kwargs):
+    """Convert a panorama image to a cubemap horizontal strip. Wraps panorama_to_cube."""
     cube = panorama_to_cube(*args, **kwargs)
     strip = cube_to_strip(cube)
     return strip
@@ -34,6 +37,7 @@ def panorama_to_cube(
         cube_width,
         panorama_filter='linear',
         device=None):
+    """Convert an equirectangular panorama to 6 cubemap face images using an OpenGL shader. Returns a dict with keys 'px','nx','py','ny','pz','nz'."""
 
     # initialize egl
     egl.initialize_plugin()

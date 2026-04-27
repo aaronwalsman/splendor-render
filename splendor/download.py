@@ -1,3 +1,4 @@
+"""File download helpers — fetch and extract asset archives."""
 import os
 import requests
 import zipfile
@@ -5,6 +6,7 @@ import zipfile
 import gdown
 
 def download(url, destination, overwrite=False, quiet=False):
+    """Download a file from a URL to destination. Supports Google Drive links via gdown."""
     if os.path.exists(destination):
         if overwrite:
             if not quiet:
@@ -26,6 +28,7 @@ def download(url, destination, overwrite=False, quiet=False):
     return None
 
 def agree_to_zip_licenses(zip_path, license_name='license'):
+    """Prompt the user to agree to any license files found in a zip archive."""
     z = zipfile.ZipFile(zip_path)
     for name in z.namelist():
         if license_name in name.lower():

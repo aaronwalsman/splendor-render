@@ -1,3 +1,4 @@
+"""Color rendering shaders — textured, vertex-color, and flat-color variants."""
 from splendor.shaders.mesh import mesh_vertex_shader
 from splendor.shaders.lighting_model import lighting_model_fragment_shader
 

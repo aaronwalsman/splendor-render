@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""CLI for rendering a scene to an image file."""
 import argparse
 
 import splendor.render as render
@@ -27,6 +28,7 @@ parser.add_argument('--device', type=int, default=0,
         help='which EGL device to use for rendering')
 
 def main():
+    """Parse CLI args and render a scene."""
     args = parser.parse_args()
 
     resolution = args.resolution

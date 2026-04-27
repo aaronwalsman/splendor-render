@@ -1,3 +1,4 @@
+"""Radial distortion warp pass shader."""
 radial_warp_vertex_shader = '''#version 330 core
 out vec2 fragment_uv;
 

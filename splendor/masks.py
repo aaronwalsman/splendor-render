@@ -1,3 +1,4 @@
+"""Mask color encoding — maps integer indices to unique RGB colors and back."""
 import numpy
 
 CELL_WIDTH = 8
@@ -15,12 +16,15 @@ color_scramble_to_index = numpy.zeros(
 color_scramble_to_index[color_index_to_scramble] = numpy.arange(NUM_MASKS)
 
 def color_float_to_byte(f):
+    """Convert float [0,1] color to uint8 [0,255]."""
     return numpy.round(f*255).astype(numpy.uint8)
 
 def color_byte_to_float(b):
+    """Convert uint8 color to float [0,1]."""
     return numpy.array(b).astype(float) / 255
 
 def color_index_to_byte(index):
+    """Map an integer mask index to a unique scrambled RGB byte color."""
     scramble = color_index_to_scramble[index]
     r = scramble % NUM_CELLS * CELL_WIDTH + CELL_OFFSET
     g = (scramble // NUM_CELLS) % NUM_CELLS * CELL_WIDTH + CELL_OFFSET
@@ -29,6 +33,7 @@ def color_index_to_byte(index):
     return rgb
 
 def color_byte_to_index(byte):
+    """Map an RGB byte color back to its mask index."""
     byte = numpy.array(byte).astype(int)//CELL_WIDTH
     r = byte[..., 0]
     g = byte[..., 1]
@@ -37,10 +42,15 @@ def color_byte_to_index(byte):
     return color_scramble_to_index[scramble]
 
 def color_index_to_float(index):
+    """Map a mask index to a float RGB color."""
     byte_color = color_index_to_byte(index)
     return color_byte_to_float(byte_color)
 
 def color_index_bbox(index_map, index):
+    """Find the bounding box of a mask index in a 2D index map.
+
+    Returns (min_x, min_y, max_x, max_y) or None if the index is not present.
+    """
     y, x = numpy.where(index_map == index)
     if not y.shape[0]:
         return None

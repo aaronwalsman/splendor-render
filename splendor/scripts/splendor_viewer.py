@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""CLI for launching the interactive scene viewer."""
 import argparse
 
 import splendor.viewer as viewer
@@ -18,6 +19,7 @@ parser.add_argument('--fps', action='store_true',
         help='print fps')
 
 def main():
+    """Parse CLI args and launch the interactive viewer."""
     args = parser.parse_args()
 
     width, height = (int(wh) for wh in args.resolution.lower().split('x'))

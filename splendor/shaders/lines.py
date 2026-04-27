@@ -1,3 +1,4 @@
+"""Simple vertex-color line/point shader for debug overlays."""
 lines_vertex_shader = """
 #version 330 core
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""Convert a panorama image to a cubemap strip image."""
 import os
 import argparse
 
@@ -15,6 +16,7 @@ parser.add_argument('--assets', type=str, default=None)
 parser.add_argument('--device', type=int, default=None)
 
 def main():
+    """Parse CLI args and convert a panorama to a cubemap strip image."""
     args = parser.parse_args()
 
     asset_library = AssetLibrary(args.assets)
