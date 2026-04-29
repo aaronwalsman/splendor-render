@@ -1,0 +1,103 @@
+{
+    "sensors": {
+        "sun_shadow": {
+            "width": 1024,
+            "height": 1024,
+            "depth_only": true,
+            "anti_alias": false
+        }
+    },
+    "meshes": {
+        "ground": {
+            "mesh_primitive": {
+                "shape": "cube",
+                "x_extents": [-8, 8],
+                "y_extents": [-0.15, 0.15],
+                "z_extents": [-8, 8]
+            },
+            "color_mode": "flat_color"
+        },
+        "cube": {
+            "mesh_primitive": {"shape": "cube", "bezel": 0.04},
+            "color_mode": "flat_color"
+        },
+        "sphere": {
+            "mesh_primitive": {"shape": "sphere", "radius": 0.8},
+            "color_mode": "flat_color"
+        }
+    },
+    "materials": {
+        "ground_mat": {
+            "flat_color": [0.5, 0.48, 0.45],
+            "metal": 0.0, "rough": 0.9, "base_reflect": 0.02, "ambient": 0.3
+        },
+        "red": {
+            "flat_color": [0.8, 0.2, 0.15],
+            "metal": 0.0, "rough": 0.5, "base_reflect": 0.04, "ambient": 0.15
+        },
+        "blue": {
+            "flat_color": [0.2, 0.3, 0.85],
+            "metal": 0.0, "rough": 0.5, "base_reflect": 0.04, "ambient": 0.15
+        }
+    },
+    "instances": {
+        "ground": {
+            "mesh_name": "ground",
+            "material_name": "ground_mat",
+            "transform": [
+                [1, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1]
+            ],
+            "mask_color": [0, 0, 0]
+        },
+        "box1": {
+            "mesh_name": "cube",
+            "material_name": "red",
+            "transform": [
+                [1, 0, 0, -2.0],
+                [0, 1, 0,  1.0],
+                [0, 0, 1,  0.5],
+                [0, 0, 0,  1.0]
+            ],
+            "mask_color": [1, 0, 0]
+        },
+        "ball": {
+            "mesh_name": "sphere",
+            "material_name": "blue",
+            "transform": [
+                [1, 0, 0,  1.5],
+                [0, 1, 0,  0.8],
+                [0, 0, 1, -0.5],
+                [0, 0, 0,  1.0]
+            ],
+            "mask_color": [0, 0, 1]
+        }
+    },
+    "ambient_color": [0.1, 0.1, 0.12],
+    "direction_lights": {
+        "sun": {
+            "pose": [
+                [-0.7071,  0.5774,  0.4082, 0.0],
+                [-0.0,    -0.5774,  0.8165, 6.0],
+                [ 0.7071,  0.5774,  0.4082, 0.0],
+                [ 0.0,     0.0,     0.0,    1.0]
+            ],
+            "color": [1.3, 1.2, 1.0],
+            "shadow_map": "sun_shadow",
+            "shadow_projection": [
+                [0.08,  0.0,  0.0,     0.0],
+                [0.0,   0.08, 0.0,     0.0],
+                [0.0,   0.0, -0.067, -1.007],
+                [0.0,   0.0,  0.0,     1.0]
+            ],
+            "shadow_pcf_radius": 2
+        }
+    },
+    "cameras": {
+        "main": {
+            "view_matrix": [0.2, -0.3, 0, 8.0, 0, 0]
+        }
+    }
+}

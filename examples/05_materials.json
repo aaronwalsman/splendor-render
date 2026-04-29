@@ -1,0 +1,114 @@
+{
+    "meshes": {
+        "ground": {
+            "mesh_primitive": {
+                "shape": "cube",
+                "x_extents": [-10, 10],
+                "y_extents": [-0.15, 0.15],
+                "z_extents": [-10, 10]
+            },
+            "color_mode": "flat_color"
+        },
+        "sphere": {
+            "mesh_primitive": {
+                "shape": "sphere",
+                "radius": 0.9,
+                "height_divisions": 24,
+                "radial_resolution": 24
+            },
+            "color_mode": "flat_color"
+        }
+    },
+    "materials": {
+        "ground_mat": {
+            "flat_color": [0.4, 0.38, 0.36],
+            "metal": 0.0, "rough": 0.95, "base_reflect": 0.02, "ambient": 0.25
+        },
+
+        "plastic_red": {
+            "flat_color": [0.8, 0.1, 0.1],
+            "metal": 0.0, "rough": 0.4, "base_reflect": 0.04, "ambient": 0.1
+        },
+        "plastic_rough": {
+            "flat_color": [0.8, 0.1, 0.1],
+            "metal": 0.0, "rough": 0.9, "base_reflect": 0.04, "ambient": 0.1
+        },
+        "plastic_shiny": {
+            "flat_color": [0.8, 0.1, 0.1],
+            "metal": 0.0, "rough": 0.05, "base_reflect": 0.04, "ambient": 0.1
+        },
+
+        "metal_gold": {
+            "flat_color": [1.0, 0.76, 0.34],
+            "metal": 1.0, "rough": 0.3, "base_reflect": 0.04, "ambient": 0.05
+        },
+        "metal_rough": {
+            "flat_color": [0.8, 0.8, 0.8],
+            "metal": 1.0, "rough": 0.8, "base_reflect": 0.04, "ambient": 0.05
+        },
+        "metal_mirror": {
+            "flat_color": [0.95, 0.95, 0.95],
+            "metal": 1.0, "rough": 0.02, "base_reflect": 0.04, "ambient": 0.05
+        }
+    },
+    "instances": {
+        "ground": {
+            "mesh_name": "ground",
+            "material_name": "ground_mat",
+            "transform": [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+            "mask_color": [0, 0, 0]
+        },
+
+        "plastic_rough": {
+            "mesh_name": "sphere",
+            "material_name": "plastic_rough",
+            "transform": [[1,0,0,-3],[0,1,0,0.9],[0,0,1,-1.5],[0,0,0,1]],
+            "mask_color": [1, 0, 0]
+        },
+        "plastic_default": {
+            "mesh_name": "sphere",
+            "material_name": "plastic_red",
+            "transform": [[1,0,0,-3],[0,1,0,0.9],[0,0,1,0],[0,0,0,1]],
+            "mask_color": [1, 0, 1]
+        },
+        "plastic_shiny": {
+            "mesh_name": "sphere",
+            "material_name": "plastic_shiny",
+            "transform": [[1,0,0,-3],[0,1,0,0.9],[0,0,1,1.5],[0,0,0,1]],
+            "mask_color": [1, 1, 0]
+        },
+
+        "metal_rough": {
+            "mesh_name": "sphere",
+            "material_name": "metal_rough",
+            "transform": [[1,0,0,1],[0,1,0,0.9],[0,0,1,-1.5],[0,0,0,1]],
+            "mask_color": [0, 0, 1]
+        },
+        "metal_gold": {
+            "mesh_name": "sphere",
+            "material_name": "metal_gold",
+            "transform": [[1,0,0,1],[0,1,0,0.9],[0,0,1,0],[0,0,0,1]],
+            "mask_color": [0, 1, 0]
+        },
+        "metal_mirror": {
+            "mesh_name": "sphere",
+            "material_name": "metal_mirror",
+            "transform": [[1,0,0,1],[0,1,0,0.9],[0,0,1,1.5],[0,0,0,1]],
+            "mask_color": [0, 1, 1]
+        }
+    },
+    "ambient_color": [0.12, 0.12, 0.15],
+    "direction_lights": {
+        "key": {
+            "color": [1.4, 1.3, 1.1]
+        },
+        "fill": {
+            "color": [0.3, 0.35, 0.5]
+        }
+    },
+    "cameras": {
+        "main": {
+            "view_matrix": [0.15, -0.2, 0, 10.0, 0, 0]
+        }
+    }
+}
