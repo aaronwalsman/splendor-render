@@ -59,7 +59,7 @@ Each mesh specifies how its surface color is determined:
 ## Running it
 
 ```bash
-splendor_render examples/02_primitives --output primitives.png --resolution 768x512
+splendor_render examples/02_primitives primitives.png --resolution 768x512
 
 # Or in the interactive viewer:
 splendor_viewer examples/02_primitives

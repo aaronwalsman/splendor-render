@@ -13,7 +13,7 @@ import numpy
 
 from splendor.contexts.egl import EGLContext
 from splendor.core import SplendorRender
-from splendor.camera import projection_matrix
+from splendor.camera import projection_matrix, direction_light_pose
 from splendor.image import save_image
 
 WIDTH, HEIGHT = 512, 512
@@ -71,7 +71,9 @@ try:
     renderer.set_ambient_color((0.1, 0.1, 0.12))
 
     # color render for reference
-    renderer.add_direction_light('sun', color=[1.2, 1.1, 1.0])
+    renderer.add_direction_light('sun',
+        pose=direction_light_pose((0.5, -1.0, -0.4)),
+        color=[1.2, 1.1, 1.0])
     renderer.color_render('main', sensor='rgb')
     color_image = renderer.read_sensor('rgb')
     save_image(color_image, f'{OUTPUT_PREFIX}_color.png')

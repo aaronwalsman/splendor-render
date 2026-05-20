@@ -66,7 +66,7 @@ Shadows use percentage-closer filtering (PCF) for soft edges.
 ## Running it
 
 ```bash
-splendor_render examples/03_shadows --output shadows.png
+splendor_render examples/03_shadows shadows.png
 splendor_viewer examples/03_shadows
 ```
 

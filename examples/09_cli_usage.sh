@@ -10,27 +10,27 @@ echo "=== Rendering scenes with splendor_render ==="
 
 # Color render
 splendor_render examples/02_primitives \
-    --output "$OUTDIR/primitives_color.png" \
+    "$OUTDIR/primitives_color.png" \
     --resolution 768x512
 echo "  -> $OUTDIR/primitives_color.png"
 
 # Mask render
 splendor_render examples/02_primitives \
-    --output "$OUTDIR/primitives_mask.png" \
+    "$OUTDIR/primitives_mask.png" \
     --resolution 768x512 \
     --render-mode mask
 echo "  -> $OUTDIR/primitives_mask.png"
 
 # Depth render
 splendor_render examples/03_shadows \
-    --output "$OUTDIR/shadows_depth.npy" \
+    "$OUTDIR/shadows_depth.npy" \
     --resolution 512x512 \
     --render-mode depth
 echo "  -> $OUTDIR/shadows_depth.npy"
 
 # Radial distortion
 splendor_render examples/06_radial_distortion \
-    --output "$OUTDIR/distortion.png" \
+    "$OUTDIR/distortion.png" \
     --resolution 512x512
 echo "  -> $OUTDIR/distortion.png"
 

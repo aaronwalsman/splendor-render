@@ -89,7 +89,11 @@ class PathFinder:
         # or is an absolute path, then use that
         if os.path.exists(key):
             return key
-        
+        # try appending known extensions to the raw path
+        for extension in asset_extensions[self.asset_type]:
+            if os.path.exists(key + extension):
+                return key + extension
+
         # otherwise search the paths
         for path in self.paths:
             # if the key was provided with an extension, just use that

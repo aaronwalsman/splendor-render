@@ -59,7 +59,7 @@ metal/rough/reflect/ambient values, for spatially varying materials:
 ## Running it
 
 ```bash
-splendor_render examples/05_materials --output materials.png --resolution 768x512
+splendor_render examples/05_materials materials.png --resolution 768x512
 splendor_viewer examples/05_materials
 ```
 

@@ -49,9 +49,9 @@ depth = renderer.read_sensor('rgb', read_depth=True,
 ## CLI usage
 
 ```bash
-splendor_render examples/02_primitives --output color.png
-splendor_render examples/02_primitives --output mask.png --render-mode mask
-splendor_render examples/02_primitives --output depth.npy --render-mode depth
+splendor_render examples/02_primitives color.png
+splendor_render examples/02_primitives mask.png --render-mode mask
+splendor_render examples/02_primitives depth.npy --render-mode depth
 ```
 
 ## Viewer hotkey

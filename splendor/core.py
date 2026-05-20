@@ -2995,14 +2995,6 @@ class SplendorRender:
                     GL.glUniform3fv(
                         location_data['image_light_shadow_direction'], 1,
                         ibl_shadow_dir)
-                if 'image_light_shadow_color' in location_data:
-                    shadow_color = self.loaded_data['irradiance_sh'].get(
-                        image_light_name + '_shadow_color',
-                        numpy.zeros(3, dtype=numpy.float32))
-                    GL.glUniform3fv(
-                        location_data['image_light_shadow_color'], 1,
-                        shadow_color)
-                
                 # set the image light parameters
                 GL.glUniform1i(location_data['image_light_active'],
                         image_light_name is not None)
@@ -3028,7 +3020,16 @@ class SplendorRender:
                     GL.glUniform4fv(
                             location_data['image_light_properties'],
                             1, image_light_properties.astype(numpy.float32))
-                
+
+                    if 'image_light_shadow_color' in location_data:
+                        shadow_color = self.loaded_data[
+                            'irradiance_sh'].get(
+                            image_light_name + '_shadow_color',
+                            numpy.zeros(3, dtype=numpy.float32))
+                        GL.glUniform3fv(
+                            location_data['image_light_shadow_color'],
+                            1, shadow_color)
+
                 # set the background color
                 GL.glUniform3fv(location_data['background_color'], 1,
                         self.get_background_color()[:3].astype(numpy.float32))

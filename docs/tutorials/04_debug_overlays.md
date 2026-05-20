@@ -69,7 +69,7 @@ image = renderer.read_sensor('rgb')  # read back includes the overlays
 ## Running it
 
 ```bash
-splendor_render examples/04_debug_overlays --output overlays.png --resolution 768x512
+splendor_render examples/04_debug_overlays overlays.png --resolution 768x512
 splendor_viewer examples/04_debug_overlays
 ```
 

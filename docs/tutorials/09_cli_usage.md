@@ -9,17 +9,17 @@ Render a scene to an image file:
 
 ```bash
 # Color render (default)
-splendor_render examples/02_primitives --output color.png --resolution 768x512
+splendor_render examples/02_primitives color.png --resolution 768x512
 
 # Mask render
-splendor_render examples/02_primitives --output mask.png --render-mode mask
+splendor_render examples/02_primitives mask.png --render-mode mask
 
 # Depth render
-splendor_render examples/03_shadows --output depth.npy --render-mode depth
+splendor_render examples/03_shadows depth.npy --render-mode depth
 ```
 
 Options:
-- `--output` — output file path (PNG for color/mask, NPY for depth)
+- Second positional argument is the output file (PNG for color/mask, NPY for depth)
 - `--resolution` — render resolution as `WxH` (default: 512x512)
 - `--render-mode` — `color`, `mask`, or `depth`
 - `--anti-alias-samples` — MSAA sample count (0 to disable, default 8)

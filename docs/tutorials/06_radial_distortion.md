@@ -53,7 +53,7 @@ renderer.color_render('main', sensor='rgb')
 ## Running it
 
 ```bash
-splendor_render examples/06_radial_distortion --output distortion.png
+splendor_render examples/06_radial_distortion distortion.png
 splendor_viewer examples/06_radial_distortion
 ```
 

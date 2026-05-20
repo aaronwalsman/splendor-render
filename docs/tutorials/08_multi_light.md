@@ -53,7 +53,7 @@ The 4 shadow map slots are shared across all light types:
 ## Running it
 
 ```bash
-splendor_render examples/08_multi_light --output multi_light.png --resolution 768x512
+splendor_render examples/08_multi_light multi_light.png --resolution 768x512
 splendor_viewer examples/08_multi_light
 ```
 
