@@ -49,15 +49,15 @@
         },
         "white": {
             "flat_color": [0.9, 0.88, 0.85],
-            "metal": 0.0, "rough": 0.5, "base_reflect": 0.04, "ambient": 0.05
+            "metal": 0.0, "rough": 0.5, "base_reflect": 0.04, "ambient": 0.15
         },
         "red": {
             "flat_color": [0.8, 0.15, 0.1],
-            "metal": 0.0, "rough": 0.4, "base_reflect": 0.04, "ambient": 0.05
+            "metal": 0.0, "rough": 0.4, "base_reflect": 0.04, "ambient": 0.15
         },
         "blue": {
             "flat_color": [0.15, 0.25, 0.8],
-            "metal": 0.0, "rough": 0.4, "base_reflect": 0.04, "ambient": 0.05
+            "metal": 0.0, "rough": 0.4, "base_reflect": 0.04, "ambient": 0.15
         }
     },
     "instances": {
@@ -86,7 +86,7 @@
             "mask_color": [0, 0, 1]
         }
     },
-    "ambient_color": [0.05, 0.05, 0.06],
+    "ambient_color": [0.15, 0.15, 0.18],
     "direction_lights": {
         "key": {
             "pose": [
@@ -95,7 +95,7 @@
                 [ 0.7071,  0.5774,  0.4082, 0.0],
                 [ 0.0,     0.0,     0.0,    1.0]
             ],
-            "color": [1.5, 1.4, 1.2],
+            "color": [2.5, 2.4, 2.2],
             "shadow_map": "key_shadow",
             "shadow_projection": [
                 [0.06,  0.0,  0.0,     0.0],
@@ -112,7 +112,7 @@
                 [ 0.7071, -0.5774,  0.4082, 0.0],
                 [ 0.0,     0.0,     0.0,    1.0]
             ],
-            "color": [0.4, 0.5, 0.8],
+            "color": [0.8, 1.0, 1.6],
             "shadow_map": "fill_shadow",
             "shadow_projection": [
                 [0.06,  0.0,  0.0,     0.0],

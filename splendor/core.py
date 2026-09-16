@@ -4,6 +4,7 @@ import math
 import json
 import os
 import ctypes
+import warnings
 
 # opengl
 from OpenGL import GL
@@ -96,6 +97,7 @@ class SplendorRender:
             'sensors':{},
             'image_lights':{},
             'active_image_light':None,
+            'color_output':{'exposure': 0.0, 'tone_map': 'reinhard', 'color_space': 'srgb', 'precision': 16},
         }
 
         self.loaded_data = {
@@ -112,6 +114,7 @@ class SplendorRender:
             'texture_buffers':{},
             'cubemap_buffers':{},
             'sensor_buffers':{},
+            'color_buffers':{},
             'coord_frame_buffers': None,
         }
         
@@ -180,6 +183,10 @@ class SplendorRender:
             scene = self.asset_library['scenes'][scene]
             scene = json.load(open(scene))
 
+        materials = scene.get('materials', {}).values()
+        property_textures = {m.get('material_properties_texture') for m in materials}
+        color_textures = {m.get('texture_name') for m in materials}
+
         # meshes, depthmaps, textures, cubemaps, materials, image_lights
         for singular, plural in self._asset_types:
             if plural in scene:
@@ -187,6 +194,14 @@ class SplendorRender:
                     exists_fn = getattr(self, singular + '_exists')
                     if reload_assets or not exists_fn(asset_name):
                         load_fn = getattr(self, 'load_' + singular)
+                        if plural == 'textures' and 'color_space' not in asset_args:
+                            if asset_name in property_textures:
+                                asset_args = dict(asset_args, color_space='raw')
+                                if asset_name in color_textures:
+                                    warnings.warn(
+                                        f'Texture {asset_name!r} is used for both color '
+                                        'and material properties; defaulting to raw.',
+                                        stacklevel=2)
                         load_fn(asset_name, **asset_args)
 
         # instances, depthmap_instances, point_lights, direction_lights
@@ -200,6 +215,9 @@ class SplendorRender:
             if global_parameter in scene:
                 set_fn = getattr(self, 'set_' + global_parameter)
                 set_fn(scene[global_parameter])
+
+        if 'color_output' in scene:
+            self.set_color_output(**scene['color_output'])
 
         if 'cameras' in scene:
             for camera_name, camera_args in scene['cameras'].items():
@@ -222,9 +240,41 @@ class SplendorRender:
         self.scene_description['active_image_light'] = None
         self.clear_cameras()
         self.clear_sensors()
+        for buffer in self.gl_data['color_buffers'].values():
+            buffer.close()
+        self.gl_data['color_buffers'].clear()
+        self.set_color_output()
 
     # global settings ==========================================================
     
+    def set_color_output(self,
+        exposure=0.0, tone_map='reinhard', color_space='srgb', precision=16):
+        """Configure color output only; masks, coordinates, and depth are unchanged.
+
+        exposure is in stops (one stop doubles linear light). tone_map is
+        'reinhard' or 'none'; color_space is 'srgb' for display or 'linear'
+        for radiometric output. For unmodified HDR use none + linear and a
+        GL_RGBA32F sensor. Constant/vertex/light colors are always linear.
+        precision (16 or 32) sets the bit depth of the intermediate linear
+        buffers; 16 halves their memory and bandwidth and is more than enough
+        for display output, 32 is for radiometric HDR readback. Changing it
+        takes effect on the next color_render.
+        """
+        if tone_map not in ('none', 'reinhard'):
+            raise ValueError("tone_map must be 'none' or 'reinhard'")
+        if color_space not in ('srgb', 'linear'):
+            raise ValueError("output color_space must be 'srgb' or 'linear'")
+        if precision not in (16, 32):
+            raise ValueError("color output precision must be 16 or 32")
+        self.scene_description['color_output'] = dict(
+            exposure=float(exposure), tone_map=tone_map,
+            color_space=color_space, precision=precision)
+
+    def _color_output_format(self):
+        """GL internal format for the linear color buffers."""
+        precision = self.scene_description['color_output']['precision']
+        return {16: GL.GL_RGBA16F, 32: GL.GL_RGBA32F}[precision]
+
     def set_ambient_color(self, color):
         """
         Sets the ambient light color for the scene.
@@ -424,7 +474,7 @@ class SplendorRender:
         anti_alias : bool, default=True
         anti_alias_samples : int, default=8
         color_format : GL enum, default=GL.GL_RGBA8
-            GL.GL_RGBA8 or GL.GL_RGBA32F
+            GL.GL_RGBA8, GL.GL_RGBA16F or GL.GL_RGBA32F
         depth_only : bool, default=False
             If True, no color attachment is created.  The depth buffer is a
             sampleable texture (depth_texture).  Useful for shadow maps.
@@ -432,6 +482,8 @@ class SplendorRender:
         """
         assert not (depth_only and enable_radial_distortion), (
             'depth_only sensors do not support radial distortion')
+        if name in self.scene_description['sensors']:
+            self.remove_sensor(name)
         from splendor.frame_buffer import FrameBufferWrapper
         main_fbo = FrameBufferWrapper(
             width, height,
@@ -447,7 +499,7 @@ class SplendorRender:
                 anti_alias=anti_alias,
                 anti_alias_samples=anti_alias_samples,
                 texture_output=True,
-                color_format=color_format,
+                color_format=self._color_output_format(),
             )
             sensor_buffers['intermediate_fbo'] = intermediate_fbo
         self.scene_description['sensors'][name] = {
@@ -460,8 +512,12 @@ class SplendorRender:
 
     def remove_sensor(self, name):
         """Remove a named sensor and its framebuffers."""
+        color_buffer = self.gl_data['color_buffers'].pop(('sensor', name), None)
+        if color_buffer is not None:
+            color_buffer.close()
         del self.scene_description['sensors'][name]
-        del self.gl_data['sensor_buffers'][name]
+        for buffer in self.gl_data['sensor_buffers'].pop(name).values():
+            buffer.close()
 
     def clear_sensors(self):
         """Remove all sensors."""
@@ -1016,8 +1072,6 @@ class SplendorRender:
         blur = 0.,
         diffuse_scale = 1.,
         diffuse_bias = 0.,
-        reflect_gamma = 1.,
-        reflect_bias = 0.,
         render_background = True,
         set_active = False,
         lock_to_camera = False,
@@ -1053,11 +1107,6 @@ class SplendorRender:
             Blur to apply to the background when the background is visible.
         diffuse_bias : float, default=0.
             A bias added to the diffuse irradiance (artistic control).
-        reflect_gamma : float, default=1.
-            A gamma correction for the reflect component of the image light.
-            Values above one increase the contrast in the reflections.
-        reflect_bias : float, default=0.
-            A bias for the reflection component of the image light.
         render_background : bool, default=True
             Whether or not to render the reflection maps as a background for
             the scene.
@@ -1100,8 +1149,6 @@ class SplendorRender:
         image_light_data['render_background'] = render_background
         image_light_data['diffuse_scale'] = diffuse_scale
         image_light_data['diffuse_bias'] = diffuse_bias
-        image_light_data['reflect_gamma'] = reflect_gamma
-        image_light_data['reflect_bias'] = reflect_bias
         image_light_data['lock_to_camera'] = lock_to_camera
         image_light_data['shadow_map'] = shadow_map
         image_light_data['shadow_projection'] = (
@@ -1110,7 +1157,8 @@ class SplendorRender:
             numpy.array(shadow_pose) if shadow_pose is not None else None)
         image_light_data['shadow_pcf_radius'] = int(shadow_pcf_radius)
         self.scene_description['image_lights'][name] = image_light_data
-        
+
+        self._load_reflect_prefilter(reflect_cubemap)
         self.load_background_mesh()
         
         if set_active:
@@ -1195,9 +1243,12 @@ class SplendorRender:
         texture_path=None,
         texture_data=None,
         crop=None,
+        color_space='srgb',
     ):
         """
-        Replace the texture for a material
+        Load an 8-bit RGB(A) texture. color_space='srgb' decodes color data
+        through an sRGB internal texture format. Use 'raw' for linear color,
+        roughness, metallic, normals, and other data maps. Alpha is always raw.
         
         Parameters:
         -----------
@@ -1209,6 +1260,9 @@ class SplendorRender:
             Bottom, left, top, right crop values for the image
         """
         
+        if color_space not in ('srgb', 'raw'):
+            raise ValueError("texture color_space must be 'srgb' or 'raw'")
+
         # if a texture asset name was provided, load that
         if texture_asset is not None:
             asset_path = self.asset_library['textures'][texture_asset]
@@ -1236,6 +1290,8 @@ class SplendorRender:
                     'Must supply a "texture_asset", "texture_path" or '
                     '"texture_data" argument when loading a texture')
         
+        self.scene_description['textures'][name]['color_space'] = color_space
+
         # crop if necessary
         if crop is not None:
             texture = texture[crop[0]:crop[2], crop[1]:crop[3]]
@@ -1268,8 +1324,9 @@ class SplendorRender:
                 gl_color_mode = GL.GL_RGBA
             else:
                 raise NotImplementedError
+            internal_format = (GL.GL_SRGB8 if texture.shape[2] == 3 else GL.GL_SRGB8_ALPHA8) if color_space == 'srgb' else gl_color_mode
             GL.glTexImage2D(
-                    GL.GL_TEXTURE_2D, 0, gl_color_mode,
+                    GL.GL_TEXTURE_2D, 0, internal_format,
                     texture.shape[1], texture.shape[0], 0,
                     gl_color_mode, GL.GL_UNSIGNED_BYTE, texture)
 
@@ -1331,11 +1388,17 @@ class SplendorRender:
         cubemap_data=None,
         crop=None,
         mipmaps=None,
+        color_space='srgb',
     ):
         """
-        Loads a cubemap
+        Load an 8-bit RGB(A) cubemap, decoding sRGB by default. Use
+        color_space='raw' for linear maps. SH irradiance coefficients are
+        already linear and are not decoded by this API.
         """
         
+        if color_space not in ('srgb', 'raw'):
+            raise ValueError("cubemap color_space must be 'srgb' or 'raw'")
+
         # if a cubemap asset name was provided, load that
         if cubemap_asset is not None:
             asset_path = self.asset_library['cubemaps'][cubemap_asset]
@@ -1368,6 +1431,7 @@ class SplendorRender:
             cubemap = cubemap[crop[0]:crop[2], crop[1]:crop[3]]
         
         # validate and store the cubemap
+        self.scene_description['cubemaps'][name]['color_space'] = color_space
         self.loaded_data['cubemaps'][name] = cubemap
         
         # if an entry for this cubemap doesn't exist in cubemap_buffers
@@ -1397,13 +1461,14 @@ class SplendorRender:
             
             height, strip_width = cubemap.shape[:2]
             assert strip_width == height * 6
+            internal_format = (GL.GL_SRGB8 if cubemap.shape[2] == 3 else GL.GL_SRGB8_ALPHA8) if color_space == 'srgb' else gl_color_mode
             for i in range(6):
                 face_image = cubemap[:,i*height:(i+1)*height]
                 validate_texture(face_image)
                 GL.glTexImage2D(
                     GL.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
                     0,
-                    gl_color_mode,
+                    internal_format,
                     face_image.shape[1],
                     face_image.shape[0],
                     0,
@@ -1415,10 +1480,10 @@ class SplendorRender:
                     for j, mipmap in enumerate(mipmaps[i]):
                         mipmap = numpy.array(mipmap)
                         validate_texture(mipmap)
-                        GL.glTexImage2d(
+                        GL.glTexImage2D(
                             GL.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
                             j+1,
-                            gl_color_mode,
+                            internal_format,
                             mipmap.shape[1],
                             mipmap.shape[0],
                             0,
@@ -1435,8 +1500,7 @@ class SplendorRender:
             GL.glTexParameteri(
                 GL.GL_TEXTURE_CUBE_MAP,
                 GL.GL_TEXTURE_MIN_FILTER,
-                #GL.GL_LINEAR_MIPMAP_LINEAR,
-                GL.GL_LINEAR,
+                GL.GL_LINEAR_MIPMAP_LINEAR,
             )
             if mipmaps is None:
                 GL.glGenerateMipmap(GL.GL_TEXTURE_CUBE_MAP)
@@ -1464,13 +1528,103 @@ class SplendorRender:
 
         finally:
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
-    
+
+        # new pixel data invalidates any baked reflection prefilter
+        cubemap_buffers = self.gl_data['cubemap_buffers'][name]
+        prefilter = cubemap_buffers.pop('prefilter', None)
+        if prefilter is not None:
+            GL.glDeleteTextures([prefilter])
+            cubemap_buffers.pop('prefilter_max_lod', None)
+            cubemap_buffers.pop('prefilter_base_size', None)
+            for light_name, light_data in (
+                self.scene_description['image_lights'].items()
+            ):
+                if light_data['reflect_cubemap'] == name:
+                    self._load_reflect_prefilter(name)
+                    break
+
+    def _load_reflect_prefilter(self, cubemap_name):
+        """Bake (or cache-load) GGX prefiltered reflection levels for a cubemap.
+
+        Uploads the roughness ladder as an explicit RGB16F linear mip chain
+        alongside the raw cubemap; the raw cubemap keeps serving the
+        background pass.
+        """
+        from splendor.image_light.prefilter import cached_prefilter_cubemap
+        cubemap_buffers = self.gl_data['cubemap_buffers'][cubemap_name]
+        if 'prefilter' in cubemap_buffers:
+            return
+        levels = cached_prefilter_cubemap(
+            self.loaded_data['cubemaps'][cubemap_name],
+            self.scene_description['cubemaps'][cubemap_name]['color_space'],
+            cubemap_buffers['cubemap'],
+        )
+        texture = GL.glGenTextures(1)
+        GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, texture)
+        for level, strip in enumerate(levels):
+            h = strip.shape[0]
+            for i in range(6):
+                GL.glTexImage2D(
+                    GL.GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                    level,
+                    GL.GL_RGB16F,
+                    h, h, 0,
+                    GL.GL_RGB,
+                    GL.GL_FLOAT,
+                    numpy.ascontiguousarray(strip[:, i*h:(i+1)*h]),
+                )
+        GL.glTexParameteri(
+            GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+        GL.glTexParameteri(
+            GL.GL_TEXTURE_CUBE_MAP,
+            GL.GL_TEXTURE_MIN_FILTER,
+            GL.GL_LINEAR_MIPMAP_LINEAR)
+        GL.glTexParameteri(
+            GL.GL_TEXTURE_CUBE_MAP, GL.GL_TEXTURE_MAX_LEVEL, len(levels) - 1)
+        for wrap in (
+            GL.GL_TEXTURE_WRAP_S, GL.GL_TEXTURE_WRAP_T, GL.GL_TEXTURE_WRAP_R,
+        ):
+            GL.glTexParameteri(
+                GL.GL_TEXTURE_CUBE_MAP, wrap, GL.GL_CLAMP_TO_EDGE)
+        GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
+        cubemap_buffers['prefilter'] = texture
+        cubemap_buffers['prefilter_max_lod'] = float(len(levels) - 1)
+        cubemap_buffers['prefilter_base_size'] = float(levels[0].shape[0])
+
+    def _dfg_texture(self):
+        """Lazily build the shared split-sum BRDF lookup texture."""
+        texture = self.gl_data.get('dfg_texture')
+        if texture is not None:
+            return texture
+        from splendor.image_light.dfg import cached_dfg_lookup_table
+        table = cached_dfg_lookup_table()
+        texture = GL.glGenTextures(1)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, texture)
+        GL.glTexImage2D(
+            GL.GL_TEXTURE_2D, 0, GL.GL_RG16F,
+            table.shape[1], table.shape[0], 0,
+            GL.GL_RG, GL.GL_FLOAT, table)
+        GL.glTexParameteri(
+            GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+        GL.glTexParameteri(
+            GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+        GL.glTexParameteri(
+            GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
+        GL.glTexParameteri(
+            GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        self.gl_data['dfg_texture'] = texture
+        return texture
+
     def remove_cubemap(self, name):
         """Remove a named cubemap and its GL buffers."""
         if name in self.gl_data['cubemap_buffers']:
             GL.glBindTexture(GL.GL_TEXTURE_CUBE_MAP, 0)
             GL.glDeleteTextures(
                 [self.gl_data['cubemap_buffers'][name]['cubemap']])
+            prefilter = self.gl_data['cubemap_buffers'][name].get('prefilter')
+            if prefilter is not None:
+                GL.glDeleteTextures([prefilter])
             del(self.gl_data['cubemap_buffers'][name])
         if name in self.loaded_data['cubemaps']:
             del(self.loaded_data['cubemaps'][name])
@@ -1551,6 +1705,10 @@ class SplendorRender:
             Bottom, left, top, right crop values for the texture
         """
         
+        if material_properties_texture is not None:
+            if self.scene_description['textures'][material_properties_texture]['color_space'] != 'raw':
+                raise ValueError("material property textures must be loaded with color_space='raw'")
+
         material_description = {
             'texture_name':texture_name,
             'flat_color':flat_color,
@@ -2523,7 +2681,7 @@ class SplendorRender:
         expanded[1, 1] = fy * fov_scale
         return expanded, fov_scale
 
-    def _radial_warp_pass(self, sensor, camera_data):
+    def _radial_warp_pass(self, sensor, camera_data, target=None):
         """
         Run the fullscreen warp pass: sample the intermediate texture and write
         the barrel/pincushion-distorted result to the sensor's main FBO.
@@ -2545,7 +2703,7 @@ class SplendorRender:
             intermediate_fbo.resolve()
 
         # Bind the main (output) FBO
-        sensor_buffers['main_fbo'].enable()
+        (target or sensor_buffers['main_fbo']).enable()
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
         self.shader_library.use_program('radial_warp_shader')
@@ -2652,7 +2810,105 @@ class SplendorRender:
                 instances,
             )
 
-    def color_render(self,
+    def color_render(self, camera, instances=None, depthmap_instances=None,
+                     sensor=None, flip_y=True, clear=True, finish=True,
+                     ignore_hidden=False, update_shadow_maps=True):
+        """Render linear HDR, then apply exposure, tone mapping and encoding.
+
+        Targets a named sensor or the currently bound draw framebuffer/viewport.
+        clear=False accumulates onto this target's previous *linear color render*,
+        avoiding repeated tone mapping. Mask/coordinate renders do not enter or
+        modify this linear accumulation buffer.
+        """
+        from splendor.frame_buffer import FrameBufferWrapper
+        color_format = self._color_output_format()
+        if sensor is not None:
+            sensor_buffers = self.gl_data['sensor_buffers'][sensor]
+            main = sensor_buffers['main_fbo']
+            if main.depth_only:
+                raise ValueError("color_render requires a color sensor")
+            intermediate = sensor_buffers.get('intermediate_fbo')
+            if intermediate is not None and intermediate.color_format != color_format:
+                sensor_buffers['intermediate_fbo'] = FrameBufferWrapper(
+                    intermediate.width, intermediate.height,
+                    anti_alias=intermediate.anti_alias,
+                    anti_alias_samples=intermediate.anti_alias_samples,
+                    texture_output=True,
+                    color_format=color_format)
+                intermediate.close()
+            self._bind_sensor(sensor)
+            samples = main.anti_alias_samples if main.anti_alias else 0
+            key = ('sensor', sensor)
+        else:
+            samples = int(GL.glGetIntegerv(GL.GL_SAMPLES))
+            key = ('framebuffer', int(GL.glGetIntegerv(GL.GL_DRAW_FRAMEBUFFER_BINDING)))
+        destination = int(GL.glGetIntegerv(GL.GL_DRAW_FRAMEBUFFER_BINDING))
+        viewport = tuple(int(v) for v in GL.glGetIntegerv(GL.GL_VIEWPORT))
+        scissor = tuple(int(v) for v in GL.glGetIntegerv(GL.GL_SCISSOR_BOX))
+        width, height = viewport[2:]
+        if sensor is None:
+            key += viewport[:2]
+        linear = self.gl_data['color_buffers'].get(key)
+        if linear is None or (
+            (linear.width, linear.height, linear.color_format) !=
+            (width, height, color_format)
+        ):
+            if linear is not None:
+                linear.close()
+            linear = FrameBufferWrapper(width, height, anti_alias=samples > 1,
+                anti_alias_samples=max(samples, 1), texture_output=True,
+                color_format=color_format)
+            self.gl_data['color_buffers'][key] = linear
+            clear = True
+        srgb_enabled = GL.glIsEnabled(GL.GL_FRAMEBUFFER_SRGB)
+        GL.glDisable(GL.GL_FRAMEBUFFER_SRGB)  # output shader owns encoding
+        try:
+            self._color_render_linear(camera, instances=instances,
+                depthmap_instances=depthmap_instances, sensor=sensor,
+                flip_y=flip_y, clear=clear, finish=False,
+                ignore_hidden=ignore_hidden, update_shadow_maps=update_shadow_maps,
+                linear_target=linear)
+            if linear.anti_alias:
+                linear.resolve()
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, destination)
+            self.viewport_scissor(*viewport)
+            GL.glScissor(*scissor)
+            self._color_output_pass(linear)
+        finally:
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, destination)
+            GL.glViewport(*viewport)
+            GL.glScissor(*scissor)
+            if srgb_enabled:
+                GL.glEnable(GL.GL_FRAMEBUFFER_SRGB)
+        if finish:
+            self.finish_frame()
+
+    def _color_output_pass(self, linear):
+        settings = self.scene_description['color_output']
+        self.shader_library.use_program('color_output_shader')
+        locs = self.shader_library.get_shader_locations('color_output_shader')
+        depth_func = int(GL.glGetIntegerv(GL.GL_DEPTH_FUNC))
+        blend_enabled = GL.glIsEnabled(GL.GL_BLEND)
+        GL.glDisable(GL.GL_BLEND)
+        try:
+            GL.glActiveTexture(GL.GL_TEXTURE5)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, linear.texture)
+            GL.glActiveTexture(GL.GL_TEXTURE6)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, linear.depth_texture)
+            GL.glUniform1f(locs['exposure'], settings['exposure'])
+            GL.glUniform1i(locs['tone_map'], settings['tone_map'] == 'reinhard')
+            GL.glUniform1i(locs['encode_srgb'], settings['color_space'] == 'srgb')
+            GL.glBindVertexArray(self.empty_vao)
+            GL.glDepthFunc(GL.GL_ALWAYS)
+            GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 4)
+        finally:
+            GL.glDepthFunc(depth_func)
+            if blend_enabled:
+                GL.glEnable(GL.GL_BLEND)
+            GL.glBindVertexArray(0)
+            GL.glUseProgram(0)
+
+    def _color_render_linear(self,
         camera,
         instances=None,
         depthmap_instances=None,
@@ -2662,6 +2918,7 @@ class SplendorRender:
         finish=True,
         ignore_hidden=False,
         update_shadow_maps=True,
+        linear_target=None,
     ):
         """
         Renders instances and depthmap instances using the color program.
@@ -2720,8 +2977,7 @@ class SplendorRender:
             sensor_buffers['intermediate_fbo'].enable()
         else:
             render_camera_data = camera_data
-            if sensor is not None:
-                self._bind_sensor(sensor)
+            linear_target.enable()
 
         # clear
         if clear:
@@ -2855,9 +3111,27 @@ class SplendorRender:
                             self.gl_data['cubemap_buffers'][reflect_cubemap])
                         GL.glBindTexture(
                             GL.GL_TEXTURE_CUBE_MAP,
-                            reflect_data['cubemap'],
+                            reflect_data['prefilter'],
                         )
                         GL.glUniform1i(location_data['reflect_sampler'], 3)
+                        if 'reflect_footprint_sampler' in location_data:
+                            # raw auto-mipped cubemap: hardware footprint
+                            # filtering for the near-mirror end
+                            GL.glActiveTexture(GL.GL_TEXTURE9)
+                            GL.glBindTexture(
+                                GL.GL_TEXTURE_CUBE_MAP,
+                                reflect_data['cubemap'])
+                            GL.glUniform1i(
+                                location_data['reflect_footprint_sampler'], 9)
+                        if 'prefilter_max_lod' in location_data:
+                            GL.glUniform1f(
+                                location_data['prefilter_max_lod'],
+                                reflect_data['prefilter_max_lod'])
+                    if 'dfg_sampler' in location_data:
+                        # shadow maps occupy units 4-7
+                        GL.glActiveTexture(GL.GL_TEXTURE8)
+                        GL.glBindTexture(GL.GL_TEXTURE_2D, self._dfg_texture())
+                        GL.glUniform1i(location_data['dfg_sampler'], 8)
                 
                 # set the camera's view matrix
                 view_matrix = render_camera_data['view_matrix']
@@ -3012,14 +3286,12 @@ class SplendorRender:
                             location_data['lock_image_light_to_camera'],
                             image_light_data['lock_to_camera'])
                     
-                    image_light_properties = numpy.array([
+                    image_light_diffuse = numpy.array([
                             image_light_data['diffuse_scale'],
-                            image_light_data['diffuse_bias'],
-                            image_light_data['reflect_gamma'],
-                            image_light_data['reflect_bias']])
-                    GL.glUniform4fv(
-                            location_data['image_light_properties'],
-                            1, image_light_properties.astype(numpy.float32))
+                            image_light_data['diffuse_bias']])
+                    GL.glUniform2fv(
+                            location_data['image_light_diffuse'],
+                            1, image_light_diffuse.astype(numpy.float32))
 
                     if 'image_light_shadow_color' in location_data:
                         shadow_color = self.loaded_data[
@@ -3058,7 +3330,7 @@ class SplendorRender:
 
         # Stage 2: warp intermediate render into main sensor FBO
         if use_distortion:
-            self._radial_warp_pass(sensor, camera_data)
+            self._radial_warp_pass(sensor, camera_data, target=linear_target)
 
         if finish:
             self.finish_frame()

@@ -15,6 +15,10 @@ vec4 skybox_texture(samplerCube sampler, vec3 v, float level){
 vec4 skybox_texture(samplerCube sampler, vec4 v, float level){
     return texture(sampler, vec3(-v.x, v.y, v.z), level);
 }
+
+vec4 skybox_texture_lod(samplerCube sampler, vec4 v, float lod){
+    return textureLod(sampler, vec3(-v.x, v.y, v.z), lod);
+}
 '''
 
 panorama_to_cube_fragment_shader = '''#version 330 core

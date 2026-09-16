@@ -85,6 +85,12 @@ class GLFWContext:
 
     # -- window surface --------------------------------------------------------
 
+    def make_current(self):
+        """Make this window's GL context current. Required before issuing GL
+        calls for THIS window when more than one GLFW window exists -- otherwise
+        every window's draws land in whichever context was last made current."""
+        _glfw.make_context_current(self._window)
+
     def enable(self):
         """
         Bind the window's default framebuffer and set the viewport.

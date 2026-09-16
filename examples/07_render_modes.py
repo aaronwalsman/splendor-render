@@ -62,13 +62,13 @@ try:
         metal=0, rough=0.9, base_reflect=0.02, ambient=0.3)
     renderer.load_material('red',
         flat_color=(0.8, 0.15, 0.1),
-        metal=0, rough=0.4, base_reflect=0.04, ambient=0.1)
+        metal=0, rough=0.4, base_reflect=0.04, ambient=0.25)
     renderer.load_material('green',
         flat_color=(0.15, 0.7, 0.2),
-        metal=0, rough=0.4, base_reflect=0.04, ambient=0.1)
+        metal=0, rough=0.4, base_reflect=0.04, ambient=0.25)
     renderer.load_material('blue',
         flat_color=(0.2, 0.3, 0.85),
-        metal=0, rough=0.4, base_reflect=0.04, ambient=0.1)
+        metal=0, rough=0.4, base_reflect=0.04, ambient=0.25)
 
     renderer.add_instance('ground', mesh_name='ground',
         material_name='ground_mat',
@@ -87,9 +87,9 @@ try:
         mask_color=[0, 0, 1])
 
     renderer.add_direction_light('sun',
-        pose=direction_light_pose((0.5, -1.0, -0.4)),
-        color=(1.2, 1.1, 1.0))
-    renderer.set_ambient_color((0.1, 0.1, 0.12))
+        pose=direction_light_pose((0.3, -1.0, -0.7)),
+        color=(2.5, 2.4, 2.2))
+    renderer.set_ambient_color((0.25, 0.25, 0.3))
 
     # color render
     renderer.color_render('main', sensor='rgb')

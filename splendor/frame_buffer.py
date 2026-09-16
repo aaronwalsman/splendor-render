@@ -39,7 +39,7 @@ class FrameBufferWrapper:
         self.depth_only = depth_only
 
         assert not (depth_only and texture_output)
-        assert self.color_format in (GL.GL_RGBA8, GL.GL_RGBA32F)
+        assert self.color_format in (GL.GL_RGBA8, GL.GL_RGBA16F, GL.GL_RGBA32F)
 
         # resolve / single-sample frame buffer
         self.frame_buffer = GL.glGenFramebuffers(1)
@@ -53,9 +53,7 @@ class FrameBufferWrapper:
             # color texture (sampleable by shaders)
             self.texture = GL.glGenTextures(1)
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
-            internal_fmt = (GL.GL_RGBA8
-                            if color_format == GL.GL_RGBA8 else GL.GL_RGBA32F)
-            GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, internal_fmt,
+            GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, self.color_format,
                             width, height, 0,
                             GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, None)
             GL.glTexParameteri(
@@ -172,6 +170,24 @@ class FrameBufferWrapper:
             GL.GL_NEAREST)
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.frame_buffer_multi)
 
+    def close(self):
+        """Release this buffer's GL resources while its context is current."""
+        for name in ('texture', 'depth_texture'):
+            handle = getattr(self, name, None)
+            if handle is not None:
+                GL.glDeleteTextures([handle])
+                delattr(self, name)
+        for name in ('render_buffer', 'depth_buffer', 'render_buffer_multi', 'depth_buffer_multi'):
+            handle = getattr(self, name, None)
+            if handle is not None:
+                GL.glDeleteRenderbuffers(1, [handle])
+                delattr(self, name)
+        for name in ('frame_buffer', 'frame_buffer_multi'):
+            handle = getattr(self, name, None)
+            if handle is not None:
+                GL.glDeleteFramebuffers(1, [handle])
+                delattr(self, name)
+
     def read_pixels(self,
         read_alpha=False,
         read_depth=False,
@@ -216,7 +232,7 @@ class FrameBufferWrapper:
             if self.color_format == GL.GL_RGBA8:
                 gl_dtype = GL.GL_UNSIGNED_BYTE
                 numpy_dtype = numpy.uint8
-            elif self.color_format == GL.GL_RGBA32F:
+            elif self.color_format in (GL.GL_RGBA16F, GL.GL_RGBA32F):
                 gl_dtype = GL.GL_FLOAT
                 numpy_dtype = numpy.float32
             pixels = GL.glReadPixels(

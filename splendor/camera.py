@@ -355,20 +355,21 @@ def direction_light_pose(direction, position=(0., 0., 0.)):
     direction = numpy.array(direction, dtype=float)
     direction = direction / numpy.linalg.norm(direction)
 
-    # Build an orthonormal frame with -Z aligned to direction
-    forward = direction  # -Z of the pose
-    # Pick an up vector that isn't parallel to forward
+    # +Z of the pose must point toward the light source (opposite to ray
+    # direction), because the shader computes light_direction = pose[:3, 2].
+    z_axis = -direction
+
     up = numpy.array([0., 1., 0.])
-    if abs(numpy.dot(forward, up)) > 0.99:
+    if abs(numpy.dot(z_axis, up)) > 0.99:
         up = numpy.array([1., 0., 0.])
-    right = numpy.cross(up, forward)
-    right = right / numpy.linalg.norm(right)
-    up = numpy.cross(forward, right)
+    x_axis = numpy.cross(up, z_axis)
+    x_axis = x_axis / numpy.linalg.norm(x_axis)
+    y_axis = numpy.cross(z_axis, x_axis)
 
     pose = numpy.eye(4)
-    pose[:3, 0] = right
-    pose[:3, 1] = up
-    pose[:3, 2] = forward   # +Z = backward = direction of rays
+    pose[:3, 0] = x_axis
+    pose[:3, 1] = y_axis
+    pose[:3, 2] = z_axis
     pose[:3, 3] = numpy.array(position, dtype=float)
     return pose
 

@@ -46,7 +46,7 @@ try:
     renderer.load_material(
         'mat',
         flat_color=(0.7, 0.3, 0.2),
-        metal=0, rough=0.5, base_reflect=0.04, ambient=0.15,
+        metal=0, rough=0.5, base_reflect=0.04, ambient=0.25,
     )
 
     # add instances with coord_box matching their mesh extents
@@ -68,12 +68,12 @@ try:
     )
 
     # lighting (needed for color render, not for coord render)
-    renderer.set_ambient_color((0.1, 0.1, 0.12))
+    renderer.set_ambient_color((0.25, 0.25, 0.3))
 
     # color render for reference
     renderer.add_direction_light('sun',
-        pose=direction_light_pose((0.5, -1.0, -0.4)),
-        color=[1.2, 1.1, 1.0])
+        pose=direction_light_pose((0.3, -1.0, -0.7)),
+        color=[3.0, 2.9, 2.7])
     renderer.color_render('main', sensor='rgb')
     color_image = renderer.read_sensor('rgb')
     save_image(color_image, f'{OUTPUT_PREFIX}_color.png')

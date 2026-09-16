@@ -1,6 +1,8 @@
 """2D drawing utilities — text overlays, grids, and image compositing."""
 import numpy
 
+from functools import lru_cache
+
 from PIL import Image, ImageDraw, ImageFont
 
 try:
@@ -65,6 +67,26 @@ def draw_line(image, y0, x0, y1, x1, color):
     y1r = int(round(y1))
     dx = x1 - x0
     dy = y1 - y0
+    # Axis-aligned fast path: the per-pixel loops below cost a Python
+    # iteration each, and horizontal/vertical lines (grids, ticks, rules) are
+    # the common case. The conditions mirror the branch selection exactly, and
+    # both ends are clamped (a fully off-screen line draws nothing -- an
+    # unclamped negative end would slice in from the far side), so the pixels
+    # written are identical to the loops below.
+    if abs(dx) <= abs(dy) and x0r == x1r:
+        if y0r != y1r and 0 <= x0r < image.shape[1]:
+            ylo = max(min(y0r, y1r), 0)
+            yhi = min(max(y0r, y1r), image.shape[0] - 1)
+            if ylo <= yhi:
+                image[ylo:yhi + 1, x0r] = color
+        return
+    if abs(dx) > abs(dy) and y0r == y1r:
+        if x0r != x1r and 0 <= y0r < image.shape[0]:
+            xlo = max(min(x0r, x1r), 0)
+            xhi = min(max(x0r, x1r), image.shape[1] - 1)
+            if xlo <= xhi:
+                image[y0r, xlo:xhi + 1] = color
+        return
     if abs(dx) > abs(dy):
         if x1 < x0:
             x0, x0r, x1, x1r = x1, x1r, x0, x0r
@@ -165,24 +187,63 @@ def heatmap_overlay(
     ).astype(numpy.uint8)
     return overlay
 
-'''
+@lru_cache(maxsize=32)
+def _load_font(font_path, size):
+    """Resolve a TrueType font, falling back gracefully so text always renders
+    without requiring the splendor asset install."""
+    candidates = []
+    if font_path:
+        candidates.append(font_path)
+    try:
+        from splendor import settings
+        configured = getattr(settings, 'PATHS', {}).get('font')
+        if configured:
+            candidates.append(configured)
+    except Exception:
+        pass
+    candidates.append('DejaVuSans.ttf')  # commonly present system font
+    for candidate in candidates:
+        try:
+            return ImageFont.truetype(candidate, size)
+        except Exception:
+            continue
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:  # older Pillow without size arg
+        return ImageFont.load_default()
+
+
 def write_text(
     image,
     text,
-    location=(10,10),
-    font='Roboto-Regular',
+    location=(10, 10),
     size=10,
-    color=(0,0,0),
+    color=(0, 0, 0),
+    font_path=None,
 ):
-    image = Image.fromarray(image)
-    draw = ImageDraw.Draw(image)
-    font_path = settings.PATHS['font']
-    font = ImageFont.truetype(font_path, size)
-    #color = 'rgb(%i, %i, %i)'%color
-    draw.text(location, text, color, font)
-    
-    return numpy.array(image)
-'''
+    """Draw text onto a numpy HxWx3 image; returns a new numpy image.
+
+    Uses a TrueType font: ``font_path`` if given, else splendor's configured
+    font, else a system DejaVuSans, else PIL's built-in bitmap font.
+    """
+    return write_texts(image, [(location, text, size, color)],
+                       font_path=font_path)
+
+
+def write_texts(image, items, font_path=None):
+    """Draw many labels onto a numpy HxWx3 image in ONE pass; returns a new
+    numpy image.
+
+    ``items`` is a sequence of ``(location, text, size, color)``. Prefer this
+    over calling ``write_text`` in a loop: each ``write_text`` round-trips the
+    whole buffer through PIL and back, so N labels cost N full-image copies.
+    """
+    pil = Image.fromarray(image)
+    draw = ImageDraw.Draw(pil)
+    for location, text, size, color in items:
+        draw.text(location, text, tuple(int(c) for c in color),
+                  font=_load_font(font_path, size))
+    return numpy.array(pil)
 
 def map_overlay(image, overlay, opacity, convert_mask_colors=False):
     """Overlay a low-resolution map onto an image, upscaling to match."""

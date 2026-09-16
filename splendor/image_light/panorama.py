@@ -14,6 +14,42 @@ from splendor.contexts import egl
 import splendor.camera as camera
 import splendor.image as image
 
+# GL cubemap face order; also the left-to-right order of faces in a strip.
+face_order = ('px', 'nx', 'py', 'ny', 'pz', 'nz')
+
+# 90-degree fov camera view matrix looking through each cubemap face.
+face_view_matrices = {
+        'nz' : numpy.array([
+            [-1, 0, 0, 0],
+            [ 0,-1, 0, 0],
+            [ 0, 0, 1, 0],
+            [ 0, 0, 0, 1]]),
+        'pz' : numpy.array([
+            [ 1, 0, 0, 0],
+            [ 0,-1, 0, 0],
+            [ 0, 0,-1, 0],
+            [ 0, 0, 0, 1]]),
+        'px' : numpy.array([
+            [ 0, 0,-1, 0],
+            [ 0,-1, 0, 0],
+            [-1, 0, 0, 0],
+            [ 0, 0, 0, 1]]),
+        'nx' : numpy.array([
+            [ 0, 0, 1, 0],
+            [ 0,-1, 0, 0],
+            [ 1, 0, 0, 0],
+            [ 0, 0, 0, 1]]),
+        'py' : numpy.array([
+            [ 1, 0, 0, 0],
+            [ 0, 0, 1, 0],
+            [ 0,-1, 0, 0],
+            [ 0, 0, 0, 1]]),
+        'ny' : numpy.array([
+            [ 1, 0, 0, 0],
+            [ 0, 0,-1, 0],
+            [ 0, 1, 0, 0],
+            [ 0, 0, 0, 1]])}
+
 def cube_to_strip(cube):
     """Concatenate a dict of 6 cubemap faces into a horizontal strip (H x 6H)."""
     strip = numpy.concatenate([
@@ -120,37 +156,7 @@ def panorama_to_cube(
     projection_matrix = camera.projection_matrix(
             math.radians(90), 1.0, 0.01, 1.0)
 
-    view_matrices = {
-            'nz' : numpy.array([
-                [-1, 0, 0, 0],
-                [ 0,-1, 0, 0],
-                [ 0, 0, 1, 0],
-                [ 0, 0, 0, 1]]),
-            'pz' : numpy.array([
-                [ 1, 0, 0, 0],
-                [ 0,-1, 0, 0],
-                [ 0, 0,-1, 0],
-                [ 0, 0, 0, 1]]),
-            'px' : numpy.array([
-                [ 0, 0,-1, 0],
-                [ 0,-1, 0, 0],
-                [-1, 0, 0, 0],
-                [ 0, 0, 0, 1]]),
-            'nx' : numpy.array([
-                [ 0, 0, 1, 0],
-                [ 0,-1, 0, 0],
-                [ 1, 0, 0, 0],
-                [ 0, 0, 0, 1]]),
-            'py' : numpy.array([
-                [ 1, 0, 0, 0],
-                [ 0, 0, 1, 0],
-                [ 0,-1, 0, 0],
-                [ 0, 0, 0, 1]]),
-            'ny' : numpy.array([
-                [ 1, 0, 0, 0],
-                [ 0, 0,-1, 0],
-                [ 0, 1, 0, 0],
-                [ 0, 0, 0, 1]])}
+    view_matrices = face_view_matrices
 
     GL.glUniformMatrix4fv(
             projection_location,

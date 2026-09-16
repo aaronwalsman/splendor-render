@@ -58,7 +58,7 @@ out vec4 color;
 uniform vec4 material_properties;
 #endif
 
-uniform vec4 image_light_properties;
+uniform vec2 image_light_diffuse;
 uniform bool image_light_active;
 uniform vec3 background_color;
 
@@ -97,10 +97,19 @@ uniform sampler2D material_properties_sampler;
 
 uniform vec3 irradiance_sh[9];
 uniform samplerCube reflect_sampler;
+uniform samplerCube reflect_footprint_sampler;
 
 {_build_shadow_samplers()}
 
-const float MAX_MIPMAP = 4.;
+uniform sampler2D dfg_sampler;
+uniform float prefilter_max_lod;
+
+// screen-space variance scale and clamp for geometric specular AA of
+// environment reflections; sigma2 follows the Tokuyoshi-Kaplanyan 0.25 with
+// the reflected direction changing twice as fast as the normal, and kappa
+// caps the widening at perceptual roughness ~0.65
+const float SPECULAR_AA_SIGMA2 = 0.0625;
+const float SPECULAR_AA_KAPPA = 0.18;
 
 ''' + f'''
 {pbr_fns}
@@ -145,10 +154,8 @@ void main(){
     float base_reflect = material_properties.z;
     float ambient = material_properties.w;
 
-    float diffuse_scale = image_light_properties.x;
-    float diffuse_bias = image_light_properties.y;
-    float reflect_gamma = image_light_properties.z;
-    float reflect_bias = image_light_properties.w;
+    float diffuse_scale = image_light_diffuse.x;
+    float diffuse_bias = image_light_diffuse.y;
 
     mat4 inv_view_matrix = inverse(view_matrix);
     vec4 world_position = inv_view_matrix * fragment_position;
@@ -244,14 +251,51 @@ void main(){
         vec4 reflected_direction =
                 inv_view_matrix * vec4(reflect(-eye, normal), 0.);
         reflected_direction = image_light_offset_matrix * reflected_direction;
-        vec3 reflect_color = vec3(skybox_texture(
-                reflect_sampler, reflected_direction, rough*MAX_MIPMAP));
-        reflect_color = pow(reflect_color, vec3(reflect_gamma));
 
-        float reflect_correction = (reflect_gamma+1)/2;
-        reflect_color *= reflect_correction;
-        reflect_color += vec3(reflect_bias);
-        reflect_color = reflect_color * ks;
+        // geometric specular anti-aliasing (Tokuyoshi-Kaplanyan style, on the
+        // reflected direction so both curvature- and perspective-induced
+        // minification widen the lobe): the screen-space angular spread of
+        // the reflection adds to GGX alpha^2, so a compressed reflection
+        // (sphere rim, distant mirror) reads a broader prefiltered level
+        // instead of sparkling, while magnified mirrors stay sharp.
+        vec3 aa_dir = normalize(vec3(reflected_direction));
+        vec3 aa_dx = dFdx(aa_dir);
+        vec3 aa_dy = dFdy(aa_dir);
+        float aa_variance = SPECULAR_AA_SIGMA2
+            * (dot(aa_dx, aa_dx) + dot(aa_dy, aa_dy));
+        float alpha2 = rough * rough * rough * rough;
+        float alpha2_aa = min(
+            alpha2 + min(2.0 * aa_variance, SPECULAR_AA_KAPPA), 1.0);
+        float rough_aa = sqrt(sqrt(alpha2_aa));
+
+        // material (widened) roughness selects a GGX-prefiltered level by
+        // explicit LOD: baked angular spread determines blur.  Below ladder
+        // level 1 the GGX lobe is narrower than the screen footprint can
+        // resolve, so the sharp end comes from the raw auto-mipped cubemap
+        // with hardware footprint filtering (a rough-0 lobe is a delta: the
+        // correctly filtered mirror IS the footprint-filtered environment).
+        float reflect_lod = rough_aa * prefilter_max_lod;
+        vec3 ladder_color = vec3(skybox_texture_lod(
+                reflect_sampler, reflected_direction,
+                max(reflect_lod, 1.0)));
+        vec3 reflect_color;
+        if(reflect_lod < 1.0){
+            vec3 sharp_color = vec3(skybox_texture(
+                    reflect_footprint_sampler, reflected_direction));
+            reflect_color = mix(sharp_color, ladder_color, reflect_lod);
+        }
+        else{
+            reflect_color = ladder_color;
+        }
+
+        // split-sum environment BRDF: prefiltered radiance * (F0*scale + bias),
+        // with multi-scattering energy compensation so rough metals do not
+        // darken (single-scattering GGX loses energy as roughness rises)
+        vec2 dfg = texture(dfg_sampler,
+            vec2(clamp(cos_theta, 0.0, 1.0), rough_aa)).rg;
+        vec3 energy_compensation =
+            1.0 + f0 * (1.0 / max(dfg.x + dfg.y, 1e-4) - 1.0);
+        reflect_color *= (f0 * dfg.x + dfg.y) * energy_compensation;
 
         vec3 shadow_floor = image_light_shadow_color * diffuse_scale
             + vec3(diffuse_bias);

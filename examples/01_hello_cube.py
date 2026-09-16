@@ -36,17 +36,17 @@ try:
         metal=0.0,
         rough=0.4,
         base_reflect=0.04,
-        ambient=0.15,
+        ambient=0.25,
     )
     renderer.add_instance('cube', mesh_name='cube', material_name='blue_mat')
 
     # lighting
     renderer.add_direction_light(
         'sun',
-        pose=direction_light_pose((1.0, -1.0, -0.5)),
-        color=(1.2, 1.1, 1.0),
+        pose=direction_light_pose((0.3, -1.0, -0.7)),
+        color=(3.0, 2.9, 2.7),
     )
-    renderer.set_ambient_color((0.08, 0.08, 0.1))
+    renderer.set_ambient_color((0.25, 0.25, 0.3))
 
     # render and save
     renderer.color_render('main', sensor='rgb')

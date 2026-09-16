@@ -33,7 +33,12 @@ from splendor.shaders.lines import (
     lines_vertex_shader, lines_fragment_shader,
 )
 
+from splendor.shaders.color_output import (
+    color_output_vertex_shader, color_output_fragment_shader,
+)
+
 default_shader_code = {
+    'color_output_shader': (color_output_vertex_shader, color_output_fragment_shader),
     'textured_material_properties_shader':(
         textured_material_properties_vertex_shader,
         textured_material_properties_fragment_shader,
@@ -206,6 +211,8 @@ class ShaderLibrary:
                 _name = f'shadow_depth_sampler_{_i}'
                 if _name in locations:
                     gl.glUniform1i(locations[_name], 4 + _i)
+            if 'dfg_sampler' in locations:
+                gl.glUniform1i(locations['dfg_sampler'], 8)
             if 'intermediate_sampler' in locations:
                 gl.glUniform1i(locations['intermediate_sampler'], 5)
             if 'intermediate_depth_sampler' in locations:
