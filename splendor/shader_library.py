@@ -204,6 +204,11 @@ class ShaderLibrary:
                 gl.glUniform1i(locations['texture_sampler'], 0)
             if 'reflect_sampler' in locations:
                 gl.glUniform1i(locations['reflect_sampler'], 3)
+            if 'reflect_footprint_sampler' in locations:
+                # must not default to unit 0: a cube sampler sharing a unit
+                # with the 2D color sampler is invalid even with no image
+                # light active (driver-dependent draw failure)
+                gl.glUniform1i(locations['reflect_footprint_sampler'], 9)
             if 'cubemap_sampler' in locations:
                 gl.glUniform1i(locations['cubemap_sampler'], 0)
             from splendor.shaders.lighting_model import MAX_SHADOW_CASTERS
