@@ -28,6 +28,10 @@ class GLFWContext:
         Enable MSAA anti-aliasing on the window surface.
     anti_alias_samples : int, default=8
         Number of MSAA samples (only used when anti_alias=True).
+    vsync : bool, default=True
+        Sync buffer swaps to the display refresh.  False lets swap_buffers
+        return immediately, for loops whose rate is gated some other way.
+        Drivers may override this (e.g. a forced vsync setting).
     x_authority : str, optional
         XAUTHORITY path, for remote display connections.
     display : str, optional
@@ -52,6 +56,7 @@ class GLFWContext:
         title='Splendor',
         anti_alias=False,
         anti_alias_samples=8,
+        vsync=True,
         x_authority=None,
         display=None,
     ):
@@ -82,6 +87,9 @@ class GLFWContext:
             raise RuntimeError('GLFW window cannot be created.')
 
         _glfw.make_context_current(self._window)
+        # the swap interval belongs to the context current at call time
+        self.vsync = vsync
+        _glfw.swap_interval(1 if vsync else 0)
 
     # -- window surface --------------------------------------------------------
 
